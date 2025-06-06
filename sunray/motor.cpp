@@ -24,6 +24,7 @@ void Motor::begin() {
   mowPowerMin = MOWPOWERMIN;  //MrTree
   mowPwm = MOW_PWM_NORMAL;
   mowRpm = MOW_RPM_NORMAL;
+  mowHeightMillimeter = 50;
   //ticksPerRevolution = 1060/2;
   ticksPerRevolution = TICKS_PER_REVOLUTION;
   mowticksPerRevolution = MOTOR_MOW_TICKS_PER_REVOLUTION; //MrTree
@@ -177,18 +178,38 @@ bool Motor::waitMowMotor() {
   return waitSpinUp;
 }
 
+void Motor::setMowHeightMillimeter( int val )
+{
+  CONSOLE.print("Motor::setMowHeightMillimeter ");
+  CONSOLE.println(val);
+  mowHeightMillimeter = val;
+  motorDriver.setMowHeight(mowHeightMillimeter);
+}
+
 void Motor::speedPWM ( int pwmLeft, int pwmRight, int pwmMow )
 { 
   //Correct Motor Direction
   if (motorLeftSwapDir) pwmLeft *= -1;
   if (motorRightSwapDir) pwmRight *= -1;
 
+  #ifdef MOTOR_MOW_SWAP_DIRECTION
+    pwmMow *= -1;
+  #endif
+
   // ensure pwm is lower than Max
   pwmLeft = min(pwmMax, max(-pwmMax, pwmLeft));
   pwmRight = min(pwmMax, max(-pwmMax, pwmRight));  
   pwmMow = min(pwmMax, max(-pwmMax, pwmMow)); 
   
-  motorDriver.setMotorPwm(pwmLeft, pwmRight, pwmMow);
+  bool releaseBrakes = false;  
+  if (releaseBrakesWhenZero){
+    if ((pwmLeft == 0) && (pwmRight == 0)){
+      if (millis() > motorReleaseBrakesTime) releaseBrakes = true;
+    } else {
+      motorReleaseBrakesTime = millis() + 2000;
+    }
+  }    
+  motorDriver.setMotorPwm(pwmLeft, pwmRight, pwmMow, releaseBrakes);
 }
 
 // linear: m/s
@@ -267,6 +288,18 @@ void Motor::enableTractionMotors(bool enable){
     CONSOLE.println("traction motors disabled");
   tractionMotorsEnabled = enable;
 }
+
+void Motor::setReleaseBrakesWhenZero(bool release){
+  if (release == releaseBrakesWhenZero) return;
+  if (release){
+    motorReleaseBrakesTime = millis() + 2000;
+    CONSOLE.println("traction motors will release brakes when zero (may only work on owlPlatform)");
+  } else { 
+    CONSOLE.println("traction motors will not release brakes when zero");
+  }
+  releaseBrakesWhenZero = release;
+}
+
 
 void Motor::setMowState(bool switchOn){
 
@@ -390,6 +423,7 @@ void Motor::run() {
   //Change to stopimmediately!
   if (setLinearAngularSpeedTimeoutActive){
     if (millis() > setLinearAngularSpeedTimeout){
+      //CONSOLE.println("Motor::run - LinearAngularSpeedTimeout");
       setLinearAngularSpeedTimeoutActive = false;
       setLinearAngularSpeed(0, 0);
       linearCurrSet = 0;
@@ -989,6 +1023,10 @@ void Motor::control(){
   motorLeftPID.y_max = pwmMax;
   motorLeftPID.max_output = pwmMax;
   motorLeftPID.output_ramp = MOTOR_PID_RAMP;
+  //CONSOLE.print(motorLeftPID.x);
+  //CONSOLE.print(",");
+  //CONSOLE.print(motorLeftPID.w);
+  //CONSOLE.println();
   motorLeftPID.compute();
   //CONSOLE.print("motorLeftPID.y:                  ");CONSOLE.println(motorLeftPID.y);
   motorLeftPWMCurr = motorLeftPWMCurr + motorLeftPID.y;
@@ -1062,6 +1100,7 @@ void Motor::control(){
   
   //set PWM for all motors
   if (!tractionMotorsEnabled){
+    //CONSOLE.println("!tractionMotorsEnabled");
     motorLeftPWMCurr = motorRightPWMCurr = 0;
     //CONSOLE.println("traction off!");
   }
