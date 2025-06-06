@@ -39,13 +39,15 @@ class Motor {
     bool motorRightOverload; 
     bool motorMowOverload;
     bool motorMowStall;       //MrTree has RPM of mowmotor Stalled?
-    bool tractionMotorsEnabled;       
+    bool tractionMotorsEnabled;
+    bool releaseBrakesWhenZero; // release eletrical brakes when zero speed?       
     bool enableMowMotor;
     bool odometryError;       
     unsigned long motorOverloadDuration; // accumulated duration (ms)
     unsigned long motorMowStallDuration; //MrTree RPM of mowmotor stalled duration (ms)
     int pwmMax;
-    int mowPwm; 
+    int mowPwm;
+    int mowHeightMillimeter; 
     bool motorMowSpunUp; //MrTree 
     float mowRpm;//mrTree
     float mowMotorCurrentAverage;
@@ -86,6 +88,7 @@ class Motor {
     unsigned long motorMowSpinUpTime;
     unsigned long keepSlowTime; //MrTree adaptive_Speed keep slow speed after RPM stall of mow motor
     unsigned long retrySlowTime;  //MrTree
+    unsigned long motorReleaseBrakesTime;
     bool motorRecoveryState;
     bool motorMowForwardSet;
     PID motorLeftPID;
@@ -102,7 +105,9 @@ class Motor {
     void setLinearAngularSpeed(float linear, float angular, bool useLinearRamp = true);
     void setMowState(bool switchOn); 
     void setMowPwm( int val );
-    bool waitMowMotor();  
+    bool waitMowMotor();
+    void setMowHeightMillimeter( int val );
+    void setReleaseBrakesWhenZero(bool release);  
     void stopImmediately(bool includeMowerMotor);    
      
   protected:
