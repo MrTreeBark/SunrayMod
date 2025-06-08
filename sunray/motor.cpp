@@ -117,6 +117,7 @@ void Motor::begin() {
   lastControlTime = 0;
   //nextSenseTime = 0;
   lastMowStallCheckTime = 0; //MrTree
+  nextOutputTime = 0;
   motorLeftTicks =0;  
   motorRightTicks =0;
   motorMowTicks = 0;
@@ -164,18 +165,32 @@ void Motor::begin() {
 void Motor::setMowPwm( int val ){
   CONSOLE.print("Motor::setMowPwm = ");
   CONSOLE.println(val);
-  mowPwm = val;
+  mowPwm = MOW_PWM_NORMAL;
 }
 
 bool Motor::waitMowMotor() {
-  if (millis() < motor.motorMowSpinUpTime + MOWSPINUPTIME){
+  if (millis() < motor.motorMowSpinUpTime + MOWSPINUPTIME) {
     // wait until mowing motor is running or stopping
+    if (!waitSpinUp) CONSOLE.println("Motor::waitMowMotor() wait for mowmotor....");  //one time message
     if (!buzzer.isPlaying()) buzzer.sound(SND_MOWSTART, true);
-    if (!waitSpinUp) CONSOLE.println("Motor::waitMowMotor() trying to wait for mowmotor....");
+    
     waitSpinUp = true;
     motorMowSpunUp = false;
-  } else waitSpinUp = false;
-  return waitSpinUp;
+    return true;
+  } //else waitSpinUp = false;
+  if (waitSpinUp && switchedOn) { //Wait finished after switch on
+    CONSOLE.println("Motor::waitMowMotor() finished switching on....");  //one time message
+    waitSpinUp = false;
+    //motorMowSpunUp = true;
+    return false;
+  }
+  if (waitSpinUp && !switchedOn) { //Wait finished after switch off
+    CONSOLE.println("Motor::waitMowMotor() finished switching off....");  //one time message
+    waitSpinUp = false;
+    motorMowSpunUp = false;
+    return false;
+  }
+  return false;
 }
 
 void Motor::setMowHeightMillimeter( int val )
@@ -195,12 +210,13 @@ void Motor::speedPWM ( int pwmLeft, int pwmRight, int pwmMow )
   #ifdef MOTOR_MOW_SWAP_DIRECTION
     pwmMow *= -1;
   #endif
-
-  // ensure pwm is lower than Max
+  //CONSOLE.println(pwmMow);
+  /*
+  // ensure pwm is lower than Max                      MrTree //this is done by the drivers already!! ???
   pwmLeft = min(pwmMax, max(-pwmMax, pwmLeft));
   pwmRight = min(pwmMax, max(-pwmMax, pwmRight));  
   pwmMow = min(pwmMax, max(-pwmMax, pwmMow)); 
-  
+  */
   bool releaseBrakes = false;  
   if (releaseBrakesWhenZero){
     if ((pwmLeft == 0) && (pwmRight == 0)){
@@ -208,7 +224,7 @@ void Motor::speedPWM ( int pwmLeft, int pwmRight, int pwmMow )
     } else {
       motorReleaseBrakesTime = millis() + 2000;
     }
-  }    
+  }
   motorDriver.setMotorPwm(pwmLeft, pwmRight, pwmMow, releaseBrakes);
 }
 
@@ -222,10 +238,10 @@ void Motor::speedPWM ( int pwmLeft, int pwmRight, int pwmMow )
 //      V     = (VR + VL) / 2       =>  VR = V + omega * L/2
 //      omega = (VR - VL) / L       =>  VL = V - omega * L/2
 void Motor::setLinearAngularSpeed(float linear, float angular, bool useLinearRamp){  
-  if (waitMowMotor()) {                     
-    linear = 0;
-    angular = 0; 
-  }
+  //if (waitMowMotor()) {                     
+  //  linear = 0;
+  //  angular = 0; 
+  //}
   //if (abs(angular) < 0.05) angular = 0;                          //MrTree
   if (abs(linear) < MOTOR_MIN_SPEED * 0.7) linear = 0;                            //MrTree
 
@@ -327,7 +343,7 @@ void Motor::setMowState(bool switchOn){
       CONSOLE.print(switchOn);
       CONSOLE.print(" PWM: ");
       CONSOLE.println(motorMowPWMSet);
-      triggerMotorMowWait();
+      //triggerMotorMowWait();
     } else {
       motorMowSpinUpTime = millis();
       //waitMowMotor();
@@ -336,7 +352,7 @@ void Motor::setMowState(bool switchOn){
       switchedOn = false;
       motorMowSpunUp = false;  
       CONSOLE.println("Motor::setMowState PWM OFF");
-      triggerMotorMowWait();  
+      //triggerMotorMowWait();  
       //motorMowPWMCurr = 0; MrTree when we switchoff, there is no need for mowdriver to go to full break. its no emergency, we can use the ramp 
     }
   }
@@ -363,7 +379,7 @@ void Motor::setMowState(bool switchOn){
       CONSOLE.print(switchOn);
       CONSOLE.print(" RPM: ");
       CONSOLE.println(motorMowRpmSet);
-      triggerMotorMowWait();
+      //triggerMotorMowWait();
     } else {
       CONSOLE.println("Motor::setMowState RPM OFF");
       motorMowSpinUpTime = millis();
@@ -371,7 +387,7 @@ void Motor::setMowState(bool switchOn){
       motorMowRpmSet = 0;
       switchedOn = false;
       motorMowSpunUp = false;
-      triggerMotorMowWait();  
+      //triggerMotorMowWait();  
     }
   } 
 }
@@ -532,12 +548,15 @@ void Motor::run() {
 
   //DEBUG OUTPUT
   if (DEBUG_MOTORCONTROL) {
-    CONSOLE.println("     motor.cpp --------------------------------> ");
-    CONSOLE.println(" ");
-    CONSOLE.print("                   PWM (l,r,m) = ");  CONSOLE.print(motorLeftPWMCurr);CONSOLE.print(", ");  CONSOLE.print(motorRightPWMCurr);CONSOLE.print(", ");CONSOLE.println(motorMowPWMCurr);
-    CONSOLE.print("       motor*PWMCurrLP (l,r,m) = ");CONSOLE.print(motorLeftPWMCurrLP);CONSOLE.print(", ");CONSOLE.print(motorRightPWMCurrLP);CONSOLE.print(", ");CONSOLE.println(motorMowPWMCurrLP);
-    CONSOLE.print("         motor*SenseLP (l,r,m) = ");  CONSOLE.print(motorLeftSenseLP);CONSOLE.print(", ");  CONSOLE.print(motorRightSenseLP);CONSOLE.print(", ");CONSOLE.println(motorMowSenseLP);
-    CONSOLE.println("     <------------------------------------------ ");
+    if (millis() > nextOutputTime){
+      nextOutputTime = millis() + DEBUG_MOTOR_CONTROL_TIME;
+      CONSOLE.println("     motor.cpp --------------------------------> ");
+      CONSOLE.println(" ");
+      CONSOLE.print("                   PWM (l,r,m) = ");  CONSOLE.print(motorLeftPWMCurr);CONSOLE.print(", ");  CONSOLE.print(motorRightPWMCurr);CONSOLE.print(", ");CONSOLE.println(motorMowPWMCurr);
+      CONSOLE.print("       motor*PWMCurrLP (l,r,m) = ");CONSOLE.print(motorLeftPWMCurrLP);CONSOLE.print(", ");CONSOLE.print(motorRightPWMCurrLP);CONSOLE.print(", ");CONSOLE.println(motorMowPWMCurrLP);
+      CONSOLE.print("         motor*SenseLP (l,r,m) = ");  CONSOLE.print(motorLeftSenseLP);CONSOLE.print(", ");  CONSOLE.print(motorRightSenseLP);CONSOLE.print(", ");CONSOLE.println(motorMowSenseLP);
+      CONSOLE.println("     <------------------------------------------ ");
+    }
   }
 }  
 
@@ -640,7 +659,7 @@ void Motor::checkOverload(){
   //CONSOLE.print("  motorRightSenseLP   ");CONSOLE.println(motorRightSenseLP);
   if (motorLeftOverload || motorRightOverload || motorMowOverload){                   //MrTree
     if (motorOverloadDuration == 0){
-      CONSOLE.print("ERROR motor overload (average current too high) - duration=");
+      CONSOLE.print("WARNING motor overload (average current too high) - duration=");
       CONSOLE.print(motorOverloadDuration);
       CONSOLE.print("  avg current amps (left,right,mow)=");
       CONSOLE.print(motorLeftSenseLP);
@@ -840,7 +859,11 @@ void Motor::checkMotorMowStall(){
     
     //return
     if (millis() < lastStalltime + BUMPER_DEADTIME || bumper.obstacle()) return;
-    if (millis() < linearMotionStartTime + 2000) return;
+    //if (motor.waitSpinUp) {
+    //  motorMowSpunUp = false;
+    //  return;
+    //}
+    //if (millis() < linearMotionStartTime + 2000) return;
 
     if (ESCAPE_LAWN_MODE == 1){
           motorMowStall = (mowPowerAct > mowPowerMax *MOW_POWERtr_STALL/100);
@@ -1105,7 +1128,7 @@ void Motor::control(){
     //CONSOLE.println("traction off!");
   }
   //CONSOLE.println();
-  //CONSOLE.print("deltaTime ");CONSOLE.print(deltaControlTimeMs);CONSOLE.print("   motorLeftPWMCurr ");CONSOLE.print(motorLeftPWMCurr);CONSOLE.print("   motorRightPWMCurr ");CONSOLE.println(motorRightPWMCurr);
+  //CONSOLE.print("deltaTime ");CONSOLE.print(deltaControlTimeMs);CONSOLE.print("   motorLeftPWMCurr ");CONSOLE.print(motorLeftPWMCurr);CONSOLE.print("   motorRightPWMCurr ");CONSOLE.print(motorRightPWMCurr);CONSOLE.print("   motorMowPWMCurr ");CONSOLE.println(motorMowPWMCurr);
   speedPWM(motorLeftPWMCurr, motorRightPWMCurr, motorMowPWMCurr); 
 }
 

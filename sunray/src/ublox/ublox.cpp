@@ -7,7 +7,9 @@
 #include "ublox.h"
 #include "../../config.h"
 #include "../../events.h"
-#include "SparkFun_Ublox_Arduino_Library.h" 
+#include "SparkFun_Ublox_Arduino_Library.h"
+
+#include "reset.h"
 
 
 SFE_UBLOX_GPS configGPS; // used for f9p module configuration only
@@ -398,13 +400,25 @@ void UBLOX::sendRTCM(const uint8_t *rtcmData, size_t rtcmLength) {
 
 void UBLOX::parse(int b)
 {
+    
+  /* CONSOLE.print("memory CHECKPOINT 1 -> ");
+  CONSOLE.print(256 - (freeMemory()/1024));
+  CONSOLE.println("/256 kB"); */
+
   if (debug) CONSOLE.print(b, HEX);
   if (debug) CONSOLE.print(",");
   
   if ( (this->state == GOT_NONE) || (this->state == GOT_SYNC1) ) {
+    
     char ch = char(b);
-    if (ch == '$') unparsedMessage = "";    
+    if (ch == '$') unparsedMessage = "";
+    /* CONSOLE.print("memory CHECKPOINT1+ -> ");
+    CONSOLE.print(256 - (freeMemory()/1024));
+    CONSOLE.println("/256 kB"); */
     unparsedMessage += ch;
+    /* CONSOLE.print("memory CHECKPOINT2- -> ");
+    CONSOLE.print(256 - (freeMemory()/1024));
+    CONSOLE.println("/256 kB"); */
     if ((ch == '\r') || (ch == '\n')) {
       //CONSOLE.println(unparsedMessage);
       if (unparsedMessage.startsWith("$GNGGA")) {
@@ -412,10 +426,18 @@ void UBLOX::parse(int b)
         nmeaGGAMessage.trim();
       }
       unparsedMessage = "";
+    } else {
+      CONSOLE.print("WARNING: unparsed GPS-Correction Message to be cleared. Content: ");
+      CONSOLE.println(unparsedMessage);
+      unparsedMessage = "";
     }
+  /* CONSOLE.print("memory CHECKPOINT 2 -> ");
+  CONSOLE.print(256 - (freeMemory()/1024));
+  CONSOLE.println("/256 kB"); */
   }
   
   
+
   if ((b == UBX_SYNC1) && (this->state == GOT_NONE)) {
 
       if (debug) CONSOLE.println("\n");
@@ -433,15 +455,19 @@ void UBLOX::parse(int b)
 
       this->state = GOT_CLASS;
       this->msgclass = b;
-      this->addchk(b);
+      this->addchk(b);    
   }
+
+  
 
   else if (this->state == GOT_CLASS) {
 
       this->state = GOT_ID;
       this->msgid = b;
-      this->addchk(b);
+      this->addchk(b);  
   }
+
+  
 
   else if (this->state == GOT_ID) {
 
@@ -449,6 +475,8 @@ void UBLOX::parse(int b)
       this->msglen = b;
       this->addchk(b);
   }
+
+ 
 
   else if (this->state == GOT_LENGTH1) {
 
@@ -463,6 +491,8 @@ void UBLOX::parse(int b)
       this->addchk(b);
   }
 
+  
+
   else if (this->state == GOT_LENGTH2) {
 
       this->addchk(b);
@@ -474,7 +504,7 @@ void UBLOX::parse(int b)
       if (this->count >= this->msglen) {
 
           this->state = GOT_PAYLOAD;
-      }
+      }  
   }
 
   else if (this->state == GOT_PAYLOAD) {
@@ -501,8 +531,10 @@ void UBLOX::parse(int b)
 
       if (b == this->chkb) {
           this->dispatchMessage();
-          this->state = GOT_NONE;          
+          this->state = GOT_NONE;
       }
+
+      
 
       else {
           CONSOLE.print("ublox chkb error, msgclass=");
@@ -516,8 +548,10 @@ void UBLOX::parse(int b)
           CONSOLE.print("!=");
           CONSOLE.println(this->chkb, HEX);
           this->state = GOT_NONE;
-          this->chksumErrorCounter++;
+          this->chksumErrorCounter++;  
       }
+
+    
   }
 }
 

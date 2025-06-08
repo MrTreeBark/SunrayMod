@@ -11,6 +11,7 @@
 #include "pid.h"
 #include "src/op/op.h"
 #include "Stats.h"
+#include "events.h"
 
 float stanleyTrackingNormalK = STANLEY_CONTROL_K_NORMAL;
 float stanleyTrackingNormalP = STANLEY_CONTROL_P_NORMAL;
@@ -20,7 +21,7 @@ float stanleyTrackingSlowP = STANLEY_CONTROL_P_SLOW;
 float targetDist = 0;     //MrTree
 float lastTargetDist = 0; //MrTree
 
-float setSpeed = 0.1; //externally controlled (app) linear speed (m/s)
+float setSpeed = 0.5; //externally controlled (app) linear speed (m/s)
 float CurrSpeed = 0;  //actual used speed from motor.linearSpeedSet
 float CurrRot = 0;  //actualk rotation from mow.motor
 float linear = 0;
@@ -51,23 +52,11 @@ bool printmotoroverload = false;
 float trackerDiffDelta = 0;
 float targetDelta = 0;
 float distToPath = 0;
-int dockGpsRebootState;                     // Svol0: status for gps-reboot at specified docking point by undocking action
-int counterCheckPos = 0;                    // check if gps position is reliable
-bool blockKidnapByUndocking;                // Svol0: kidnap detection is blocked by undocking without gps
-unsigned long dockGpsRebootTime;            // Svol0: retry timer for gps-fix after gps-reboot
-unsigned long dockGpsRebootFixCounter;      // Svol0: waitingtime for fix after gps-reboot
-unsigned long dockGpsRebootFeedbackTimer;   // Svol0: timer to generate acustic feedback
+float lineDist = 0;
+
 unsigned long reachedPointBeforeDockTime = 0;   //MrTree
-bool dockGpsRebootDistGpsTrg = false;       // Svol0: trigger to check solid gps-fix position (no jump)
-bool allowDockLastPointWithoutGPS = false;  // Svol0: allow go on docking by loosing gps fix
-bool allowDockRotation = true;              //MrTree: disable rotation on last dockingpoint
-bool warnDockWithoutGpsTrg = false;         // Svol0: Trigger for warnmessage
-float stateX_1 = 0;                         // Svol0
-float stateY_1 = 0;                         // Svol0
-float stateX_2 = 0;                         // Svol0
-float stateY_2 = 0;                         // Svol0
-float stateX_3 = 0;                         // Svol0
-float stateY_3 = 0;                         // Svol0
+bool allowDockRotation = true;                //MrTree: disable rotation on last dockingpoint
+
 
 bool AngleToTargetFits() {
   // allow rotations only near last or next waypoint or if too far away from path
@@ -204,21 +193,23 @@ void linearSpeedState(){
     }
   }
   */
-
-
-  linear = setSpeed;                //always compare speeds against desired setSpeed 
-  
+  if (OVERRIDE_MOW_SPEED) {           //FIXME!!!!
+    linear = MOWSPEED;
+    setSpeed = MOWSPEED;
+  } else {
+    linear = setSpeed;                //always compare speeds against desired setSpeed 
+  }
   //which states can be true in runtime?
-  linearBool[0] = (gps.solution == SOL_FLOAT);                                                      // [0] FLOATSPEED
-  linearBool[1] = (targetDist < NEARWAYPOINTDISTANCE || lastTargetDist < NEARWAYPOINTDISTANCE);     // [1] NEARWAYPOINTSPEED
-  linearBool[2] = (sonar.nearObstacle());                                                           // [2] SONARSPEED
-  linearBool[3] = (motor.motorLeftOverload || motor.motorRightOverload || motor.motorMowOverload);  // [3] OVERLOADSPEED
-  linearBool[4] = (motor.keepslow);                                                                 // [4] KEEPSLOWSPEED
-  linearBool[5] = (motor.retryslow);                                                                // [5] RETRYSLOWSPEED
-  linearBool[6] = (maps.trackSlow && trackslow_allowed);                                            // [6] TRACKSLOWSPEED
-  linearBool[7] = (dockTimer || unDockTimer);                                                       // [7] DOCK_NO_ROTATION_SPEED
-  linearBool[8] = (maps.isAtDockPath());                                                            // [8] DOCKPATHSPEED
-  linearBool[9] = (maps.isGoingToDockPath());                                                       // [8] DOCKSPEED
+  linearBool[0] = ((gps.solution == SOL_FLOAT) && (stateLocalizationMode == LOC_GPS));                  // [0] FLOATSPEED                                        
+  linearBool[1] = (targetDist < NEARWAYPOINTDISTANCE || lastTargetDist < NEARWAYPOINTDISTANCE);         // [1] NEARWAYPOINTSPEED
+  linearBool[2] = (sonar.nearObstacle() || bumperDriver.nearObstacle() || lidarBumper.nearObstacle());  // [2] SONARSPEED == NEAROBSTACLESPEED ==LIDARSPEED       
+  linearBool[3] = (motor.motorLeftOverload || motor.motorRightOverload || motor.motorMowOverload);      // [3] OVERLOADSPEED
+  linearBool[4] = (motor.keepslow);                                                                     // [4] KEEPSLOWSPEED
+  linearBool[5] = (motor.retryslow);                                                                    // [5] RETRYSLOWSPEED
+  linearBool[6] = (maps.trackSlow && trackslow_allowed);                                                // [6] TRACKSLOWSPEED
+  linearBool[7] = (dockTimer || unDockTimer);                                                           // [7] DOCK_NO_ROTATION_SPEED
+  linearBool[8] = (maps.isAtDockPath());                                                                // [8] DOCKPATHSPEED
+  linearBool[9] = (maps.isGoingToDockPath());                                                           // [8] DOCKSPEED
   //disable near way point speed if we use the distance ramp
   if (DISTANCE_RAMP) linearBool[1] = false;
 
@@ -234,6 +225,10 @@ void linearSpeedState(){
 
   //trigger a message if speed changes
   if (chosenIndex != chosenIndexl){
+    if (chosenIndex == 3) {
+      Logger.event(EVT_MOTOR_OVERLOAD_REDUCE_SPEED);
+      CONSOLE.println("motor overload detected: reducing linear speed");
+    }
     CONSOLE.print("Linetracker.cpp - linearSpeedState(): ");
     CONSOLE.print(linearSpeedNames[chosenIndex]);
     CONSOLE.print(" = ");
@@ -246,6 +241,37 @@ void linearSpeedState(){
     if (targetDist < 2 * NEARWAYPOINTDISTANCE || lastTargetDist < 2 * NEARWAYPOINTDISTANCE) { //start computing before reaching point distance (maybe not neccessary)
       linear = distanceRamp(linear);
     }
+  }
+  
+  if (stateLocalizationMode == LOC_APRIL_TAG){
+    if (!stateAprilTagFound){
+      linear = 0; // wait until april-tag found 
+      angular = 0; 
+    } else {
+      if (!buzzer.isPlaying()) buzzer.sound(SND_WARNING, true);
+      //linear = 0; // wait until april-tag found 
+      //angular = 0; 
+    }
+  }
+
+  if (stateLocalizationMode == LOC_REFLECTOR_TAG){
+    if (!stateReflectorTagFound){
+      linear = 0; // wait until reflector-tag found 
+      angular = 0; 
+    } else {
+      if (!buzzer.isPlaying()) buzzer.sound(SND_WARNING, true);
+      float maxAngular = 0.015;  // 0.02
+      float maxLinear = 0.05;      
+      angular =  max(min(1.0 * trackerDiffDelta, maxAngular), -maxAngular);
+      angular =  max(min(angular, maxAngular), -maxAngular);      
+      linear = 0.05;      
+      //if (maps.trackReverse) linear = -0.05;   // reverse line tracking needs negative speed           
+    }
+  }
+  
+  if (stateLocalizationMode == LOC_GUIDANCE_SHEET){
+      if (!buzzer.isPlaying()) buzzer.sound(SND_WARNING, true);
+      angular = 0;
   }
 
   chosenIndexl = chosenIndex;
@@ -288,7 +314,7 @@ float distanceRamp(float linear){
 
 void gpsConditions() {
   // check some pre-conditions that can make linear+angular speed zero
-  if (fixTimeout != 0) {
+  if ((stateLocalizationMode == LOC_GPS) && (fixTimeout != 0)) {
     if (millis() > lastFixTime + fixTimeout * 1000.0) {
       activeOp->onGpsFixTimeout();
     }
@@ -299,6 +325,8 @@ void gpsConditions() {
       activeOp->onDockGpsReboot();
     }
   }
+
+  
 
   // gps-jump/false fix check
   if (KIDNAP_DETECT) {
@@ -314,16 +342,24 @@ void gpsConditions() {
       if (dist < KIDNAP_DETECT_DISTANCE_DOCK_UNDOCK) {
         allowedPathTolerance = KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE_DOCK_UNDOCK;
       }
-    }// MrTree integrated with keeping new sunray code Svol0: changed for GPS-Reboot at a
-    if (fabs(distToPath) > allowedPathTolerance) { // actually, this should not happen (except on false GPS fixes or robot being kidnapped...)
-      if (!stateKidnapped) {
+    }
+    if ((stateLocalizationMode == LOC_GPS) && (fabs(distToPath) > allowedPathTolerance)){ // actually, this should not happen (except on false GPS fixes or robot being kidnapped...)
+      if (!stateKidnapped){
         stateKidnapped = true;
+        CONSOLE.print("KIDNAP_DETECT: stateKidnapped=");
+        CONSOLE.print(stateKidnapped);
+        CONSOLE.print(" distToPath=");
+        CONSOLE.println(distToPath);
         activeOp->onKidnapped(stateKidnapped);
-      }
+      }            
     } else {
       if (stateKidnapped) {
         stateKidnapped = false;
-        activeOp->onKidnapped(stateKidnapped);
+        CONSOLE.print("KIDNAP_DETECT: stateKidnapped=");
+        CONSOLE.print(stateKidnapped);
+        CONSOLE.print(" distToPath=");
+        CONSOLE.println(distToPath);
+        activeOp->onKidnapped(stateKidnapped);        
       }
     }
   }
@@ -405,7 +441,7 @@ void checkMowAllowed() {
     }
   }
 
-  if (stateOp == OP_DOCK || maps.shouldDock == true) {
+  if (stateOp == OP_DOCK ) {//|| maps.shouldDock == true) { //325
     mow = false;
     oneTrigger = false;
   }
@@ -415,8 +451,8 @@ void checkMowAllowed() {
 // uses a stanley controller for line tracking
 // https://medium.com/@dingyan7361/three-methods-of-vehicle-lateral-control-pure-pursuit-stanley-and-mpc-db8cc1d32081
 void trackLine(bool runControl) {
-  target = maps.targetPoint;
-  lastTarget = maps.lastTargetPoint;
+  Point target = maps.targetPoint;
+  Point lastTarget = maps.lastTargetPoint;
   CurrSpeed = motor.linearSpeedSet;           //MrTree take the real speed from motor.linearSpeedSet
   CurrRot = motor.angularSpeedSet;
   linear = 0;                                 //MrTree Changed from 1.0
@@ -431,8 +467,25 @@ void trackLine(bool runControl) {
   targetDist = maps.distanceToTargetPoint(stateX, stateY);
   lastTargetDist = maps.distanceToLastTargetPoint(stateX, stateY);
   targetReached = (targetDist < TARGET_REACHED_TOLERANCE);
-  //float lineDist = maps.distanceToTargetPoint(lastTarget.x(), lastTarget.y());
-  
+  lineDist = maps.distanceToTargetPoint(lastTarget.x(), lastTarget.y());
+  /*if ((abs(lineDist-lastLineDist ) > 0.0) || (abs(distToPath) > 0.5)) {
+    CONSOLE.print("distToPath=");
+    CONSOLE.print(distToPath);
+    CONSOLE.print(" x=");
+    CONSOLE.print(stateX);
+    CONSOLE.print(" y=");    
+    CONSOLE.print(stateY);
+    CONSOLE.print(" lastX=");    
+    CONSOLE.print(lastTarget.x());
+    CONSOLE.print(" lastY=");    
+    CONSOLE.print(lastTarget.y());
+    CONSOLE.print(" tgX=");    
+    CONSOLE.print(target.x());
+    CONSOLE.print(" tgY=");    
+    CONSOLE.println(target.y());
+    lastLineDist = lineDist;
+  }*/
+
   if (!AngleToTargetFits()) { 
     rotateToTarget();
   } else {

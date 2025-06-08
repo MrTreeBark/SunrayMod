@@ -153,7 +153,7 @@ void DockOp::onObstacle(){
       return;
     }
     if ((!DOCK_DETECT_OBSTACLE_IN_DOCK) && (maps.isBetweenLastAndNextToLastDockPoint())) {
-      //CONSOLE.println("triggerObstacle: ignoring, because in dock");      
+      CONSOLE.println("triggerObstacle: ignoring, because in dock (DOCK_DETECT_OBSTACLE_IN_DOCK == FALSE)");      
       return;
     }
     CONSOLE.println("triggerObstacle");      

@@ -27,7 +27,10 @@ void WaitOp::run(){
     battery.resetIdle();
     
     if (millis() > waitStartTime + waitTime){
-        if (waitTime == MOWSPINUPTIME) motor.waitSpinUp = false;
+        if (waitTime == MOWSPINUPTIME) {
+            motor.waitSpinUp = false;
+            CONSOLE.println("WaitOp::run - INFO: waiting for mowmotor done!");
+        }
         buzzer.sound(SND_READY, true);
         changeOp(*nextOp, false);
     }     

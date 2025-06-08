@@ -108,7 +108,7 @@ void cmdTuneParam(){
               motor.motorRightPID.output_ramp = floatValue;              
               break;
             case 9:
-              motor.pwmMax = floatValue;
+              motor.pwmMax = 255;//floatValue; //MrTree fuck off you crap
               break;
           } 
       } 
@@ -165,7 +165,7 @@ void cmdControl(){
       } else if (counter == 8){
           if (intValue >= 0) sonar.enabled = (intValue == 1);
       } else if (counter == 9){
-          if (intValue >= 0) motor.setMowPwm(intValue);
+          if (intValue >= 0) motor.setMowPwm(MOW_PWM_NORMAL);//motor.setMowPwm(intValue); //fuck off you crap .) (for now)
       } else if (counter == 10){
           if (intValue >= 0) motor.setMowHeightMillimeter(intValue);
       } else if (counter == 11){
@@ -429,7 +429,7 @@ void cmdPosMode(){
       lastCommaIdx = idx;
     }    
   }
-  if (OUTPUT_ENABLED){        
+  if (SUNRAY_OUTPUT){        
     CONSOLE.print("absolutePosSource=");
     CONSOLE.print(absolutePosSource);
     CONSOLE.print(" lon=");
@@ -493,7 +493,7 @@ void cmdVersion(){
   s += mcuFwVer;
   s += F(",");  
   s += id;
-  if (OUTPUT_ENABLED){
+  if (SUNRAY_OUTPUT){
     CONSOLE.print("sending encryptMode=");
     CONSOLE.print(encryptMode);
     CONSOLE.print(" encryptChallenge=");  

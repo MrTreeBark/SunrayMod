@@ -18,6 +18,7 @@ String EscapeReverseOp::name(){
 void EscapeReverseOp::begin(){
     // obstacle avoidance
     driveReverseStopTime = millis() + (ESCAPE_REVERSE_WAY/OBSTACLEAVOIDANCESPEED*1000);
+    resetMotion();
 }
 
 

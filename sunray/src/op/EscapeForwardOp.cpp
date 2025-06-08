@@ -20,6 +20,7 @@ void EscapeForwardOp::begin(){
 	escapeForwardCounter++;                                                                                     //MrTree iterate counter
     if (escapeForwardStartTime + 10000 < millis() && escapeForwardCounter < 5) escapeForwardCounter = 0;		//reset counter if escapeForward succeded without too many triggers in given time
     driveForwardStopTime = millis() + (ESCAPE_FORWARD_WAY/OBSTACLEAVOIDANCESPEED*1000); 	                    //MrTree just add a constant time to compensate offsets?
+    resetMotion();
 }
 
 

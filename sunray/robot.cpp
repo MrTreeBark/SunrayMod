@@ -724,21 +724,18 @@ void start(){
 }
 // should robot wait?
 bool robotShouldWait(){
-  //motor.waitMowMotor();
-  //if (motor.motorMowRpmCheck)
-
   if (motor.waitMowMotor()) {
     //motor.waitSpinUp = false;
-    CONSOLE.println("waitSpinUp triggered");
+    //CONSOLE.println("waitSpinUp triggered");
     //activeOp->onMotorMowStart();
-    triggerMotorMowWait();
+    //triggerMotorMowWait();
     return true;
   }
   if (GPS_JUMP_WAIT && gpsJump){
     gpsJump = false;
     //motor.stopImmediately(true);
     //activeOp->onGpsJump();
-    triggerGpsJump();
+    //triggerGpsJump();
     return true;
   }
 
@@ -801,7 +798,8 @@ void triggerMotorMowWait(){
   //resetLinearMotionMeasurement();
   //resetAngularMotionMeasurement();
   //resetOverallMotionTimeout();
-  activeOp->onMotorMowStart();
+  CONSOLE.println("triggerMotorMowWait()");
+  //activeOp->onMotorMowStart();
 }
 
 // drive reverse on high lawn and retry
@@ -851,7 +849,7 @@ void triggerObstacleRotation(){
 void detectLawn(){ //MrTree
   static unsigned long motorMowStallTime = 0;
   //if (millis() > gpsObstacleNotAllowedTime) gpsObstacleNotAllowed = false;
-  if (!motor.switchedOn || motor.waitMowMotor()) return;
+  if (!motor.switchedOn || motor.waitSpinUp) return;
   if (ESCAPE_LAWN){ //MrTree option for triggering escapelawn with actual measured rpm stall
     if ((millis() > (escapeLawnTriggerTime + ESCAPELAWN_DEADTIME)) && motor.motorMowStallFlag){
       escapeLawnTriggerTime = millis();                                                                    
@@ -1163,7 +1161,7 @@ bool detectObstacleRotation(){
 // function to output parameters
 void tuningOutput(){
   CONSOLE.println();
-  CONSOLE.println("TUNING_LOG (disable in config.h): ");
+  CONSOLE.println("DEBUG_TUNING (disable in config.h): ");
   CONSOLE.println("---------------------------------------------------->");
   CONSOLE.println("motor.cpp: adaptive_speed()");
       CONSOLE.print("      ");CONSOLE.print("motorMowRpmSet: ");CONSOLE.print(motor.motorMowRpmSet);  CONSOLE.print(" RPM, ");CONSOLE.print("   Driver PWM: ");CONSOLE.print(motor.motorMowPWMCurr);CONSOLE.println(" val ");
@@ -1192,8 +1190,19 @@ void tuningOutput(){
 }
 
 // robot main loop
-void run(){  
+void run(){
   
+  /* if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT 1 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  }  */ 
+
   #ifdef ENABLE_NTRIP
     if (millis() > nextGenerateGGATime){
       nextGenerateGGATime = millis() + 10000;
@@ -1221,20 +1230,188 @@ void run(){
     tester.run();
   #endif
   robotDriver.run();                //important (interrupts?)
+  
+  /* if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT 2 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+
   buzzer.run();                     //unimportant
+  
+  if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT 3 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  }
+
   buzzerDriver.run();               //unimportant
+
+  /* if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT 4 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+
   stopButton.run();                 //unimportant
+
+ /*  if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT 5 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+  
   battery.run();                    //semiimportant maybe important because of power??
+  
+  if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT 6 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  }
+  
   batteryDriver.run();              //semiimportant maybe important because of power??
+  
+  /* if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT 7 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+  
   motorDriver.run();                //important (interrupts?)
+  
+  /* if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT 8 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+  
   rainDriver.run();                 //unimportant
+  
+  /* if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT 9 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+  
   liftDriver.run();                 //important (interrupts?)
+  
+  /* if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT10 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+  
   //motor.run();
   gps.run();
+  
+ /*  if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT11 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+  
   sonar.run();                      //semiimportant
+  
+  /* if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT12 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+  
   maps.run();                       //maybe important for accurate rtk distances  
+  
+ /*  if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT13 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+  
   rcmodel.run();                    //unimportant
+  
+  /* if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT14 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
+  
   bumper.run();                     //important 
+  
+  
+ /*  if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory CHECKPOINT15 -> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB");
+      }
+    }
+  } */
   
   // global deltaTime
   deltaTime = timeLast - millis();
@@ -1256,27 +1433,20 @@ void run(){
     saveState();
   }
 
-  if (TUNING_LOG){
-    if (millis() >= nextOutputTime){
-      nextOutputTime = millis() + TUNING_LOG_TIME;
-      tuningOutput();
-    }
-  }
-  
   // temp
   if (millis() > nextTempTime){
     nextTempTime = millis() + 60000;    
     float batTemp = batteryDriver.getBatteryTemperature();
     float cpuTemp = robotDriver.getCpuTemperature();    
-    if (OUTPUT_ENABLED) {
-      CONSOLE.print("batTemp=");
+    if (SUNRAY_OUTPUT) {
+      CONSOLE.print("chassisTemp=");
       CONSOLE.print(batTemp,0);
       CONSOLE.print("  cpuTemp=");
       CONSOLE.print(cpuTemp,0);     
     }
     
     //logCPUHealth();
-    CONSOLE.println();    
+    //CONSOLE.println();    
     if (batTemp < -999){
       stateTemp = cpuTemp;
     } else {
@@ -1294,7 +1464,6 @@ void run(){
     robotDriver.ledStateError = (stateOp == OP_ERROR);            
   }
 
-  
    
   if (millis() > nextTimetableTime){
     nextTimetableTime = millis() + 30000;
@@ -1331,9 +1500,30 @@ void run(){
       lastGPSMotionY = 0;
     }
     motor.run();
+    
+    /* if (DEBUG_OUTPUT){
+      if (millis() >= nextOutputTime){
+        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+        if (DEBUG_MEMORY) {
+          CONSOLE.print("memory CHECKPOINT16 -> ");
+          CONSOLE.print(256 - (freeMemory()/1024));
+          CONSOLE.println("/256 kB");
+        }
+      }
+    } */
+  
     computeRobotState();
     
-
+/*     if (DEBUG_OUTPUT){
+      if (millis() >= nextOutputTime){
+        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+        if (DEBUG_MEMORY) {
+          CONSOLE.print("memory CHECKPOINT17 -> ");
+          CONSOLE.print(256 - (freeMemory()/1024));
+          CONSOLE.println("/256 kB");
+        }
+      }
+    } */
     
 
     /*if (gpsJump) {
@@ -1403,7 +1593,19 @@ void run(){
     //CONSOLE.print("active:");
     //CONSOLE.println(activeOp->name());
     activeOp->checkStop();
-    activeOp->run();     
+    activeOp->run();
+    
+    /* if (DEBUG_OUTPUT){
+      if (millis() >= nextOutputTime){
+        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+        if (DEBUG_MEMORY) {
+          CONSOLE.print("memory CHECKPOINT18 -> ");
+          CONSOLE.print(256 - (freeMemory()/1024));
+          CONSOLE.println("/256 kB");
+        }
+      }
+    } */
+    
     //motor.run();      
     // process button state
     if (stateButton == 5){
@@ -1433,23 +1635,44 @@ void run(){
     }
 
     // update operation type      
-    stateOp = activeOp->getGoalOperationType();  
+    stateOp = activeOp->getGoalOperationType();
+    
+    /* if (DEBUG_OUTPUT){
+      if (millis() >= nextOutputTime){
+        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+        if (DEBUG_MEMORY) {
+          CONSOLE.print("memory CHECKPOINT19 -> ");
+          CONSOLE.print(256 - (freeMemory()/1024));
+          CONSOLE.println("/256 kB");
+        }
+      }
+    } */
+
   }   // if (millis() >= nextControlTime)
     
   // ----- read serial input (BT/console) -------------
   processComm();
-  if (OUTPUT_ENABLED) outputConsole();    
+  
+  /* if (DEBUG_OUTPUT){
+      if (millis() >= nextOutputTime){
+        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+        if (DEBUG_MEMORY) {
+          CONSOLE.print("memory CHECKPOINT20 -> ");
+          CONSOLE.print(256 - (freeMemory()/1024));
+          CONSOLE.println("/256 kB");
+        }
+      }
+    } */
+
+  if (SUNRAY_OUTPUT) outputConsole();    
 
   // reset watchdog, keep calm
   if(millis() > wdResetTimer + 1000){
       watchdogReset();
   } 
 
-  //CONSOLE.println(millis());
-  //CONSOLE.println(loopTime); 
+  // cycle times
   loopTimeNow = millis() - loopTime;
-  //CONSOLE.println(loopTimeNow);  
-  //delay(5000);  
   loopTimeMin = min(loopTimeNow, loopTimeMin); 
   loopTimeMax = max(loopTimeNow, loopTimeMax);
   loopTimeMean = 0.99 * loopTimeMean + 0.01 * loopTimeNow; 
@@ -1468,25 +1691,26 @@ void run(){
   if(millis() > loopTimeTimer + 10000){
     if(loopTimeMax > 500){
       CONSOLE.print("WARNING - LoopTime: ");
-    }else{
-      CONSOLE.print("Info - LoopTime(ms) now=");
+      CONSOLE.println(loopTimeNow);
+    } else {
+      if (OUTPUT_LOOPTIME) {
+        CONSOLE.print("Info - LoopTime(ms) now=");
+        CONSOLE.print(loopTimeNow);
+        CONSOLE.print(" min=");
+        CONSOLE.print(loopTimeMin);
+        CONSOLE.print(" mean=");
+        CONSOLE.print(loopTimeMean);
+        CONSOLE.print(" max=");
+        CONSOLE.print(loopTimeMax);
+        CONSOLE.println();
+        if (psOutput != "") CONSOLE.println(psOutput);
+      }
     }
-    CONSOLE.print(loopTimeNow);
-    CONSOLE.print(" min=");
-    CONSOLE.print(loopTimeMin);
-    CONSOLE.print(" mean=");
-    CONSOLE.print(loopTimeMean);
-    CONSOLE.print(" max=");
-    CONSOLE.print(loopTimeMax);
-    CONSOLE.println();
-    if (psOutput != "") CONSOLE.println(psOutput);
-
     loopTimeMin = 99999; 
     loopTimeMax = 0;
     psOutput = "";
     loopTimeTimer = millis();
   }   
-  //##############################################################################
 
   // compute button state (stateButton)
   if (BUTTON_STOP){  // should we use the stop/emergency button?
@@ -1520,7 +1744,32 @@ void run(){
         CONSOLE.println(stateButton);
       }
     }
-  }    
+  }
+  
+  if (DEBUG_OUTPUT){
+    if (millis() >= nextOutputTime){
+      nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      if (DEBUG_MEMORY) {
+        CONSOLE.print("memory --------------> ");
+        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.println("/256 kB <-------------- finish");
+      }
+      if (DEBUG_TUNING) tuningOutput();
+      if (DEBUG_STATE_ESTIMATOR) {
+        CONSOLE.print("             deltaTime: ");CONSOLE.println(deltaTime);
+        //CONSOLE.print("                imuyaw: ");CONSOLE.print(imuDriver.yaw);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
+        CONSOLE.print("            stateDelta: ");CONSOLE.print(stateDelta/180*PI);                 CONSOLE.print("           stateDeltaGps: ");CONSOLE.println(stateDeltaGPS);
+        CONSOLE.print("        linearSpeedSet: ");CONSOLE.print(motor.linearSpeedSet);              CONSOLE.print("        stateGroundSpeed: ");CONSOLE.println(stateGroundSpeed);
+        CONSOLE.print("       angularSpeedSet: ");CONSOLE.print(motor.angularSpeedSet/PI*180.0);    CONSOLE.print("         stateDeltaSpeed: ");CONSOLE.println(stateDeltaSpeed/PI*180); 
+        CONSOLE.print(" stateDeltaSpeedWheels --> ");CONSOLE.print(stateDeltaSpeedWheels/PI*180.0);CONSOLE.print(" | ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);CONSOLE.println(" <-- stateDeltaSpeedIMU");
+        CONSOLE.print("  diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);     CONSOLE.print("   stateDeltaSpeedLP_IMU: ");CONSOLE.println(stateDeltaSpeedLP/PI*180);
+        CONSOLE.print("diffIMUWheelYawSpeedLP: ");CONSOLE.println(diffIMUWheelYawSpeedLP/PI*180.0);
+        CONSOLE.print("                      stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
+      }
+    }
+  }
+
+
 }        
 
 // set new robot operation

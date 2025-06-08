@@ -589,7 +589,7 @@ void computeRobotState(){
     stateY = 0;
   }
 
-  if (DEBUG_STATE_ESTIMATOR) {
+  /*if (DEBUG_STATE_ESTIMATOR) {
     CONSOLE.print("             deltaTime: ");CONSOLE.println(deltaTime);
     //CONSOLE.print("                imuyaw: ");CONSOLE.print(imuDriver.yaw);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
     CONSOLE.print("            stateDelta: ");CONSOLE.print(stateDelta/180*PI);                 CONSOLE.print("           stateDeltaGps: ");CONSOLE.println(stateDeltaGPS);
@@ -600,7 +600,7 @@ void computeRobotState(){
     CONSOLE.print("diffIMUWheelYawSpeedLP: ");CONSOLE.println(diffIMUWheelYawSpeedLP/PI*180.0);
     CONSOLE.print("                      stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
     
-  }
+  }*/
 
   timeLastState = millis();
 

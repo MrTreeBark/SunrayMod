@@ -53,8 +53,8 @@ void TimeTable::setCurrentTime(int hour, int min, int dayOfWeek){
     currentTime.hour = hour;
     currentTime.min = min;
     currentTime.dayOfWeek = dayOfWeek;
-    if (OUTPUT_ENABLED) CONSOLE.print("GPS time (UTC): ");
-    if (OUTPUT_ENABLED) dumpWeekTime(currentTime);
+    if (SUNRAY_OUTPUT) CONSOLE.print("GPS time (UTC): ");
+    if (SUNRAY_OUTPUT) dumpWeekTime(currentTime);
 }    
 
 void TimeTable::dumpWeekTime(weektime_t time){
@@ -167,7 +167,7 @@ bool TimeTable::mowingAllowed(){
 bool TimeTable::findAutostopTime(weektime_t &time){
     time.dayOfWeek = NOT_SET;
     if (!timetable.enable) {
-        if (OUTPUT_ENABLED) CONSOLE.println("AUTOSTOP: timetable is disabled");
+        if (SUNRAY_OUTPUT) CONSOLE.println("AUTOSTOP: timetable is disabled");
         return false;
     }
     bool autostop = false;
@@ -208,15 +208,15 @@ bool TimeTable::findAutostopTime(weektime_t &time){
 bool TimeTable::findAutostartTime(weektime_t &time){    
     time.dayOfWeek = NOT_SET;
     if ( !DOCKING_STATION ){
-        if (OUTPUT_ENABLED) CONSOLE.println("AUTOSTART: not defined DOCKING_STATION");
+        if (SUNRAY_OUTPUT) CONSOLE.println("AUTOSTART: not defined DOCKING_STATION");
         return false; 
     }
     if (!DOCK_AUTO_START) {// automatic continue mowing allowed?
-        if (OUTPUT_ENABLED) CONSOLE.println("AUTOSTART: not defined DOCK_AUTO_START");
+        if (SUNRAY_OUTPUT) CONSOLE.println("AUTOSTART: not defined DOCK_AUTO_START");
         return false;     
     }
     if ( !battery.isDocked() ) { // robot is in dock?
-        if (OUTPUT_ENABLED) CONSOLE.println("AUTOSTART: not docked automatically (use DOCK command first)");
+        if (SUNRAY_OUTPUT) CONSOLE.println("AUTOSTART: not docked automatically (use DOCK command first)");
         return false;   
     }
     bool autostart = false;    

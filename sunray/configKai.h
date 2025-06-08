@@ -223,7 +223,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOVING_TIME                 400   // time (ms) for moving back
 #define SWITCH_OFF_TRACTION_MOTORS  true  // should tractionmotors be disabled in dock?
 //LOG
-#define OUTPUT_ENABLED              false // output standard Sunray_FW LOG in serial monitor and SDlog
+#define SUNRAY_OUTPUT              false // output standard Sunray_FW LOG in serial monitor and SDlog
 #define CALC_LOOPTIME               false // calc and output the sunray loop time in serial monitor and SDlog
 #define TUNING_LOG                  false // outputs valuable var-states of sunray for debugging tuning functions or just for observation and insights
 #define TUNING_LOG_TIME             2000  // (ms) periodic output time of TUNING_LOG

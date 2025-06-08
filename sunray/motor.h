@@ -45,6 +45,7 @@ class Motor {
     bool odometryError;       
     unsigned long motorOverloadDuration; // accumulated duration (ms)
     unsigned long motorMowStallDuration; //MrTree RPM of mowmotor stalled duration (ms)
+    unsigned long nextOutputTime;
     int pwmMax;
     int mowPwm;
     int mowHeightMillimeter; 
@@ -161,7 +162,6 @@ class Motor {
     void drvfix();                    //MrTree
     void checkMotorMowStall();        //MrTree
     float adaptiveSpeed();            //MrTree
-    //float distanceRamp(float linear); //MrTree
     void changeSpeedSet();            //MrTree
     bool checkCurrentTooHighError();    
     bool checkCurrentTooLowError();

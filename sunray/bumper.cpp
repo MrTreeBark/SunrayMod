@@ -119,6 +119,8 @@ bool Bumper::obstacleRight(){
     return (outputRightPressed);
   }
   else return false;
+}
+
 bool Bumper::nearObstacle(){
   return bumperDriver.nearObstacle();
 }

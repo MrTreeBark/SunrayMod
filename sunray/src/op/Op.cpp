@@ -224,7 +224,9 @@ void Op::onOdometryError(){
 void Op::onMotorOverload(){
 }
 
-void Op::onMotorMowStart(){					//MrTree
+void Op::onMotorMowStart(){
+  //waitOp.waitTime = MOWSPINUPTIME;
+  //changeOp(waitOp, true);					//MrTree
 }    										            //MrTree
 
 void Op::onMotorMowStall(){					//MrTree

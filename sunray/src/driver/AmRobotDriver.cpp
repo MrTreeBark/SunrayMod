@@ -430,8 +430,8 @@ void AmMotorDriver::setMotorPwm(int leftPwm, int rightPwm, int mowPwm, bool rele
   lastLeftPwm = leftPwm;  
   lastRightPwm = rightPwm;
   lastMowPwm = mowPwm;
-
   // apply motor PWMs
+  //CONSOLE.println(mowPwm);
   setMotorDriver(pinMotorLeftDir, pinMotorLeftPWM, leftPwm, gearsDriverChip, leftSpeedSign);
   setMotorDriver(pinMotorRightDir, pinMotorRightPWM, rightPwm, gearsDriverChip, rightSpeedSign);
   setMotorDriver(pinMotorMowDir, pinMotorMowPWM, mowPwm, mowDriverChip, mowSpeedSign);

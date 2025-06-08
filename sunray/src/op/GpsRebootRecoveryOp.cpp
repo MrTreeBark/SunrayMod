@@ -19,6 +19,7 @@ void GpsRebootRecoveryOp::begin(){
         gps.reboot();  // try to recover from false GPS fix
     }
     retryOperationTime = millis() + 60000; // wait 30 secs after reboot, then try another map routing
+    resetMotion();
 }
 
 

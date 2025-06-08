@@ -31,6 +31,7 @@ void EscapeLawnOp::begin(){
     CONSOLE.println(escapeLawnDistance);
 	CONSOLE.print("driveReverseStopTime = ");
     CONSOLE.println((escapeLawnDistance/ESCAPELAWNSPEED*1000));
+	resetMotion();
 	//if (!motor.switchedOn) {
 	//	  CONSOLE.println("EscapeLawnOp:: Mow motor was switched off and is switched On again!");
 	//	  motor.setMowState(true);	
