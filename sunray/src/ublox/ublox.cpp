@@ -9,8 +9,6 @@
 #include "../../events.h"
 #include "SparkFun_Ublox_Arduino_Library.h"
 
-#include "reset.h"
-
 
 SFE_UBLOX_GPS configGPS; // used for f9p module configuration only
 
