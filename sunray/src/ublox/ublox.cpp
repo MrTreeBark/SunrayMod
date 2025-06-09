@@ -417,9 +417,11 @@ void UBLOX::parse(int b)
         nmeaGGAMessage.trim();
       }
       unparsedMessage = "";
-    } else if (DEBUG_UBLOX && DEBUG_OUTPUT) {
+    } else {
+      if (DEBUG_UBLOX && DEBUG_OUTPUT){
       CONSOLE.print("WARNING: unparsed GPS-Correction Message to be cleared. Content: ");
       CONSOLE.println(unparsedMessage);
+      }
       unparsedMessage = "";
     }
   }
