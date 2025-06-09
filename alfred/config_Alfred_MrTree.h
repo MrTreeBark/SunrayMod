@@ -53,7 +53,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 //#define DRV_SIM_ROBOT     1   // simulation
 
 // if compiling for ROS, specify robot launch file (.launch) for robot-specific ROS launch (if not running in ROS, this option will not be used )
-#define ROS_LAUNCH_FILE "alfred"
+//#define ROS_LAUNCH_FILE "alfred"
 
 // ------- Bluetooth4.0/BLE module -----------------------------------
 // see Wiki on how to install the BLE module and configure the jumpers:
@@ -642,7 +642,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #elif __linux__ 
   #define BOARD "Linux"
   #define CONSOLE Console 
-#else
+#else 
   #ifdef __cplusplus
     #error "ERROR: you need to choose either Arduino Due or Adafruit GCM4 in Arduino IDE"
   #endif
@@ -652,7 +652,6 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define CONSOLE_BAUDRATE    115200    // baudrate used for console
 //#define CONSOLE_BAUDRATE    921600  // baudrate used for console
 #define BLE_BAUDRATE    115200        // baudrate used for BLE
-//#define BLE_NAME      "Ardumower"     // name for BLE module
 #define GPS_BAUDRATE  115200          // baudrate for GPS RTK module
 #define WIFI_BAUDRATE 115200          // baudrate for WIFI module
 #define ROBOT_BAUDRATE 19200         // baudrate for Linux serial robot (non-Ardumower)
@@ -669,21 +668,26 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
   #define BLE Serial3
   #define GPS Serial4
 #elif __linux__ 
-  #define WIFI SerialWIFI                
+  #define WIFI SerialWIFI             // dummy serial device   
   #define SERIAL_WIFI_PATH "/dev/null"  
-  #define LINUX_BLE       // comment to disable BLE
+  #define LINUX_BLE                 // comment to disable BLE
   #define BLE SerialBLE             
-  #define SERIAL_BLE_PATH "/dev/null"    // dummy serial device 
+  #define SERIAL_BLE_PATH "/dev/null"    // dummy serial device    
   #define GPS SerialGPS
   #define SERIAL_GPS_PATH "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"  
   #define GPS_HOST "127.0.0.1"  
-  #define GPS_PORT 2947  
+  #define GPS_PORT 2947
   #define ROBOT SerialROBOT
-  #define SERIAL_ROBOT_PATH "/dev/ttyUSB1"  
   #define NTRIP SerialNTRIP
-  #define SERIAL_NTRIP_PATH "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_00000000-if00-port0"    
+  #ifdef DRV_CAN_ROBOT
+    #define SERIAL_ROBOT_PATH "/dev/null"    
+  #else
+    #define SERIAL_ROBOT_PATH "/dev/ttyS0"  
+  #endif
+  #define NTRIP SerialNTRIP
+  #define SERIAL_NTRIP_PATH "/dev/null" // dummy serial device    
+  //#define SERIAL_NTRIP_PATH "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_00000000-if00-port0"    
 #endif
-
 
 
 // ------- I2C addresses -----------------------------
@@ -699,6 +703,11 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 
 #ifdef __linux__
   // ...
+  #define pinRemoteMow 12
+  #define pinRemoteSteer 11
+  #define pinRemoteSpeed 10
+  #define pinRemoteSwitch 52
+  #define pinLift 0
 #else
   #define pinMotorEnable  37         // EN motors enable
   #define pinMotorLeftPWM 5          // M1_IN1 left motor PWM pin
@@ -801,7 +810,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 // 1. Arduino IDE->File->Preferences->Click on 'preferences.txt' at the bottom
 // 2. Locate file 'packages/arduino/hardware/sam/xxxxx/cores/arduino/RingBuffer.h
   
-#define SERIAL_BUFFER_SIZE 2048
+#define SERIAL_BUFFER_SIZE 4096
 
 #ifdef BNO055
   #define MPU9250   // just to make mpu driver happy to compile something
