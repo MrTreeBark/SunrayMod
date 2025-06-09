@@ -139,8 +139,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ADAPTIVE_SPEED_USE_MINSPEED true  // false: MOTOR_MIN_SPEED is used for slowest possible speed, true: ADAPTIVE_SPEED_MINSPEED is used for slowest possible speed
 #define ADAPTIVE_SPEED_MINSPEED     0.05  // (m/s) defines the ramp of speed between actual speedstates eg. mowing speed and ADAPTIVE_SPEED_MINSPEED
 #define MOWPOWERMAX_AUTO            false // (expirimental) uses highest actual measured mowPower during operation, if true MOWPOWERMAX is ignored
-#define MOWPOWERMIN                 10.0  // (Watt) idle Power of Mowmotor or minimum load power of mowmotor, if under this load mower will have maximum speed
-#define MOWPOWERMAX                 35.0  // (Watt) max load power of mowmotor, when hitting this load mower will be at minspeed        
+#define MOWPOWERMIN                 35.0  // (Watt) idle Power of Mowmotor or minimum load power of mowmotor, if under this load mower will have maximum speed
+#define MOWPOWERMAX                 65.0  // (Watt) max load power of mowmotor, when hitting this load mower will be at minspeed        
 #define MOW_RPM_DEADZONE             200  // (rpm) rpm deadzone before speed will be reduced, so if MOW_RPM_NORMAL is 3000, mower will start to reduce speed if rpm is below 2700 
 #define MOW_RPM_NORMAL              3200  // (3200)(rpm, only used if USE_MOW_RPM_SET = true) mow motor rpm for mowing (WARNING, you should check if your rpm output works as espected! if it does work, but the reading is wrong, you need to calculate the mowmotorticks per second according to realistic rpm!)
 #define MOW_RPM_SLOW                3600  // (3400)(rpm, only used if USE_MOW_RPM_SET = true) mow motor rpm when MOW_RPMtr_SLOW (%) of MOW_RPM_NORMAL (rpm) is met. Should be higher or the same as MOW_RPM_NORMAL
@@ -682,7 +682,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
   #ifdef DRV_CAN_ROBOT
     #define SERIAL_ROBOT_PATH "/dev/null"    
   #else
-    #define SERIAL_ROBOT_PATH "/dev/ttyS0"  
+    #define SERIAL_ROBOT_PATH "/dev/ttyS1"  
   #endif
   #define NTRIP SerialNTRIP
   #define SERIAL_NTRIP_PATH "/dev/null" // dummy serial device    

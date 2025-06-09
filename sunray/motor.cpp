@@ -402,6 +402,11 @@ void Motor::stopImmediately(bool includeMowerMotor){
   motorRightPWMCurr = 0;
    
   if (includeMowerMotor) {
+    #ifdef DRV_SERIAL_ROBOT
+      motorMowPWMCurr = 0;//MrTree
+      motorMowRpmCurr = 0;//MrTree
+      //switchedOn = false;
+    #endif
     //switchedOn = false;
     motorMowSpunUp = false;  
     motorMowPWMSet = 0;
@@ -1015,20 +1020,21 @@ void Motor::sense(){
 
 
 void Motor::control(){  
-
-  motorLeftPID.Kp       = MOTOR_PID_KP/50.0*robot_control_cycle;  // 2.0;  //calculate according to different controlcyletimes
-  motorLeftPID.Ki       = MOTOR_PID_KI/50.0*robot_control_cycle;  // 0.03; 
-  motorLeftPID.Kd       = MOTOR_PID_KD/50.0*robot_control_cycle;  // 0.03;
-  //motorLeftPID.reset(); 
-  motorRightPID.Kp       = MOTOR_PID_KP/50.0*robot_control_cycle; //motorLeftPID.Kp;
-  motorRightPID.Ki       = MOTOR_PID_KI/50.0*robot_control_cycle;
-  motorRightPID.Kd       = MOTOR_PID_KD/50.0*robot_control_cycle; //motorLeftPID.Kd;
-  //motorRightPID.reset();
-  motorMowPID.Kp       = MOWMOTOR_PID_KP/50.0*robot_control_cycle; //MrTree
-  motorMowPID.Ki       = MOWMOTOR_PID_KI/50.0*robot_control_cycle; //MrTree
-  motorMowPID.Kd       = MOWMOTOR_PID_KD/50.0*robot_control_cycle; //MrTree
-  //motorMowPID.reset();     	              //MrTree
- 
+  if (USE_MOW_RPM_SET) {
+    motorLeftPID.Kp       = MOTOR_PID_KP/50.0*robot_control_cycle;  // 2.0;  //calculate according to different controlcyletimes
+    motorLeftPID.Ki       = MOTOR_PID_KI/50.0*robot_control_cycle;  // 0.03; 
+    motorLeftPID.Kd       = MOTOR_PID_KD/50.0*robot_control_cycle;  // 0.03;
+    //motorLeftPID.reset(); 
+    motorRightPID.Kp       = MOTOR_PID_KP/50.0*robot_control_cycle; //motorLeftPID.Kp;
+    motorRightPID.Ki       = MOTOR_PID_KI/50.0*robot_control_cycle;
+    motorRightPID.Kd       = MOTOR_PID_KD/50.0*robot_control_cycle; //motorLeftPID.Kd;
+    //motorRightPID.reset();
+    motorMowPID.Kp       = MOWMOTOR_PID_KP/50.0*robot_control_cycle; //MrTree
+    motorMowPID.Ki       = MOWMOTOR_PID_KI/50.0*robot_control_cycle; //MrTree
+    motorMowPID.Kd       = MOWMOTOR_PID_KD/50.0*robot_control_cycle; //MrTree
+  
+    //motorMowPID.reset();     	              //MrTree
+  }
   //########################  Calculate PWM for left driving motor ############################
   //CONSOLE.print("motorLeftLpf(motorLeftRpmCurr):  ");CONSOLE.println(valuesome);  
   //CONSOLE.print("motorLeftRpmSet:                 ");CONSOLE.println(motorLeftRpmSet);
@@ -1111,14 +1117,19 @@ void Motor::control(){
       motorMowPWMCurr = lp1 * motorMowPWMCurr + (1 - lp1) * motorMowPWMSet;
       if (abs(motorMowRpmCurrLPFast) < 400) motorMowPWMCurr = 0;    
     }      
+    if (!USE_MOW_RPM_SET && motorMowPWMSet == 0){ //we use simple low pass when stopping mow motor
+      motorMowPWMCurr = lp1 * motorMowPWMCurr + (1 - lp1) * motorMowPWMSet;
+      if (abs(motorMowPWMCurr) < 20) motorMowPWMCurr = 0;    
+    }      
   } else { //if !USE_RPM_SET
     if (mowPWM_RC != 0 && RC_Mode) {
       if (motorMowPWMSet < 0)motorMowPWMSet = -mowPWM_RC; //MrTree
       if (motorMowPWMSet > 0)motorMowPWMSet = mowPWM_RC; //MrTree
     } 
-    motorMowPWMCurr = lp4 * motorMowPWMCurr + (1 - lp4) * motorMowPWMSet;     //MrTree slightly increased spinuprate (0.99|0.01) before)
+    motorMowPWMCurr = lp4 * motorMowPWMCurr + (1 - lp3) * motorMowPWMSet;     //MrTree slightly increased spinuprate (0.99|0.01) before)
     if (motorMowPWMCurr > 0) motorMowPWMCurr = constrain(motorMowPWMCurr,20,255);  // 0.. pwmMax
     if (motorMowPWMCurr < 0) motorMowPWMCurr = constrain(motorMowPWMCurr,-255,-20);   // -pwmMax..0 
+    if (abs(motorMowPWMSet) < 50) motorMowPWMCurr = 0;
   }                                                                                                            //MrTree
   
   //set PWM for all motors
