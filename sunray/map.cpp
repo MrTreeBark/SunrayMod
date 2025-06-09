@@ -479,6 +479,7 @@ void Map::begin(){
   wayMode = WAY_MOW;
   trackReverse = false;
   trackSlow = false;
+  errorNoPoints = false;
   useGPSfixForPosEstimation = true;
   useGPSfloatForPosEstimation = true;
   useGPSfloatForDeltaEstimation = true;
@@ -1083,6 +1084,7 @@ bool Map::startMowing(float stateX, float stateY){
   if (mowPoints.numPoints > 0){
     // find valid path from robot (or first docking point) to mowing point    
     //freePoints.alloc(0);
+    errorNoPoints = false;
     Point src;
     Point dst;
     src.setXY(stateX, stateY);
@@ -1118,6 +1120,7 @@ bool Map::startMowing(float stateX, float stateY){
   } else {
     Logger.event(EVT_ERROR_NO_MAP_POINTS);
     CONSOLE.println("ERROR: no points");
+    errorNoPoints = true;
     return false; 
   }
 }

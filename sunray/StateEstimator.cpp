@@ -428,12 +428,12 @@ void computeRobotState(){
   float posE = 0;
 
   deltaTime = (millis() - timeLastState)/1000.0;
-  float lp01 = 1 -0.1*deltaTime;
-  float lp1 = 1 - 1*deltaTime;
+  float lp01 = 1 -0.1*deltaTime; //Ultraslow longpass
+  float lp1 = 1 - 1*deltaTime;   
   float lp2 = 1 - 2*deltaTime;
   float lp3 = 1 - 3*deltaTime;
-  float lp4 = 1 - 4*deltaTime;
-  
+  float lp4 = 1 - 4*deltaTime;   //with iterationtime of 20ms (50Hz), this will be about 0.92 for LP filter
+ 
   if (absolutePosSource){
     relativeLL(absolutePosSourceLat, absolutePosSourceLon, gps.lat, gps.lon, posN, posE);    
   } else {

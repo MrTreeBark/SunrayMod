@@ -1163,18 +1163,23 @@ void tuningOutput(){
   CONSOLE.println();
   CONSOLE.println("DEBUG_TUNING (disable in config.h): ");
   CONSOLE.println("---------------------------------------------------->");
+  if (DEBUG_ADAPTIVESPEED) {
   CONSOLE.println("motor.cpp: adaptive_speed()");
-      CONSOLE.print("      ");CONSOLE.print("motorMowRpmSet: ");CONSOLE.print(motor.motorMowRpmSet);  CONSOLE.print(" RPM, ");CONSOLE.print("   Driver PWM: ");CONSOLE.print(motor.motorMowPWMCurr);CONSOLE.println(" val ");
-      CONSOLE.print("      ");CONSOLE.print("         battV: ");CONSOLE.print(battery.batteryVoltage);CONSOLE.print(" V,   ");CONSOLE.print("motorMowPower: ");CONSOLE.print(motor.mowPowerAct);    CONSOLE.println(" Watt");     
-      CONSOLE.print("      ");CONSOLE.print("      gpsSpeed: ");CONSOLE.print(stateGroundSpeed);      CONSOLE.print(" m/s, ");CONSOLE.print("     speedSet: ");CONSOLE.print(motor.linearCurrSet);  CONSOLE.println(" m/s ");
-      CONSOLE.print("      ");CONSOLE.print(" ADSpeedfactor: ");CONSOLE.print(motor.SpeedFactor);     CONSOLE.print(" val, ");CONSOLE.print("     actSpeed: ");CONSOLE.print(motor.linearSpeedSet); CONSOLE.println(" m/s ");
+      CONSOLE.print("      ");CONSOLE.print("motorMowRpmSet: ");CONSOLE.print(motor.motorMowRpmSet);  CONSOLE.print(" RPM, ");CONSOLE.print("    Driver PWM: ");CONSOLE.print(motor.motorMowPWMCurr);CONSOLE.println(" val ");
+      CONSOLE.print("      ");CONSOLE.print("         battV: ");CONSOLE.print(battery.batteryVoltage);CONSOLE.print(" V,   ");CONSOLE.print("motorMowPower: ");CONSOLE.print(motor.mowPowerAct);     CONSOLE.println(" Watt");     
+      CONSOLE.print("      ");CONSOLE.print("      gpsSpeed: ");CONSOLE.print(stateGroundSpeed);      CONSOLE.print(" m/s, ");CONSOLE.print("      speedSet: ");CONSOLE.print(motor.linearCurrSet);  CONSOLE.println(" m/s ");
+      CONSOLE.print("      ");CONSOLE.print(" ADSpeedfactor: ");CONSOLE.print(motor.SpeedFactor);     CONSOLE.print(" val, ");CONSOLE.print("      actSpeed: ");CONSOLE.print(motor.linearSpeedSet); CONSOLE.println(" m/s ");
       CONSOLE.println();
+  }
+  if (DEBUG_SENSE) {
   CONSOLE.println("motor.cpp: sense()");
-      CONSOLE.print("      ");CONSOLE.print("mowPowerAct: ");CONSOLE.print(motor.mowPowerAct);CONSOLE.print(" Watt, motorMowPowerMax: ");CONSOLE.print(motor.motorMowPowerMax);CONSOLE.println(" Watt");
-      CONSOLE.print("      ");CONSOLE.print("motorMowSense: ");CONSOLE.print(motor.motorMowSense);CONSOLE.print(" A, motorMowSenseLP: ");CONSOLE.print(motor.motorMowSenseLP);CONSOLE.println(" A");
-      CONSOLE.print("      ");CONSOLE.print("motorLeftSense: ");CONSOLE.print(motor.motorLeftSense);CONSOLE.print(" A, motorLeftSenseLP: ");CONSOLE.print(motor.motorLeftSenseLP);CONSOLE.println(" A");
-      CONSOLE.print("      ");CONSOLE.print("motorRightSense: ");CONSOLE.print(motor.motorRightSense);CONSOLE.print(" A, motorRightSenseLP: ");CONSOLE.print(motor.motorRightSenseLP);CONSOLE.println(" A");
+      CONSOLE.print("      ");CONSOLE.print("    mowPowerAct: ");CONSOLE.print(motor.mowPowerAct);    CONSOLE.print(" Watt, motorMowPowerMax: ");CONSOLE.print(motor.motorMowPowerMax); CONSOLE.println(" Watt");
+      CONSOLE.print("      ");CONSOLE.print("  motorMowSense: ");CONSOLE.print(motor.motorMowSense);  CONSOLE.print(" A,     motorMowSenseLP: ");CONSOLE.print(motor.motorMowSenseLP);  CONSOLE.println(" A");
+      CONSOLE.print("      ");CONSOLE.print(" motorLeftSense: ");CONSOLE.print(motor.motorLeftSense); CONSOLE.print(" A,    motorLeftSenseLP: ");CONSOLE.print(motor.motorLeftSenseLP); CONSOLE.println(" A");
+      CONSOLE.print("      ");CONSOLE.print("motorRightSense: ");CONSOLE.print(motor.motorRightSense);CONSOLE.print(" A,   motorRightSenseLP: ");CONSOLE.print(motor.motorRightSenseLP);CONSOLE.println(" A");
       CONSOLE.println();
+  }
+  if (DEBUG_IMU) {
   CONSOLE.println("IMU              -- ");
       CONSOLE.print("      ");CONSOLE.print("diffIMUWheelYawSpeedLP: ");CONSOLE.print(diffIMUWheelYawSpeedLP/PI*180.0);CONSOLE.println(" deg/s");
       CONSOLE.print("      ");CONSOLE.print("    stateDeltaSpeedIMU: ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);CONSOLE.println(" deg/s");
@@ -1183,7 +1188,8 @@ void tuningOutput(){
       CONSOLE.print("      ");CONSOLE.print("               heading: ");CONSOLE.print(imuDriver.heading);CONSOLE.println(" none");
       CONSOLE.print("      ");CONSOLE.print("                    ax: ");CONSOLE.print(imuDriver.ax);CONSOLE.print(" g, ay: "); CONSOLE.print(imuDriver.ay);CONSOLE.print(" g, az: ");CONSOLE.print(imuDriver.az);CONSOLE.println(" g");
       CONSOLE.print("      ");CONSOLE.print("                  roll: ");CONSOLE.print(imuDriver.roll);CONSOLE.print(" rad, pitch: "); CONSOLE.print(imuDriver.pitch);CONSOLE.print("rad, yaw: ");CONSOLE.print(imuDriver.yaw);CONSOLE.println(" rad");
-  CONSOLE.println("Info             -- ");
+  }
+      CONSOLE.println("Info             -- ");
       CONSOLE.print("      ");CONSOLE.print("Operation: ");CONSOLE.print(stateOp);CONSOLE.println("");
       CONSOLE.println("<----------------------------------------------------");
       CONSOLE.println();
@@ -1191,17 +1197,6 @@ void tuningOutput(){
 
 // robot main loop
 void run(){
-  
-  /* if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT 1 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  }  */ 
 
   #ifdef ENABLE_NTRIP
     if (millis() > nextGenerateGGATime){
@@ -1229,189 +1224,25 @@ void run(){
   #ifdef DRV_SIM_ROBOT
     tester.run();
   #endif
-  robotDriver.run();                //important (interrupts?)
-  
-  /* if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT 2 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
 
+  robotDriver.run();                //important
   buzzer.run();                     //unimportant
-  
-  if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT 3 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  }
-
   buzzerDriver.run();               //unimportant
-
-  /* if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT 4 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-
   stopButton.run();                 //unimportant
-
- /*  if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT 5 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-  
-  battery.run();                    //semiimportant maybe important because of power??
-  
-  if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT 6 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  }
-  
-  batteryDriver.run();              //semiimportant maybe important because of power??
-  
-  /* if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT 7 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-  
-  motorDriver.run();                //important (interrupts?)
-  
-  /* if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT 8 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-  
+  battery.run();                    //semiimportant
+  batteryDriver.run();              //semiimportant
+  motorDriver.run();                //important
   rainDriver.run();                 //unimportant
-  
-  /* if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT 9 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-  
-  liftDriver.run();                 //important (interrupts?)
-  
-  /* if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT10 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-  
+  liftDriver.run();                 //important
   //motor.run();
+
+  //NTRIP needs to be here (make a function to be called here so it´s out of the way in robot run)
+
   gps.run();
-  
- /*  if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT11 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-  
   sonar.run();                      //semiimportant
-  
-  /* if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT12 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-  
-  maps.run();                       //maybe important for accurate rtk distances  
-  
- /*  if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT13 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-  
+  maps.run();                       //important for accurate rtk distances  
   rcmodel.run();                    //unimportant
-  
-  /* if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT14 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
-  
   bumper.run();                     //important 
-  
-  
- /*  if (DEBUG_OUTPUT){
-    if (millis() >= nextOutputTime){
-      //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory CHECKPOINT15 -> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
-        CONSOLE.println("/256 kB");
-      }
-    }
-  } */
   
   // global deltaTime
   deltaTime = timeLast - millis();
@@ -1433,7 +1264,7 @@ void run(){
     saveState();
   }
 
-  // temp
+  // temperatures
   if (millis() > nextTempTime){
     nextTempTime = millis() + 60000;    
     float batTemp = batteryDriver.getBatteryTemperature();
@@ -1499,32 +1330,10 @@ void run(){
       lastGPSMotionX = 0;
       lastGPSMotionY = 0;
     }
+
+
     motor.run();
-    
-    /* if (DEBUG_OUTPUT){
-      if (millis() >= nextOutputTime){
-        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-        if (DEBUG_MEMORY) {
-          CONSOLE.print("memory CHECKPOINT16 -> ");
-          CONSOLE.print(256 - (freeMemory()/1024));
-          CONSOLE.println("/256 kB");
-        }
-      }
-    } */
-  
     computeRobotState();
-    
-/*     if (DEBUG_OUTPUT){
-      if (millis() >= nextOutputTime){
-        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-        if (DEBUG_MEMORY) {
-          CONSOLE.print("memory CHECKPOINT17 -> ");
-          CONSOLE.print(256 - (freeMemory()/1024));
-          CONSOLE.println("/256 kB");
-        }
-      }
-    } */
-    
 
     /*if (gpsJump) {
       // gps jump: restart current operation from new position (restart path planning)
@@ -1595,17 +1404,6 @@ void run(){
     activeOp->checkStop();
     activeOp->run();
     
-    /* if (DEBUG_OUTPUT){
-      if (millis() >= nextOutputTime){
-        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-        if (DEBUG_MEMORY) {
-          CONSOLE.print("memory CHECKPOINT18 -> ");
-          CONSOLE.print(256 - (freeMemory()/1024));
-          CONSOLE.println("/256 kB");
-        }
-      }
-    } */
-    
     //motor.run();      
     // process button state
     if (stateButton == 5){
@@ -1636,33 +1434,11 @@ void run(){
 
     // update operation type      
     stateOp = activeOp->getGoalOperationType();
-    
-    /* if (DEBUG_OUTPUT){
-      if (millis() >= nextOutputTime){
-        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-        if (DEBUG_MEMORY) {
-          CONSOLE.print("memory CHECKPOINT19 -> ");
-          CONSOLE.print(256 - (freeMemory()/1024));
-          CONSOLE.println("/256 kB");
-        }
-      }
-    } */
 
-  }   // if (millis() >= nextControlTime)
+  } 
     
   // ----- read serial input (BT/console) -------------
   processComm();
-  
-  /* if (DEBUG_OUTPUT){
-      if (millis() >= nextOutputTime){
-        //nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-        if (DEBUG_MEMORY) {
-          CONSOLE.print("memory CHECKPOINT20 -> ");
-          CONSOLE.print(256 - (freeMemory()/1024));
-          CONSOLE.println("/256 kB");
-        }
-      }
-    } */
 
   if (SUNRAY_OUTPUT) outputConsole();    
 
@@ -1754,17 +1530,17 @@ void run(){
         CONSOLE.print(256 - (freeMemory()/1024));
         CONSOLE.println("/256 kB <-------------- finish");
       }
-      if (DEBUG_TUNING) tuningOutput();
+      tuningOutput();
       if (DEBUG_STATE_ESTIMATOR) {
-        CONSOLE.print("             deltaTime: ");CONSOLE.println(deltaTime);
-        //CONSOLE.print("                imuyaw: ");CONSOLE.print(imuDriver.yaw);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
-        CONSOLE.print("            stateDelta: ");CONSOLE.print(stateDelta/180*PI);                 CONSOLE.print("           stateDeltaGps: ");CONSOLE.println(stateDeltaGPS);
-        CONSOLE.print("        linearSpeedSet: ");CONSOLE.print(motor.linearSpeedSet);              CONSOLE.print("        stateGroundSpeed: ");CONSOLE.println(stateGroundSpeed);
-        CONSOLE.print("       angularSpeedSet: ");CONSOLE.print(motor.angularSpeedSet/PI*180.0);    CONSOLE.print("         stateDeltaSpeed: ");CONSOLE.println(stateDeltaSpeed/PI*180); 
-        CONSOLE.print(" stateDeltaSpeedWheels --> ");CONSOLE.print(stateDeltaSpeedWheels/PI*180.0);CONSOLE.print(" | ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);CONSOLE.println(" <-- stateDeltaSpeedIMU");
-        CONSOLE.print("  diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);     CONSOLE.print("   stateDeltaSpeedLP_IMU: ");CONSOLE.println(stateDeltaSpeedLP/PI*180);
-        CONSOLE.print("diffIMUWheelYawSpeedLP: ");CONSOLE.println(diffIMUWheelYawSpeedLP/PI*180.0);
-        CONSOLE.print("                      stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
+        CONSOLE.print("                              deltaTime: ");CONSOLE.println(deltaTime*1000,0);
+        //CONSOLE.print("                                 imuyaw: ");CONSOLE.print(imuDriver.yaw);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
+        CONSOLE.print("                             stateDelta: ");CONSOLE.print(stateDelta/180*PI);                 CONSOLE.print("           stateDeltaGps: ");CONSOLE.println(stateDeltaGPS);
+        CONSOLE.print("                         linearSpeedSet: ");CONSOLE.print(motor.linearSpeedSet);              CONSOLE.print("        stateGroundSpeed: ");CONSOLE.println(stateGroundSpeed);
+        CONSOLE.print("                        angularSpeedSet: ");CONSOLE.print(motor.angularSpeedSet/PI*180.0);    CONSOLE.print("         stateDeltaSpeed: ");CONSOLE.println(stateDeltaSpeed/PI*180); 
+        CONSOLE.print("               stateDeltaSpeedWheels --> ");CONSOLE.print(stateDeltaSpeedWheels/PI*180.0);CONSOLE.print(" | ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);CONSOLE.println(" <-- stateDeltaSpeedIMU");
+        CONSOLE.print("                   diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);     CONSOLE.print("   stateDeltaSpeedLP_IMU: ");CONSOLE.println(stateDeltaSpeedLP/PI*180);
+        CONSOLE.print("                 diffIMUWheelYawSpeedLP: ");CONSOLE.println(diffIMUWheelYawSpeedLP/PI*180.0);
+        CONSOLE.print("stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
       }
     }
   }

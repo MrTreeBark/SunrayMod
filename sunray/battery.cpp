@@ -257,9 +257,9 @@ void Battery::run(){
 
   }
 
-  if (DEBUG_BATTERY) {
+  if (DEBUG_BATTERY && DEBUG_OUTPUT) {
       if (millis() >= nextPrintTime){
-        nextPrintTime = millis() + 10000;  // 10 sec  	   	   	
+        nextPrintTime = millis() + DEBUG_OUTPUT_TIME;  // 10 sec  	   	   	
         //print();			
         DEBUG(F("charger conn="));
         DEBUG(chargerConnected());

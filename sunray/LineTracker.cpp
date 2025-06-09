@@ -514,7 +514,7 @@ void trackLine(bool runControl) {
 
     shouldRotate = robotShouldRotate();
 
-    if (DEBUG_LINETRACKER) {
+    if (DEBUG_LINETRACKER && DEBUG_OUTPUT) {
       // ouput target point change
       x_new = target.x();
       y_new = target.y();

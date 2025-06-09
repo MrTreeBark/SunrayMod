@@ -401,9 +401,6 @@ void UBLOX::sendRTCM(const uint8_t *rtcmData, size_t rtcmLength) {
 void UBLOX::parse(int b)
 {
     
-  /* CONSOLE.print("memory CHECKPOINT 1 -> ");
-  CONSOLE.print(256 - (freeMemory()/1024));
-  CONSOLE.println("/256 kB"); */
 
   if (debug) CONSOLE.print(b, HEX);
   if (debug) CONSOLE.print(",");
@@ -412,13 +409,7 @@ void UBLOX::parse(int b)
     
     char ch = char(b);
     if (ch == '$') unparsedMessage = "";
-    /* CONSOLE.print("memory CHECKPOINT1+ -> ");
-    CONSOLE.print(256 - (freeMemory()/1024));
-    CONSOLE.println("/256 kB"); */
     unparsedMessage += ch;
-    /* CONSOLE.print("memory CHECKPOINT2- -> ");
-    CONSOLE.print(256 - (freeMemory()/1024));
-    CONSOLE.println("/256 kB"); */
     if ((ch == '\r') || (ch == '\n')) {
       //CONSOLE.println(unparsedMessage);
       if (unparsedMessage.startsWith("$GNGGA")) {
@@ -426,14 +417,11 @@ void UBLOX::parse(int b)
         nmeaGGAMessage.trim();
       }
       unparsedMessage = "";
-    } else {
+    } else if (DEBUG_UBLOX && DEBUG_OUTPUT) {
       CONSOLE.print("WARNING: unparsed GPS-Correction Message to be cleared. Content: ");
       CONSOLE.println(unparsedMessage);
       unparsedMessage = "";
     }
-  /* CONSOLE.print("memory CHECKPOINT 2 -> ");
-  CONSOLE.print(256 - (freeMemory()/1024));
-  CONSOLE.println("/256 kB"); */
   }
   
   

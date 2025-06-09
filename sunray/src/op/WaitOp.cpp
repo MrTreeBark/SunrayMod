@@ -36,4 +36,13 @@ void WaitOp::run(){
     }     
 }
 
+//is the following neccessary? if mower is waiting with mowmotor running, listen for tilt
+void WaitOp::onImuTilt(){
+    stateSensor = SENS_IMU_TILT;
+    changeOp(errorOp);
+}
 
+void WaitOp::onImuError(){
+    stateSensor = SENS_IMU_TIMEOUT;
+    changeOp(errorOp);
+}

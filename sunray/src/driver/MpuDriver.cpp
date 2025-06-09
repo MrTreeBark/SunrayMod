@@ -53,7 +53,7 @@ bool MpuDriver::begin(){
     if (mpu.begin() != INV_SUCCESS){
         return false;
     }
-    unsigned short fiforate = 5; //(1000/ROBOT_CONTROL_CYCLE) - 10;     // Set rate of imu lower than controlcyle to not fill the fifo
+    unsigned short fiforate = (1000/ROBOT_CONTROL_CYCLE) - 10; 
     //mpu.setAccelFSR(2);	      
     mpu.dmpBegin(DMP_FEATURE_6X_LP_QUAT  // Enable 6-axis quat
                | DMP_FEATURE_GYRO_CAL // Use gyro calibration

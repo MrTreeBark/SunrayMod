@@ -161,7 +161,8 @@ class Map
     NodeList pathFinderNodes;
     File mapFile;
     int exclusionPointsCount;        
-           
+    
+    bool errorNoPoints;
     bool shouldDock;  // start docking?
     bool shouldRetryDock; // retry docking?
     bool shouldMow;  // start mowing?       

@@ -270,11 +270,12 @@ class WaitOp: public Op {
   public:
     unsigned long waitStartTime = 0;  //MrTree
     unsigned long waitTime = 0;
-    //WaitOp();
     virtual String name() override;
     virtual void begin() override;
     virtual void end() override;
     virtual void run() override;
+    virtual void onImuTilt() override;
+    virtual void onImuError() override;
 };
 
 // escape high lawn (drive backwards without virtual obstace)

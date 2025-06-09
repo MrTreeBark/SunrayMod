@@ -224,18 +224,22 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOVING_TIME                 400   // time (ms) for moving back
 #define SWITCH_OFF_TRACTION_MOTORS  true  // should tractionmotors be disabled in dock?
 //LOG
-#define SUNRAY_OUTPUT               true // output standard Sunray_FW LOG in serial monitor and SDlog
+#define SUNRAY_OUTPUT               false // output standard Sunray_FW LOG in serial monitor and SDlog
 #define OUTPUT_LOOPTIME             false // calc and output the sunray loop time in serial monitor and SDlog
 //DEBUG
-#define DEBUG_OUTPUT                false // set true to have additional outputs and choose DEBUG´s below
-#define DEBUG_OUTPUT_TIME           2000  // (ms) periodic output time of DEBUG_OUTPUT´s
-#define DEBUG_MEMORY                false
-#define DEBUG_TUNING                false // outputs valuable var-states of sunray for debugging tuning functions or just for observation and insights
-#define DEBUG_STATE_ESTIMATOR       false
-#define DEBUG_LINETRACKER           false
-#define DEBUG_MOTORCONTROL          false
-#define DEBUG_MOTOR_CONTROL_TIME    300
-#define DEBUG_BATTERY               false
+#define DEBUG_OUTPUT                true // set true to have additional outputs and choose DEBUG´s below
+#define DEBUG_OUTPUT_TIME           100 // (ms) periodic output time of DEBUG_OUTPUT´s
+//#define DEBUG_TUNING                true // outputs valuable var-states of sunray for debugging tuning functions or just for observation and insights
+    #define DEBUG_MEMORY            false
+    #define DEBUG_ADAPTIVESPEED     false
+    #define DEBUG_SENSE             false
+    #define DEBUG_IMU               true
+    #define DEBUG_STATE_ESTIMATOR   false
+    #define DEBUG_LINETRACKER       false
+    #define DEBUG_MOTORCONTROL      false
+      #define DEBUG_MOTOR_CONTROL_TIME    100
+    #define DEBUG_BATTERY           false
+    #define DEBUG_UBLOX             false // will output unparsed ublox rx messages
 //Modsection END
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 

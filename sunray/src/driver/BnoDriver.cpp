@@ -273,7 +273,7 @@ void BnoDriver::run(){
 
 bool BnoDriver::isDataAvail(){
     if (millis() < nextUpdateTime) return false;
-    nextUpdateTime = millis() + 5;//ROBOT_CONTROL_CYCLE; // 5 Hz
+    nextUpdateTime = millis() + 5;  //ROBOT_CONTROL_CYCLE; // 5 Hz //MrTree millis() + 5 is NOT 5Hz, it is 200Hz!! Dont have hardware to test, so leave standard
     sensors_event_t event; 
     
     selectChip();

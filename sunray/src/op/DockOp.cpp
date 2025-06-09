@@ -70,7 +70,7 @@ void DockOp::begin(){
   if (routingFailed){
     lastMapRoutingFailed = true; 
     mapRoutingFailedCounter++;    
-    if (mapRoutingFailedCounter > 60){
+    if (mapRoutingFailedCounter > 10){ //MrTree changed from 60 to 10
       CONSOLE.println("error: too many routing errors!");
       stateSensor = SENS_MAP_NO_ROUTE;
       changeOp(errorOp);      

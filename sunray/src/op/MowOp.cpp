@@ -73,8 +73,9 @@ void MowOp::begin(){
     if (routingFailed){
         lastMapRoutingFailed = true; 
         mapRoutingFailedCounter++;    
-        if (mapRoutingFailedCounter > 60){
-            CONSOLE.println("error: too many map routing errors!");
+        if (mapRoutingFailedCounter > 10 || maps.errorNoPoints){ //MrTree changed from 60 to 10
+            if (!maps.errorNoPoints) CONSOLE.println("MowOp error: too many map routing errors!");
+            else CONSOLE.println("MowOp error: no Map Points!");
             stateSensor = SENS_MAP_NO_ROUTE;
             Logger.event(EVT_ERROR_NO_MAP_ROUTE_GIVEUP);
             changeOp(errorOp);      

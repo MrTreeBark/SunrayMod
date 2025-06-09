@@ -547,7 +547,7 @@ void Motor::run() {
   motorRightRpmLast = motorRightRpmCurr;
 
   //DEBUG OUTPUT
-  if (DEBUG_MOTORCONTROL) {
+  if (DEBUG_MOTORCONTROL && DEBUG_OUTPUT) {
     if (millis() > nextOutputTime){
       nextOutputTime = millis() + DEBUG_MOTOR_CONTROL_TIME;
       CONSOLE.println("     motor.cpp --------------------------------> ");
