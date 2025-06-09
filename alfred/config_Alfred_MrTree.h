@@ -231,7 +231,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define SUNRAY_OUTPUT               false // output standard Sunray_FW LOG in serial monitor and SDlog
 #define OUTPUT_LOOPTIME             false // calc and output the sunray loop time in serial monitor and SDlog
 //DEBUG
-#define DEBUG_OUTPUT                true // set true to have additional outputs and choose DEBUG´s below
+#define DEBUG_OUTPUT                false // set true to have additional outputs and choose DEBUG´s below
 #define DEBUG_OUTPUT_TIME           100 // (ms) periodic output time of DEBUG_OUTPUT´s
 //#define DEBUG_TUNING                true // outputs valuable var-states of sunray for debugging tuning functions or just for observation and insights
     #define DEBUG_MEMORY            false
