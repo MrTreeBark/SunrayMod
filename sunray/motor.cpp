@@ -557,7 +557,7 @@ void Motor::run() {
       nextOutputTime = millis() + DEBUG_MOTOR_CONTROL_TIME;
       CONSOLE.println("     motor.cpp --------------------------------> ");
       CONSOLE.println(" ");
-      CONSOLE.print("                   PWM (l,r,m) = ");  CONSOLE.print(motorLeftPWMCurr);CONSOLE.print(", ");  CONSOLE.print(motorRightPWMCurr);CONSOLE.print(", ");CONSOLE.println(motorMowPWMCurr);
+      CONSOLE.print("               PWMCurr (l,r,m) = ");  CONSOLE.print(motorLeftPWMCurr);CONSOLE.print(", ");  CONSOLE.print(motorRightPWMCurr);CONSOLE.print(", ");CONSOLE.println(motorMowPWMCurr);
       CONSOLE.print("       motor*PWMCurrLP (l,r,m) = ");CONSOLE.print(motorLeftPWMCurrLP);CONSOLE.print(", ");CONSOLE.print(motorRightPWMCurrLP);CONSOLE.print(", ");CONSOLE.println(motorMowPWMCurrLP);
       CONSOLE.print("         motor*SenseLP (l,r,m) = ");  CONSOLE.print(motorLeftSenseLP);CONSOLE.print(", ");  CONSOLE.print(motorRightSenseLP);CONSOLE.print(", ");CONSOLE.println(motorMowSenseLP);
       CONSOLE.println("     <------------------------------------------ ");
@@ -1020,7 +1020,7 @@ void Motor::sense(){
 
 
 void Motor::control(){  
-  if (USE_MOW_RPM_SET) {
+  
     motorLeftPID.Kp       = MOTOR_PID_KP/50.0*robot_control_cycle;  // 2.0;  //calculate according to different controlcyletimes
     motorLeftPID.Ki       = MOTOR_PID_KI/50.0*robot_control_cycle;  // 0.03; 
     motorLeftPID.Kd       = MOTOR_PID_KD/50.0*robot_control_cycle;  // 0.03;
@@ -1029,10 +1029,10 @@ void Motor::control(){
     motorRightPID.Ki       = MOTOR_PID_KI/50.0*robot_control_cycle;
     motorRightPID.Kd       = MOTOR_PID_KD/50.0*robot_control_cycle; //motorLeftPID.Kd;
     //motorRightPID.reset();
+  if (USE_MOW_RPM_SET) {
     motorMowPID.Kp       = MOWMOTOR_PID_KP/50.0*robot_control_cycle; //MrTree
     motorMowPID.Ki       = MOWMOTOR_PID_KI/50.0*robot_control_cycle; //MrTree
     motorMowPID.Kd       = MOWMOTOR_PID_KD/50.0*robot_control_cycle; //MrTree
-  
     //motorMowPID.reset();     	              //MrTree
   }
   //########################  Calculate PWM for left driving motor ############################
@@ -1077,6 +1077,7 @@ void Motor::control(){
   motorRightPID.max_output = pwmMax;
   motorRightPID.output_ramp = MOTOR_PID_RAMP;
   motorRightPID.compute();
+  //CONSOLE.print("deltaTime ");CONSOLE.print(deltaControlTimeMs);CONSOLE.print("   motorRightRpmSet ");CONSOLE.print(motorRightRpmSet);CONSOLE.print("   motorRightRPMCurr ");CONSOLE.print(motorRightRpmCurr);CONSOLE.print("   motorRightPWMCurr ");CONSOLE.print(motorRightPWMCurr);CONSOLE.print("   motorRightPID.y ");CONSOLE.println(motorRightPID.y);
   motorRightPWMCurr = motorRightPWMCurr + motorRightPID.y;
 
   //if (motorRightRpmSet > 0) motorRightPWMCurr = min( max(0, (int)motorRightPWMCurr), pwmMax);  // 0.. pwmMax //MrTree Bugfix deleted =

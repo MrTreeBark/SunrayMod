@@ -250,7 +250,7 @@ void readIMU(){
     }
     if (fabs(imuDriver.pitch - statePitch) <  20.0/180.0*PI) {
       pitchChange = (imuDriver.pitch - statePitch);
-      //pitchChange = 0.95 * pitchChange;
+      pitchChange = 0.95 * pitchChange;
       statePitch = imuDriver.pitch;
     } else {
         CONSOLE.print("stateEstimator.cpp - IMU: ignore pitchChange, delta val over threshold  (100deg/ite) --> ignored pitchChange: ");

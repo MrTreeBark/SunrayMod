@@ -162,8 +162,8 @@ void processWifiAppServer()
             wifiVerboseStopTime = 0;
           }    
           if (wifiVerboseStopTime != 0){          
-            CONSOLE.print("WIF:");
-            CONSOLE.println(cmd);            
+            //CONSOLE.print("WIF:");
+            //CONSOLE.println(cmd);            
           }
           if (client.connected()) {
             processCmd("WIF",true,true, (wifiVerboseStopTime != 0) );
@@ -177,17 +177,41 @@ void processWifiAppServer()
             client.print("Content-length: ");
             client.print(cmdResponse.length());
             client.print("\r\n\r\n");                        
-            client.print(cmdResponse);                                   
+            client.print(cmdResponse);
+            if (DEBUG_HTTPSERVER) {
+              CONSOLE.print("Content-length: ");
+              CONSOLE.print(cmdResponse.length());
+              CONSOLE.print("\r\n\r\n");                        
+              CONSOLE.println(cmdResponse);
+            }
           }
           break;
         }
-      } 
+      }
+      unsigned long timeCheck = 0;
+
+      if (DEBUG_HTTPSERVER){
+        timeCheck = millis()-httpStartTime;
+        CONSOLE.print("gps run time start | end: ");
+        CONSOLE.print(timeCheck);
+        CONSOLE.print(" | ");
+      }
       gps.run();
+      if (DEBUG_HTTPSERVER){
+        timeCheck = millis()-httpStartTime;
+        CONSOLE.println(timeCheck);
+      }
     }    
     // give the web browser time to receive the data
     stopClientTime = millis() + 100;
     unsigned long httpEndTime = millis();    
     int httpDuration = httpEndTime - httpStartTime;
+    if (DEBUG_HTTPSERVER){
+      CONSOLE.print("HTTP server duration: ");
+      CONSOLE.println(httpDuration);
+      CONSOLE.println(" -------------------------------------------- ");
+    }
+  
     if (httpDuration > 500){
       wifiVerboseStopTime = millis() + 30000;
       CONSOLE.print("HTTP WARN: high server duration: ");

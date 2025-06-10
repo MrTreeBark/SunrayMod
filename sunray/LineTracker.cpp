@@ -149,6 +149,7 @@ void stanleyTracker() {
 }
 
 void linearSpeedState(){
+  bool distRampActive = false;
   const int aLen = 10;                                           //array length of linearSpeed[]
   const String linearSpeedNames[aLen] = {                       //strings for message output accordingly to state
                                     "FLOATSPEED",
@@ -240,6 +241,7 @@ void linearSpeedState(){
   if (DISTANCE_RAMP) {
     if (targetDist < 2 * NEARWAYPOINTDISTANCE || lastTargetDist < 2 * NEARWAYPOINTDISTANCE) { //start computing before reaching point distance (maybe not neccessary)
       linear = distanceRamp(linear);
+      distRampActive = true;
     }
   }
   
@@ -274,9 +276,32 @@ void linearSpeedState(){
       angular = 0;
   }
 
-  chosenIndexl = chosenIndex;
 
   if (maps.trackReverse) linear *= -1;   // reverse line tracking needs negative speed
+
+  if (DEBUG_SPEEDS) {
+    CONSOLE.println("SPEED DEBUG START  --------------------------->");
+    CONSOLE.println("");
+    CONSOLE.println("                        def|  |state");
+      CONSOLE.print("             FLOATSPEED: ");CONSOLE.print(linearSpeed[0]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[0]);
+      CONSOLE.print("      NEARWAYPOINTSPEED: ");CONSOLE.print(linearSpeed[1]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[1]);
+      CONSOLE.print("             SONARSPEED: ");CONSOLE.print(linearSpeed[2]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[2]);
+      CONSOLE.print("          OVERLOADSPEED: ");CONSOLE.print(linearSpeed[3]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[3]);
+      CONSOLE.print("          KEEPSLOWSPEED: ");CONSOLE.print(linearSpeed[4]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[4]);
+      CONSOLE.print("         RETRYSLOWSPEED: ");CONSOLE.print(linearSpeed[5]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[5]);
+      CONSOLE.print("         TRACKSLOWSPEED: ");CONSOLE.print(linearSpeed[6]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[6]);
+      CONSOLE.print(" DOCK_NO_ROTATION_SPEED: ");CONSOLE.print(linearSpeed[7]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[7]);
+      CONSOLE.print("          DOCKPATHSPEED: ");CONSOLE.print(linearSpeed[8]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[8]);
+      CONSOLE.print("              DOCKSPEED: ");CONSOLE.print(linearSpeed[9]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[9]);
+      CONSOLE.println("");
+      CONSOLE.print("              used last: ");CONSOLE.println(linearSpeedNames[chosenIndexl]);
+      CONSOLE.print("                   USED: ");CONSOLE.print(linearSpeedNames[chosenIndex]);CONSOLE.print("  -  linear in linetracker: ");CONSOLE.println(linear);
+      CONSOLE.print("    DistanceRampActive?: ");CONSOLE.println(distRampActive);
+      CONSOLE.println("");
+    CONSOLE.println("SPEED DEBUG END    <---------------------------");
+  }
+
+  chosenIndexl = chosenIndex;
 }
 
 float distanceRamp(float linear){

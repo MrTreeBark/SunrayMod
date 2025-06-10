@@ -869,7 +869,7 @@ long UBLOX::unpack(int offset, int size) {
 void UBLOX::run()
 {
   if (millis() > solutionTimeout){
-    //CONSOLE.println("UBLOX::solutionTimeout");
+    CONSOLE.println("UBLOX::solutionTimeout");
     solution = SOL_INVALID;
     solutionTimeout = millis() + 3000;
     solutionAvail = true;

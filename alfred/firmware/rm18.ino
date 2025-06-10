@@ -260,8 +260,11 @@ void cmdAnswer(String s){
   cmdResponse = s;
 }
 
-void OdometryMowISR(){			
-  if (digitalRead(pinMotorMowImp) == LOW) return;
+void OdometryMowISR(){
+  odomTicksMow++; 
+    asm("dsb");
+  
+ /*  if (digitalRead(pinMotorMowImp) == LOW) return;
   if (millis() < motorMowTicksTimeout) return; // eliminate spikes  
   #ifdef SUPER_SPIKE_ELIMINATOR
     unsigned long duration = millis() - motorMowTransitionTime;
@@ -272,11 +275,13 @@ void OdometryMowISR(){
   #else
     motorMowTicksTimeout = millis() + 3;
   #endif
-  odomTicksMow++;
+  odomTicksMow++; */
 }
 
-void OdometryLeftISR(){			  
-  if (digitalRead(pinMotorLeftImp) == LOW) return;
+void OdometryLeftISR(){
+  odomTicksLeft++; 
+    asm("dsb");			  
+  /* if (digitalRead(pinMotorLeftImp) == LOW) return;
   if (millis() < motorLeftTicksTimeout) return; // eliminate spikes  
   #ifdef SUPER_SPIKE_ELIMINATOR
     unsigned long duration = millis() - motorLeftTransitionTime;
@@ -287,11 +292,13 @@ void OdometryLeftISR(){
   #else
     motorLeftTicksTimeout = millis() + 3;
   #endif
-  odomTicksLeft++;    
+  odomTicksLeft++;     */
 }
 
-void OdometryRightISR(){			
-  if (digitalRead(pinMotorRightImp) == LOW) return;  
+void OdometryRightISR(){
+  odomTicksRight++; 
+    asm("dsb");			
+ /*  if (digitalRead(pinMotorRightImp) == LOW) return;  
   if (millis() < motorRightTicksTimeout) return; // eliminate spikes
   #ifdef SUPER_SPIKE_ELIMINATOR
     unsigned long duration = millis() - motorRightTransitionTime;
@@ -302,7 +309,7 @@ void OdometryRightISR(){
   #else
     motorRightTicksTimeout = millis() + 3;
   #endif
-  odomTicksRight++;        
+  odomTicksRight++;  */       
   
   #ifdef TEST_PIN_ODOMETRY
     testValue = !testValue;
