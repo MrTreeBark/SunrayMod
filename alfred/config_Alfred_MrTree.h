@@ -91,6 +91,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //Modsection START
 //please keep in mind that there are bugs, but if you encounter bugs that stop the operation of mower on an area completely please tell me about it...
+//personal: one can only learn from alfred, when it should work but it doesnt... there still is a way. we just have to search for it.
+
 #define ROBOT_CONTROL_CYCLE         20    // (ms) cycle time when mowing
 #define ROBOT_IDLE_CYCLE            20    // (ms) cycletime when charging
 //Experimental Modfunctions/Options/Speeds/Time etc. for different stuff and movement operations. Please read the descriptions. Cheers.
