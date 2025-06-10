@@ -150,6 +150,8 @@ void stanleyTracker() {
 
 void linearSpeedState(){
   bool distRampActive = false;
+  unsigned int chosenIndexlDebugOutput = 0;
+  bool allFalse = false;
   const int aLen = 10;                                           //array length of linearSpeed[]
   const String linearSpeedNames[aLen] = {                       //strings for message output accordingly to state
                                     "FLOATSPEED",
@@ -211,6 +213,7 @@ void linearSpeedState(){
   linearBool[7] = (dockTimer || unDockTimer);                                                           // [7] DOCK_NO_ROTATION_SPEED
   linearBool[8] = (maps.isAtDockPath());                                                                // [8] DOCKPATHSPEED
   linearBool[9] = (maps.isGoingToDockPath());                                                           // [8] DOCKSPEED
+  
   //disable near way point speed if we use the distance ramp
   if (DISTANCE_RAMP) linearBool[1] = false;
 
@@ -221,6 +224,8 @@ void linearSpeedState(){
         linear = linearSpeed[speedIndex];
         chosenIndex = speedIndex;
       }
+    } else {
+      allFalse = true;
     }
   }
 
@@ -235,6 +240,7 @@ void linearSpeedState(){
     CONSOLE.print(" = ");
     CONSOLE.print(linearSpeed[chosenIndex]);
     CONSOLE.println(" m/s");
+    chosenIndexlDebugOutput = chosenIndex;
   }
 
   //consider the distance ramp wih the chosen speed if we are approaching or leaving a waypoint
@@ -242,9 +248,15 @@ void linearSpeedState(){
     if (targetDist < 2 * NEARWAYPOINTDISTANCE || lastTargetDist < 2 * NEARWAYPOINTDISTANCE) { //start computing before reaching point distance (maybe not neccessary)
       linear = distanceRamp(linear);
       distRampActive = true;
+    } else {
+      distRampActive = false;
     }
   }
   
+  // if there is no active slowdown from setSpeed, we will have setSpeed as goal
+  
+
+
   if (stateLocalizationMode == LOC_APRIL_TAG){
     if (!stateAprilTagFound){
       linear = 0; // wait until april-tag found 
@@ -282,7 +294,8 @@ void linearSpeedState(){
   if (DEBUG_SPEEDS) {
     CONSOLE.println("SPEED DEBUG START  --------------------------->");
     CONSOLE.println("");
-    CONSOLE.println("                        def|  |state");
+    CONSOLE.println("                          def  |  state");
+      CONSOLE.print("               SETSPEED: ");CONSOLE.print(setSpeed);            CONSOLE.print("  -  ");      CONSOLE.println(allFalse);
       CONSOLE.print("             FLOATSPEED: ");CONSOLE.print(linearSpeed[0]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[0]);
       CONSOLE.print("      NEARWAYPOINTSPEED: ");CONSOLE.print(linearSpeed[1]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[1]);
       CONSOLE.print("             SONARSPEED: ");CONSOLE.print(linearSpeed[2]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[2]);
@@ -294,9 +307,14 @@ void linearSpeedState(){
       CONSOLE.print("          DOCKPATHSPEED: ");CONSOLE.print(linearSpeed[8]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[8]);
       CONSOLE.print("              DOCKSPEED: ");CONSOLE.print(linearSpeed[9]);      CONSOLE.print("  -  ");      CONSOLE.println(linearBool[9]);
       CONSOLE.println("");
-      CONSOLE.print("              used last: ");CONSOLE.println(linearSpeedNames[chosenIndexl]);
-      CONSOLE.print("                   USED: ");CONSOLE.print(linearSpeedNames[chosenIndex]);CONSOLE.print("  -  linear in linetracker: ");CONSOLE.println(linear);
+      CONSOLE.print("      speedstate BEFORE: ");CONSOLE.println(linearSpeedNames[chosenIndexlDebugOutput]);
+      if (!allFalse) {
+      CONSOLE.print("               USED NOW: ");CONSOLE.print(linearSpeedNames[chosenIndex]);CONSOLE.print("  -  linear in linetracker: ");CONSOLE.println(linear);
+      } else { 
+      CONSOLE.print("               USED NOW: ");CONSOLE.print("SETSPEED");CONSOLE.print("  -  linear in linetracker: ");CONSOLE.println(linear);
+      }
       CONSOLE.print("    DistanceRampActive?: ");CONSOLE.println(distRampActive);
+      CONSOLE.print("       setSpeed active?: ");CONSOLE.println(allFalse);
       CONSOLE.println("");
     CONSOLE.println("SPEED DEBUG END    <---------------------------");
   }
