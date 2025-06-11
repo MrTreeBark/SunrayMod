@@ -309,7 +309,7 @@ void linearSpeedState(){
       CONSOLE.println("");
       CONSOLE.print("      speedstate BEFORE: ");CONSOLE.println(linearSpeedNames[chosenIndexlDebugOutput]);
       if (!allFalse) {
-      CONSOLE.print("               USED NOW: ");CONSOLE.print(linearSpeedNames[chosenIndex]);CONSOLE.print("  -  linear in linetracker: ");CONSOLE.println(linear);
+      CONSOLE.print("               USED NOW: ");CONSOLE.print(linearSpeedNames[chosenIndexl]);CONSOLE.print("  -  linear in linetracker: ");CONSOLE.println(linear);
       } else { 
       CONSOLE.print("               USED NOW: ");CONSOLE.print("SETSPEED");CONSOLE.print("  -  linear in linetracker: ");CONSOLE.println(linear);
       }
