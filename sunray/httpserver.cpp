@@ -127,9 +127,9 @@ void processWifiAppServer()
     //CONSOLE.print("millis > hodortimeout  ");CONSOLE.print(millis());CONSOLE.print(" > ");CONSOLE.println(hOdOrTimeOut);
     if (millis() > hOdOrTimeOut){
       hOdOr = false;
-      CONSOLE.println("INFO: HODOR has fallen, but he´ll rise agaaain (if he must)! Hodor: hodorhodor");
+      CONSOLE.println("INFO: HODOR has fallen, but he´ll rise agaaain (if he must)! Hodor: HoodoorHooodor!!!");
     }
-    CONSOLE.println("INFO: Hodor: Hodorhodor!!!!");
+    if (DEBUG_HTTPSERVER) CONSOLE.println("INFO: Hodor: Hodorhodor!!!!");
     return; //HooodooorHoooooodoooooor
   }
 
@@ -211,8 +211,8 @@ void processWifiAppServer()
 
         if (buf.endsWith("\r\n\r\n")) {
           cmd = "";
-          CONSOLE.print("Buffer input: "); CONSOLE.println(buffer);
-          CONSOLE.print("Client read data startTime: "); CONSOLE.println(millis()-httpStartTime);
+          if (DEBUG_HTTPSERVER) CONSOLE.print("Buffer input: "); CONSOLE.println(buffer);
+          if (DEBUG_HTTPSERVER) CONSOLE.print("Client read data startTime: "); CONSOLE.println(millis()-httpStartTime);
           
           while (client.connected() && client.available() && !hOdOr) {
             //checkTimeViolation(httpStartTime, maxDuration, 6);
@@ -233,8 +233,8 @@ void processWifiAppServer()
 
           if (hOdOr) break;
           
-          CONSOLE.print("Client read data endTime: "); CONSOLE.println(millis()-httpStartTime);
-          CONSOLE.print("Client cmd data: ");CONSOLE.println(cmd);
+          if (DEBUG_HTTPSERVER) CONSOLE.print("Client read data endTime: "); CONSOLE.println(millis()-httpStartTime);
+          if (DEBUG_HTTPSERVER) CONSOLE.print("Client cmd data: ");CONSOLE.println(cmd);
 
           if (millis() > wifiVerboseStopTime){
             wifiVerboseStopTime = 0;
@@ -245,7 +245,7 @@ void processWifiAppServer()
           }
           if (client.connected()) {
             //checkTimeViolation(httpStartTime, maxDuration, 9);
-            CONSOLE.print("Client process cmd startTime: "); CONSOLE.println(millis()-httpStartTime);
+            if (DEBUG_HTTPSERVER) CONSOLE.print("Client process cmd startTime: "); CONSOLE.println(millis()-httpStartTime);
             processCmd("WIF",true,true, (wifiVerboseStopTime != 0));
             //checkTimeViolation(httpStartTime, maxDuration, 10);
 
@@ -263,7 +263,7 @@ void processWifiAppServer()
             client.print("\r\n\r\n");                      // <-- this is the [1b blob data]  
             client.print(cmdResponse);
             //checkTimeViolation(httpStartTime, maxDuration, 13);
-            CONSOLE.print("Client process cmd endTime: "); CONSOLE.println(millis()-httpStartTime);
+            if (DEBUG_HTTPSERVER) CONSOLE.print("Client process cmd endTime: "); CONSOLE.println(millis()-httpStartTime);
 
             if (DEBUG_HTTPSERVER) {
               CONSOLE.print("Content-length: ");
