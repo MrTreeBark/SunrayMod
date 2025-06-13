@@ -3,8 +3,9 @@
 
 #include <Arduino.h>
 
+
 void processWifiRelayClient();
 void processWifiAppServer();
-
+bool checkTimeViolation(unsigned long, unsigned long, unsigned short);
 
 #endif

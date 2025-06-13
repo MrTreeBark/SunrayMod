@@ -264,8 +264,11 @@ void Motor::setLinearAngularSpeed(float linear, float angular, bool useLinearRam
 
   if (activateLinearSpeedRamp && useLinearRamp && speedChange ){                              //this is a speed ramp for changes in speed during operation, to smooth transitions a little bit. needs to be quick
     //linearSpeedSet = 0.82 * linearSpeedSet + 0.18 * linear;
-    if (linearCurrSet > linearSpeedSet) linear = linearSpeedSet + 0.10/deltaControlTimeMs;         //cm/s² acc ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges
-    if (linearCurrSet < linearSpeedSet) linear = linearSpeedSet - 0.20/deltaControlTimeMs;        //cm/s² dec ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges                
+    //if (linearCurrSet > linearSpeedSet) linear = linearSpeedSet + 0.10/deltaControlTimeMs;         //cm/s² acc ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges
+    //if (linearCurrSet < linearSpeedSet) linear = linearSpeedSet - 0.20/deltaControlTimeMs;        //cm/s² dec ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges                
+    if (linearCurrSet > linearSpeedSet) linear = linearSpeedSet + 0.10*deltaControlTimeMs/100;         //cm/s² acc ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges
+    if (linearCurrSet < linearSpeedSet) linear = linearSpeedSet - 0.20*deltaControlTimeMs/100;        //cm/s² dec ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges              
+
 
     //we want to cut the ramp if linear is zero to improve pointprecision
     if (linearCurrSet == 0 && fabs(linear) < 2 * MOTOR_MIN_SPEED) linear = 0;
@@ -515,12 +518,12 @@ void Motor::run() {
   motorRightTicks += ticksRight;
   motorMowTicks += ticksMow;
   
-  lp005 = 1 - 0.05*deltaControlTimeSec;
-  lp01 = 1 - 0.1*deltaControlTimeSec; //Very Very slow
-  lp1 = 1 - 1*deltaControlTimeSec; //slow 1 - 0.02 = 0.98
-  lp2 = 1 - 2*deltaControlTimeSec; //medium
-  lp3 = 1 - 3*deltaControlTimeSec; //semi fast
-  lp4 = 1 - 4*deltaControlTimeSec; //fast
+  lp005 = 0.995; //1 - 0.05*deltaControlTimeSec;
+  lp01 = 0.99;   //1 - 0.1*deltaControlTimeSec; //Very Very slow
+  lp1 = 0.9;     //1 - 1*deltaControlTimeSec; //slow 1 - 0.02 = 0.98
+  lp2 = 0.8;     //1 - 2*deltaControlTimeSec; //medium
+  lp3 = 0.7;     //1 - 3*deltaControlTimeSec; //semi fast
+  lp4 = 0.6;     //1 - 4*deltaControlTimeSec; //fast
 
   // calculate speed via tick count
   // 2000 ticksPerRevolution: @ 30 rpm  => 0.5 rps => 1000 ticksPerSec

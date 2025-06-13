@@ -19,6 +19,13 @@
 #include "RingBuffer.h"
 #include "timetable.h"
 
+// Debug
+bool timeViolation = false;
+unsigned long checkTime = 0;
+
+// Hodor
+bool hOdOr = false;
+unsigned long hOdOrTimeOut = 0;
 
 // wifi client
 WiFiEspClient wifiClient;
@@ -106,8 +113,26 @@ void processWifiRelayClient(){
 // client (app) --->  server (robot)
 void processWifiAppServer()
 {
+  
   if (!wifiFound) return;
   if (!ENABLE_SERVER) return;
+
+  if (hOdOr) {
+    /* if (client){// && stateOp == OP_MOW){     //DO not ring my bell end leave me alone XD, FIDEL is busy. Fidel: Leave me Alone, I´m busy.
+    CONSOLE.println("INFO: The Knocking and Pushing on the Door stopped.. for know, Run Hobbit... RUN! Hodor: Hodor?!");
+    //stopClientTime = 0;
+    //client.stop();
+    hOdOrTimeOut = millis() + 100;
+    } */
+    //CONSOLE.print("millis > hodortimeout  ");CONSOLE.print(millis());CONSOLE.print(" > ");CONSOLE.println(hOdOrTimeOut);
+    if (millis() > hOdOrTimeOut){
+      hOdOr = false;
+      CONSOLE.println("INFO: HODOR has fallen, but he´ll rise agaaain (if he must)! Hodor: hodorhodor");
+    }
+    CONSOLE.println("INFO: Hodor: Hodorhodor!!!!");
+    return; //HooodooorHoooooodoooooor
+  }
+
   if (wifiLastClientAvailableWait != 0){
     if (millis() < wifiLastClientAvailableWait) return;
     wifiLastClientAvailableWait = 0;
@@ -134,30 +159,83 @@ void processWifiAppServer()
     #ifdef VERBOSE
       CONSOLE.println("New client");             // print a message out the serial port
     #endif
-    battery.resetIdle();
+    //battery.resetIdle();
     buf.init();                               // initialize the circular buffer  
     if (client.available() != wifiLastClientAvailable) {
       wifiLastClientAvailable = client.available();
-      wifiLastClientAvailableWait = millis() + 50;
+      wifiLastClientAvailableWait = millis() + 100;
       return;
     }
-    unsigned long timeout = millis() + 50;
-    unsigned long httpStartTime = millis(); 
-    while ( (client.connected()) && (millis() < timeout) ) {              // loop while the client's connected
+    unsigned long httpStartTime = millis();
+    
+
+    // The initial Cassandra connection to rover seems to take more than 1 seconds periodically. Unneccessary Data is transmitted from the client, it seems?
+    // Then, on an unstable connection, Cassandra tries to reconnect every second or so to the rover spamming Data bytes without finishing and keeping the while loops busy for constant 1 second.
+    // This second seems to be Cassandras Timeout?, but it will start again soon after -- THUS BLOCKING THE ROVER, ESPECIALLY LOW PERFORMANCE HARDWARE LIKE ALFRED`S BANANAPI.
+    // The BananaPi will then loose its serial connection, doing CRC Errors and drops of data, sensors and the serialdriver. Mowmotor will be shut down, Rover might jerk, stop or act drunken.
+
+    if (stateOp == OP_MOW) {
+      hOdOrTimeOut = millis() + 50;                                  // Hodor is going to watch out for Orks and hold the door if he must!!
+    } else hOdOrTimeOut = millis() + 1000;                                           // HODOR being gentle and patient
+    
+    String buffer = "";
+    hOdOr = false;
+    const unsigned long maxDuration = 50;
+    
+    while (client.connected()) {                              // loop while the client's connected
+      //checkTimeViolation(httpStartTime, maxDuration, 1);
+      
+      if (millis() > hOdOrTimeOut){                  // Hodor is going to watch out for Orks and hold the door if he must!!
+        hOdOr = true; //XD
+        //hOdOrTimeOut = millis() + 5000;                            // Hodor will hold the door for 3 seconds XD
+        CONSOLE.println("INFO: HODOR is going to hold the door to save your life!");
+        //CONSOLE.print("INFO: act remaining HodorTimeOut: "); CONSOLE.println(millis() - hOdOrTimeOut);
+        break;
+      }
+
       if (client.available()) {               // if there's bytes to read from the client,        
+        //checkTimeViolation(httpStartTime, maxDuration, 2);
+                
         char c = client.read();               // read a byte, then
-        timeout = millis() + 50;
+        //checkTimeViolation(httpStartTime, maxDuration, 3);
+        if (stateOp != OP_MOW) hOdOrTimeOut = millis() + 100;
+        
         buf.push(c);                          // push it to the ring buffer
+        //checkTimeViolation(httpStartTime, maxDuration, 4);
         // you got two newline characters in a row
         // that's the end of the HTTP request, so send a response
+        
+        buffer = buffer + c;
+        //checkTimeViolation(httpStartTime, maxDuration, 5);
+        //CONSOLE.print("Buffer input: "); CONSOLE.println(buffer);
+
         if (buf.endsWith("\r\n\r\n")) {
           cmd = "";
-          while ((client.connected()) && (client.available()) && (millis() < timeout)) {
+          CONSOLE.print("Buffer input: "); CONSOLE.println(buffer);
+          CONSOLE.print("Client read data startTime: "); CONSOLE.println(millis()-httpStartTime);
+          
+          while (client.connected() && client.available() && !hOdOr) {
+            //checkTimeViolation(httpStartTime, maxDuration, 6);
+            if (millis() > hOdOrTimeOut){
+              hOdOr = true; //XD
+              //hOdOrTimeOut = millis() + 5000;                            // Hodor will hold the door for 3 seconds XD
+              CONSOLE.println("INFO: HODOR is holding the door to safe your life again!");
+              //CONSOLE.print("INFO: act HodorTimeOut: "); CONSOLE.println(millis() - hOdOrTimeOut);
+              break;
+            }
             char ch = client.read();
-            timeout = millis() + 50;
+            //checkTimeViolation(httpStartTime, maxDuration, 7);
+            if (stateOp != OP_MOW) hOdOrTimeOut = millis() + 100;
+
             cmd = cmd + ch;
-            gps.run();
+            //checkTimeViolation(httpStartTime, maxDuration, 8);
           }
+
+          if (hOdOr) break;
+          
+          CONSOLE.print("Client read data endTime: "); CONSOLE.println(millis()-httpStartTime);
+          CONSOLE.print("Client cmd data: ");CONSOLE.println(cmd);
+
           if (millis() > wifiVerboseStopTime){
             wifiVerboseStopTime = 0;
           }    
@@ -166,7 +244,11 @@ void processWifiAppServer()
             //CONSOLE.println(cmd);            
           }
           if (client.connected()) {
-            processCmd("WIF",true,true, (wifiVerboseStopTime != 0) );
+            //checkTimeViolation(httpStartTime, maxDuration, 9);
+            CONSOLE.print("Client process cmd startTime: "); CONSOLE.println(millis()-httpStartTime);
+            processCmd("WIF",true,true, (wifiVerboseStopTime != 0));
+            //checkTimeViolation(httpStartTime, maxDuration, 10);
+
             client.print(
               "HTTP/1.1 200 OK\r\n"
               "Access-Control-Allow-Origin: *\r\n"              
@@ -174,39 +256,49 @@ void processWifiAppServer()
               "Connection: close\r\n"  // the connection will be closed after completion of the response
               // "Refresh: 1\r\n"        // refresh the page automatically every 20 sec                        
               );
+            //checkTimeViolation(httpStartTime, maxDuration, 11);
             client.print("Content-length: ");
             client.print(cmdResponse.length());
-            client.print("\r\n\r\n");                        
+            //checkTimeViolation(httpStartTime, maxDuration, 12);
+            client.print("\r\n\r\n");                      // <-- this is the [1b blob data]  
             client.print(cmdResponse);
+            //checkTimeViolation(httpStartTime, maxDuration, 13);
+            CONSOLE.print("Client process cmd endTime: "); CONSOLE.println(millis()-httpStartTime);
+
             if (DEBUG_HTTPSERVER) {
               CONSOLE.print("Content-length: ");
-              CONSOLE.print(cmdResponse.length());
-              CONSOLE.print("\r\n\r\n");                        
+              CONSOLE.println(cmdResponse.length());
+              CONSOLE.print("Content: ");
+              CONSOLE.print("\r\n\r\n");                    // <-- this is the [1b blob data]    
               CONSOLE.println(cmdResponse);
             }
           }
+
+          //if (hOdOr){
+          //  hOdOrTimeOut = millis() + 5000;
+          //}
+
           break;
         }
       }
-      unsigned long timeCheck = 0;
-
-      if (DEBUG_HTTPSERVER){
-        timeCheck = millis()-httpStartTime;
-        CONSOLE.print("gps run time start | end: ");
-        CONSOLE.print(timeCheck);
-        CONSOLE.print(" | ");
+      //Stop waiting
+      if (hOdOr) {
+        client.stop();
+        client.setTimeout(25);
+        hOdOrTimeOut = millis() + 100;
+        break;
       }
-      gps.run();
-      if (DEBUG_HTTPSERVER){
-        timeCheck = millis()-httpStartTime;
-        CONSOLE.println(timeCheck);
-      }
-    }    
+    }
+    
     // give the web browser time to receive the data
     stopClientTime = millis() + 100;
     unsigned long httpEndTime = millis();    
     int httpDuration = httpEndTime - httpStartTime;
+    
     if (DEBUG_HTTPSERVER){
+
+      CONSOLE.print("HODOR: "); CONSOLE.println(hOdOr);
+      CONSOLE.print("CLIENT: "); CONSOLE.println(client.connected());
       CONSOLE.print("HTTP server duration: ");
       CONSOLE.println(httpDuration);
       CONSOLE.println(" -------------------------------------------- ");
@@ -217,6 +309,8 @@ void processWifiAppServer()
       CONSOLE.print("HTTP WARN: high server duration: ");
       CONSOLE.println(httpDuration);
     }
+
+    //gps.run(); //only run at end once?
     //delay(10);
     // close the connection
     //client.stop();
@@ -225,3 +319,16 @@ void processWifiAppServer()
 }
 
 
+bool checkTimeViolation(unsigned long startTime, unsigned long maxTime, unsigned short breakPoint) {
+  checkTime = millis() - startTime;
+  if (checkTime > maxTime) {
+    CONSOLE.print(" checkTimeViolation: maxTime violated! breakpoint: ");
+    CONSOLE.print(breakPoint);
+    CONSOLE.print("    duration: ");
+    CONSOLE.print(checkTime);
+    CONSOLE.print("    maxTime: ");
+    CONSOLE.println(maxTime);
+    return true;
+  }
+  return false;
+}

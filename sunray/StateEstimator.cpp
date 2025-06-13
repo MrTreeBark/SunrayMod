@@ -242,7 +242,7 @@ void readIMU(){
   #ifdef ENABLE_TILT_DETECTION    //this needs to be adapted to cycletime
     if (fabs(imuDriver.roll - stateRoll) <  20.0/180.0*PI) {
       rollChange = (imuDriver.roll - stateRoll); 
-      //rollChange = 0.95 * rollChange;
+      rollChange = 0.95 * rollChange;
       stateRoll = imuDriver.roll;
     } else {
         CONSOLE.print("stateEstimator.cpp - IMU: ignore rollChange, delta val over threshold  (100deg/ite) --> ignored rollChange: ");
@@ -262,6 +262,11 @@ void readIMU(){
     if ( (fabs(scalePI(stateRoll)) > 45.0/180.0*PI) || (fabs(scalePI(statePitch)) > 45.0/180.0*PI)
           || (fabs(rollChange) > 20.0/180.0*PI) || (fabs(pitchChange) > 20.0/180.0*PI)   )  { //does´nt work like this, vals are much smaller
       dumpImuTilt();
+      CONSOLE.println("Statestimator change activeOP -> onImuTilt");
+        CONSOLE.print("      stateRoll:  "); CONSOLE.print(fabs(scalePI(stateRoll))/PI*180); CONSOLE.print("      >  "); CONSOLE.println("45");  
+        CONSOLE.print("     rollChange:  "); CONSOLE.print(fabs(rollChange)/PI*180);         CONSOLE.print("      >  "); CONSOLE.println("20"); 
+        CONSOLE.print("     statePitch:  "); CONSOLE.print(fabs(scalePI(statePitch))/PI*180);CONSOLE.print("      >  "); CONSOLE.println("45");
+        CONSOLE.print("    pitchChange:  "); CONSOLE.print(fabs(pitchChange)/PI*180);        CONSOLE.print("      >  "); CONSOLE.println("20"); 
       activeOp->onImuTilt();
     }           
     #endif

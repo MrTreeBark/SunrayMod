@@ -233,7 +233,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define SUNRAY_OUTPUT               false // output standard Sunray_FW LOG in serial monitor and SDlog
 #define OUTPUT_LOOPTIME             false // calc and output the sunray loop time in serial monitor and SDlog
 //DEBUG
-#define DEBUG_OUTPUT                true // set true to have additional outputs and choose DEBUG´s below
+#define DEBUG_OUTPUT                false // set true to have additional outputs and choose DEBUG´s below
 #define DEBUG_OUTPUT_TIME           2000 // (ms) periodic output time of DEBUG_OUTPUT´s, change to iterationwise if needed (0)
 //#define DEBUG_TUNING                true // outputs valuable var-states of sunray for debugging tuning functions or just for observation and insights
     #define DEBUG_MEMORY            false
@@ -242,7 +242,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
     #define DEBUG_IMU               false
     #define DEBUG_STATE_ESTIMATOR   false
     #define DEBUG_LINETRACKER       false
-    #define DEBUG_SPEEDS            true
+    #define DEBUG_SPEEDS            false
     #define DEBUG_MOTORCONTROL      false
       #define DEBUG_MOTOR_CONTROL_TIME    100
     #define DEBUG_BATTERY           false
@@ -388,8 +388,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 
 #define START_AP  false             // should WIFI module start its own access point? 
 #define WIFI_IP   192,168,2,15      // choose IP e.g. 192,168,4,1  (comment out for dynamic IP/DHCP) - NOTE: use commans instead of points
-#define WIFI_SSID "myssid"            // choose WiFi network ID
-#define WIFI_PASS "mypassword"      // choose WiFi network password
+#define WIFI_SSID "WTZW2G"            // choose WiFi network ID
+#define WIFI_PASS "23041985"      // choose WiFi network password
 
 // client (app) --->  server (robot)
 #define ENABLE_SERVER true          // must be enabled if robot should act as server (recommended)
@@ -403,8 +403,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define RELAY_HOST "grauonline.net"   // relay server name
 #define RELAY_PORT 5000               // relay server port 
 
-//#define ENABLE_UDP 1                // enable console for UDP? (for developers only)
-#define UDP_SERVER_IP   192,168,178,10     // remote UDP IP and port to connect to
+#define ENABLE_UDP 1                // enable console for UDP? (for developers only)
+#define UDP_SERVER_IP   192,168,178,24     // remote UDP IP and port to connect to
 #define UDP_SERVER_PORT 4210
 
 // --------- NTRIP client (linux only, highly experimental) ---------------------------------
