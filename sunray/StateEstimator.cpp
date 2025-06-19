@@ -74,14 +74,14 @@ const unsigned short bufLen = ROBOT_CONTROL_CYCLE/2;  //seems to be excactly the
 float ringBuffer[bufLen] = {0};
 unsigned short bufInd = 0;
 
-LowPassFilter imuLpfRoll(0.05);
-LowPassFilter imuLpfPitch(0.05);
-LowPassFilter imuLpfYaw(0.05);
-LowPassFilter imuLpfRollChange(0.05);
-LowPassFilter imuLpfPitchChange(0.05);
-LowPassFilter imuLpfYawChange(0.05);
-LowPassFilter imuLpfStateDeltaSpeed(0.15);
-LowPassFilter wheelsLpfDeltaSpeed(0.15);
+LowPassFilter imuLpfRoll(0.01);
+LowPassFilter imuLpfPitch(0.01);
+LowPassFilter imuLpfYaw(0.01);
+LowPassFilter imuLpfRollChange(0.01);
+LowPassFilter imuLpfPitchChange(0.01);
+LowPassFilter imuLpfYawChange(0.01);
+LowPassFilter imuLpfStateDeltaSpeed(0.01);
+LowPassFilter wheelsLpfDeltaSpeed(0.05);
 LowPassFilter stateLpfDeltaSpeed(0.1);
 
 /* LowPassFilter imuLpRoll(0.9);
@@ -305,10 +305,11 @@ void readIMU(){
   
   //piscale values
   imuRawYaw_sc = scalePI(imuRawYaw);
-  //imuRawYawLast_sc = scalePI(imuRawYawLast);
+  imuRawYawLast_sc = scalePI(imuRawYawLast);
   imuRawYawLast_sc = scalePIangles(imuRawYawLast_sc, imuRawYaw_sc);
-  //stateDeltaIMU = -distancePI(imuRawYaw_sc, imuRawYawLast_sc);
-  stateDeltaIMU = -scalePI ( distancePI(imuDriver.yaw, lastIMUYaw) );
+  stateDeltaIMU = -scalePI(distancePI(imuRawYaw_sc, imuRawYawLast_sc));
+  imuRawYawLast = imuRawYaw;
+
   //remember for change calculations
   imuRawRollLast = imuRawRoll;
   imuRawYawLast = imuRawYaw;
@@ -319,17 +320,16 @@ void readIMU(){
   imuLpPitch = imuLpPitch;
   
   imuRawYawLast_sc = imuRawYaw_sc;
-
+  
   //give vars to globals (FIXME)
 
   motor.robotPitch = scalePI(imuLpPitch);   //give motor the pitch
   
-/*   imuDriver.yaw = scalePI(imuDriver.yaw);   // ??? overwrite raw imu yaw so piscale ???
-  //CONSOLE.println(imuDriver.yaw / PI * 180.0);  
-  lastIMUYaw = scalePI(lastIMUYaw);         //this makes no sense with next line, what will happen???
-  lastIMUYaw = scalePIangles(lastIMUYaw, imuDriver.yaw);  //what is the value now??
-  stateDeltaIMU = -scalePI ( distancePI(imuDriver.yaw, lastIMUYaw) );  //maybe it makes sense?
-  lastIMUYaw = imuDriver.yaw;      //now its back to scaled version from second line? */
+/*imuDriver.yaw = scalePI(imuDriver.yaw);   
+  lastIMUYaw = scalePI(lastIMUYaw);        
+  lastIMUYaw = scalePIangles(lastIMUYaw, imuDriver.yaw); 
+  stateDeltaIMU = -scalePI ( distancePI(imuDriver.yaw, lastIMUYaw) );  
+  lastIMUYaw = imuDriver.yaw;       */
   imuDataTimeout = millis() + 10000;  
 
   #ifdef ENABLE_TILT_DETECTION    // this needs to be adapted to cycletime
