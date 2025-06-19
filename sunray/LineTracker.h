@@ -24,7 +24,8 @@ extern bool allowDockRotation;   // MrTree: disable rot of mower to last dock po
 extern float targetDist;  //MrTree
 extern float lastTargetDist;//MrTree
 
-void trackLine(bool runControl);  
+void trackLine(bool runControl);
+float turnInPlaceControl(float angularIn);  
 float distanceRamp(float linear); //MrTree
 void speedState();
 void stanleyTracker();

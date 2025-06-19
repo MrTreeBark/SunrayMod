@@ -118,12 +118,13 @@ void processWifiAppServer()
   if (!ENABLE_SERVER) return;
 
   if (hOdOr) {
-    /* if (client){// && stateOp == OP_MOW){     //DO not ring my bell end leave me alone XD, FIDEL is busy. Fidel: Leave me Alone, I´m busy.
-    CONSOLE.println("INFO: The Knocking and Pushing on the Door stopped.. for know, Run Hobbit... RUN! Hodor: Hodor?!");
-    //stopClientTime = 0;
-    //client.stop();
-    hOdOrTimeOut = millis() + 100;
-    } */
+    //if (client){// && stateOp == OP_MOW){     //DO not ring my bell end leave me alone XD, FIDEL is busy. Fidel: Leave me Alone, I´m busy.
+      //CONSOLE.println("INFO: The Knocking and Pushing on the Door stopped.. for know, Run Hobbit... RUN! Hodor: Hodor?!");
+      stopClientTime = 0;
+      //client.stop();
+      //client.setTimeout(25);
+      //hOdOrTimeOut = millis() + 100;
+    //} 
     //CONSOLE.print("millis > hodortimeout  ");CONSOLE.print(millis());CONSOLE.print(" > ");CONSOLE.println(hOdOrTimeOut);
     if (millis() > hOdOrTimeOut){
       hOdOr = false;
@@ -175,8 +176,8 @@ void processWifiAppServer()
     // The BananaPi will then loose its serial connection, doing CRC Errors and drops of data, sensors and the serialdriver. Mowmotor will be shut down, Rover might jerk, stop or act drunken.
 
     if (stateOp == OP_MOW) {
-      hOdOrTimeOut = millis() + 50;                                  // Hodor is going to watch out for Orks and hold the door if he must!!
-    } else hOdOrTimeOut = millis() + 1000;                                           // HODOR being gentle and patient
+      hOdOrTimeOut = millis() + HODOR_BRUTAL_TIME;                                  // Hodor is going to watch out for Orks and hold the door if he must!!
+    } else hOdOrTimeOut = millis() + HODOR_GENTLE_TIME;                                           // HODOR being gentle and patient
     
     String buffer = "";
     hOdOr = false;
@@ -187,7 +188,6 @@ void processWifiAppServer()
       
       if (millis() > hOdOrTimeOut){                  // Hodor is going to watch out for Orks and hold the door if he must!!
         hOdOr = true; //XD
-        //hOdOrTimeOut = millis() + 5000;                            // Hodor will hold the door for 3 seconds XD
         CONSOLE.println("INFO: HODOR is going to hold the door to save your life!");
         //CONSOLE.print("INFO: act remaining HodorTimeOut: "); CONSOLE.println(millis() - hOdOrTimeOut);
         break;
@@ -198,7 +198,7 @@ void processWifiAppServer()
                 
         char c = client.read();               // read a byte, then
         //checkTimeViolation(httpStartTime, maxDuration, 3);
-        if (stateOp != OP_MOW) hOdOrTimeOut = millis() + 100;
+        //if (stateOp != OP_MOW) hOdOrTimeOut = millis() + 100;
         
         buf.push(c);                          // push it to the ring buffer
         //checkTimeViolation(httpStartTime, maxDuration, 4);
@@ -219,14 +219,13 @@ void processWifiAppServer()
             //checkTimeViolation(httpStartTime, maxDuration, 6);
             if (millis() > hOdOrTimeOut){
               hOdOr = true; //XD
-              //hOdOrTimeOut = millis() + 5000;                            // Hodor will hold the door for 3 seconds XD
               CONSOLE.println("INFO: HODOR is holding the door to safe your life again!");
               //CONSOLE.print("INFO: act HodorTimeOut: "); CONSOLE.println(millis() - hOdOrTimeOut);
               break;
             }
             char ch = client.read();
             //checkTimeViolation(httpStartTime, maxDuration, 7);
-            if (stateOp != OP_MOW) hOdOrTimeOut = millis() + 100;
+            //if (stateOp != OP_MOW) hOdOrTimeOut = millis() + 100;
 
             cmd = cmd + ch;
             //checkTimeViolation(httpStartTime, maxDuration, 8);
@@ -281,26 +280,28 @@ void processWifiAppServer()
             }
           }
 
-          //if (hOdOr){
-          //  hOdOrTimeOut = millis() + 5000;
-          //}
-
           break;
+        
         }
+
+        if (hOdOr) break;
+
       }
-      //Stop waiting
-      if (hOdOr) {
-        client.stop();
-        client.setTimeout(25);
-        hOdOrTimeOut = millis() + 100;
-        break;
-      }
+
+      if (hOdOr) break;
+
+    }
+    // if both whiles are breaked due to Hodor, set the defend time of Hodor and let client run into nevereverland. (but there must be a better way...) 
+    if (hOdOr) {
+        hOdOrTimeOut = millis() + HODOR_ENDURANCE;
+        //client.stop();
+        //client.setTimeout(25);
+        CONSOLE.println("INFO: You hear Knocking and Pushing on the Door.. Run Hobbit... RUN! Hodor: Hodooooooooor!!!!!");  
     }
     
     // give the web browser time to receive the data
-    stopClientTime = millis() + 100;
-    unsigned long httpEndTime = millis();    
-    int httpDuration = httpEndTime - httpStartTime;
+    stopClientTime = millis() + 50;   
+    int httpDuration = millis() - httpStartTime;
     
     if (DEBUG_HTTPSERVER){
 

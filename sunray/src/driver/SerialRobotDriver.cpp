@@ -15,9 +15,9 @@
 void SerialRobotDriver::begin(){
   CONSOLE.println("using robot driver: SerialRobotDriver");
   COMM.begin(ROBOT_BAUDRATE);
-  encoderTicksLeft = 0;
-  encoderTicksRight = 0;
-  encoderTicksMow = 0;
+  deltaTicksLeft = 0;
+  deltaTicksRight = 0;
+  deltaTicksMow = 0;
   chargeVoltage = 0;
   chargeCurrent = 0;  
   batteryVoltage = 28;
@@ -263,22 +263,33 @@ void SerialRobotDriver::requestSummary(){
 
 // request MCU motor PWM
 void SerialRobotDriver::requestMotorPwm(int leftPwm, int rightPwm, int mowPwm){
-  String req;
-  req += "AT+M,";
-  req += rightPwm;      
+  static unsigned long lastCallTime = 0;
+  unsigned long startTime = millis();
+
+  if (lastCallTime > 0) {
+    //CONSOLE.print("requestMotorPwm: time since last call: ");
+    //CONSOLE.print(startTime - lastCallTime);
+    //CONSOLE.println(" ms");
+  }
+  lastCallTime = startTime;
+
+  String req = "AT+M,";
+  req += leftPwm;
   req += ",";
-  req += leftPwm;    
-  req += ",";  
+  req += rightPwm;
+  req += ",";
   req += mowPwm;
-  //if (abs(mowPwm) > 0)
-  //  req += "1";
-  //else
-  //  req += "0";  
+
   sendRequest(req);
   cmdMotorCounter++;
+
+  unsigned long duration = millis() - startTime;
+  //CONSOLE.print("requestMotorPwm: execution time: ");
+  //CONSOLE.print(duration);
+  //CONSOLE.println(" ms");
 }
 
-void SerialRobotDriver::motorResponse(){
+/* void SerialRobotDriver::motorResponse(){
   if (cmd.length()<6) return;  
   int counter = 0;
   int lastCommaIdx = 0;
@@ -290,11 +301,11 @@ void SerialRobotDriver::motorResponse(){
       int intValue = cmd.substring(lastCommaIdx+1, ch==',' ? idx : idx+1).toInt();
       float floatValue = cmd.substring(lastCommaIdx+1, ch==',' ? idx : idx+1).toFloat();      
       if (counter == 1){                            
-        encoderTicksRight = intValue;  // ag
+        deltaTicksRight = intValue;  // ag
       } else if (counter == 2){
-        encoderTicksLeft = intValue;   // ag
+        deltaTicksLeft = intValue;   // ag
       } else if (counter == 3){
-        encoderTicksMow = intValue;
+        deltaTicksMow = intValue;
       } else if (counter == 4){
         chargeVoltage = floatValue;
       } else if (counter == 5){
@@ -311,11 +322,48 @@ void SerialRobotDriver::motorResponse(){
   if (triggeredStopButton){
     //CONSOLE.println("STOPBUTTON");
   }
-  //CONSOLE.println(encoderTicksMow);
   cmdMotorResponseCounter++;
   mcuCommunicationLost=false;
-}
+} */
 
+void SerialRobotDriver::motorResponse(){
+  if (cmd.length() < 6) return;
+
+  int counter = 0;
+  int lastCommaIdx = -1; 
+
+  for (int idx = 0; idx <= cmd.length(); idx++) {
+    if (idx == cmd.length() || cmd[idx] == ',') {
+      String token = cmd.substring(lastCommaIdx + 1, idx);
+      int intValue = token.toInt();
+      float floatValue = token.toFloat();
+
+      switch (counter) {
+        case 1: deltaTicksRight += intValue; break;
+        case 2: deltaTicksLeft += intValue; break;
+        case 3: deltaTicksMow += intValue; break;
+        case 4: chargeVoltage = floatValue; break;
+        case 5: triggeredLeftBumper = (intValue != 0); break;
+        case 6: triggeredLift = (intValue != 0); break;
+        case 7: triggeredStopButton = (intValue != 0); break;
+      }
+      counter++;
+      lastCommaIdx = idx;
+    }
+  }
+
+  if (triggeredStopButton){
+    //CONSOLE.println("STOPBUTTON");
+  }
+
+  if (counter < 4) {
+    CONSOLE.println("SerialDriver::motorResponse() - too few fields, ignoring");
+    return;
+  } 
+
+  cmdMotorResponseCounter++;
+  mcuCommunicationLost = false;
+}
 
 void SerialRobotDriver::versionResponse(){
   if (cmd.length()<6) return;  
@@ -342,8 +390,39 @@ void SerialRobotDriver::versionResponse(){
   CONSOLE.println(mcuFirmwareVersion);
 }
 
+void SerialRobotDriver::summaryResponse() {
+  if (cmd.length() < 6) return;
 
-void SerialRobotDriver::summaryResponse(){
+  int counter = 0;
+  int lastCommaIdx = -1;
+
+  for (int idx = 0; idx <= cmd.length(); idx++) {
+    if (idx == cmd.length() || cmd[idx] == ',') {
+      String token = cmd.substring(lastCommaIdx + 1, idx);
+      int intValue = token.toInt();
+      float floatValue = token.toFloat();
+
+      switch (counter) {
+        case 1: batteryVoltage = floatValue; break;
+        case 2: chargeVoltage = floatValue; break;
+        case 3: chargeCurrent = floatValue; break;
+        case 4: triggeredLift = (intValue != 0); break;
+        case 5: triggeredLeftBumper = (intValue != 0); break;
+        case 6: triggeredRain = (intValue != 0); break;
+        case 7: motorFault = (intValue != 0); break; // actually is overload in RM18
+        case 8: mowCurr = floatValue; break;
+        case 9: motorLeftCurr = floatValue; break;
+        case 10: motorRightCurr = floatValue; break;
+        case 11: batteryTemp = floatValue; break;
+      }
+      counter++;
+      lastCommaIdx = idx;
+    }
+  }
+  cmdSummaryResponseCounter++;
+}
+
+/*void SerialRobotDriver::summaryResponse(){
   if (cmd.length()<6) return;  
   int counter = 0;
   int lastCommaIdx = 0;
@@ -367,7 +446,7 @@ void SerialRobotDriver::summaryResponse(){
       } else if (counter == 6){
         triggeredRain = (intValue != 0);
       } else if (counter == 7){
-        motorFault = (intValue != 0);
+        motorFault = (intValue != 0); //actually is overload in RM18
       } else if (counter == 8){
         //CONSOLE.println(cmd.substring(lastCommaIdx+1, ch==',' ? idx : idx+1));
         mowCurr = floatValue;
@@ -383,15 +462,15 @@ void SerialRobotDriver::summaryResponse(){
     }    
   }
   cmdSummaryResponseCounter++;
-  /*CONSOLE.print("motor currents=");
+  CONSOLE.print("motor currents=");
   CONSOLE.print(mowCurr);
   CONSOLE.print(",");
   CONSOLE.print(motorLeftCurr);
   CONSOLE.print(",");
-  CONSOLE.println(motorRightCurr);*/
+  CONSOLE.println(motorRightCurr);
   //CONSOLE.print("batteryTemp=");
   //CONSOLE.println(batteryTemp);
-}
+}*/
 
 // process response
 void SerialRobotDriver::processResponse(bool checkCrc){
@@ -484,18 +563,23 @@ void SerialRobotDriver::updatePanelLEDs(){
   }
 }
 
-void SerialRobotDriver::run(){  
+void SerialRobotDriver::run(){
+  static bool taskExecuted = false;
+  //unsigned long now = millis();  
   processComm();
-  if (millis() > nextMotorTime){
+  if (!taskExecuted && millis() > nextMotorTime){
     nextMotorTime = millis() + 20; // 50 hz
     requestMotorPwm(requestLeftPwm, requestRightPwm, requestMowPwm);
-  }
-  if (millis() > nextSummaryTime){
+    taskExecuted = true;
+  } 
+  if (!taskExecuted && millis() > nextSummaryTime){
     nextSummaryTime = millis() + 500; // 2 hz
     requestSummary();
+    taskExecuted = true;
   }
-  if (millis() > nextConsoleTime){
+  if (!taskExecuted && millis() > nextConsoleTime){
     nextConsoleTime = millis() + 1000;  // 1 hz    
+    taskExecuted = true;
     if (!mcuCommunicationLost){
       if (mcuFirmwareName == ""){
         requestVersion();
@@ -521,23 +605,27 @@ void SerialRobotDriver::run(){
     }     
     cmdMotorCounter=cmdMotorResponseCounter=cmdSummaryCounter=cmdSummaryResponseCounter=0;    
   }  
-  if (millis() > nextLedTime){
+  if (!taskExecuted && millis() > nextLedTime){
     nextLedTime = millis() + 3000;  // 3 sec
     updatePanelLEDs();
+    taskExecuted = true;
   }
-  if (millis() > nextTempTime){
+  if (!taskExecuted && millis() > nextTempTime){
     nextTempTime = millis() + 59000; // 59 sec
     updateCpuTemperature();
-    if (cpuTemp < 60){      
+    if (cpuTemp < 40){      
       setFanPowerState(false);
-    } else if (cpuTemp > 65){
+    } else if (cpuTemp > 50){
       setFanPowerState(true);
     }
+    taskExecuted = true;
   }
-  if (millis() > nextWifiTime){
+  if (!taskExecuted && millis() > nextWifiTime){
     nextWifiTime = millis() + 7000; // 7 sec
     updateWifiConnectionState();
+    taskExecuted = true;
   }
+  taskExecuted = false;
 }
 
 
@@ -547,9 +635,9 @@ SerialMotorDriver::SerialMotorDriver(SerialRobotDriver &sr): serialRobot(sr){
 } 
 
 void SerialMotorDriver::begin(){
-  lastEncoderTicksLeft=0;
-  lastEncoderTicksRight=0;
-  lastEncoderTicksMow=0;         
+  lastDeltaTicksLeft=0;
+  lastDeltaTicksRight=0;
+  lastDeltaTicksMow=0;         
 }
 
 void SerialMotorDriver::run(){
@@ -598,36 +686,47 @@ void SerialMotorDriver::getMotorCurrent(float &leftCurrent, float &rightCurrent,
   mowCurrent = serialRobot.mowCurr;
 }
 
+//WARNING, this function should be only called once where it is needed and not multiple times
 void SerialMotorDriver::getMotorEncoderTicks(int &leftTicks, int &rightTicks, int &mowTicks){
   if (serialRobot.mcuCommunicationLost) {
-    //CONSOLE.println("getMotorEncoderTicks: no ticks!");    
+    CONSOLE.println("getMotorEncoderTicks: No MCU comm -> no ticks!");    
     leftTicks = rightTicks = 0; mowTicks = 0;
     return;
   }
   if (serialRobot.resetMotorTicks){
     serialRobot.resetMotorTicks = false;
-    //CONSOLE.println("getMotorEncoderTicks: resetMotorTicks");
-    lastEncoderTicksLeft = serialRobot.encoderTicksLeft;
-    lastEncoderTicksRight = serialRobot.encoderTicksRight;
-    lastEncoderTicksMow = serialRobot.encoderTicksMow;
+    CONSOLE.println("getMotorEncoderTicks: resetMotorTicks");
+    lastDeltaTicksLeft = serialRobot.deltaTicksLeft;
+    lastDeltaTicksRight = serialRobot.deltaTicksRight;
+    lastDeltaTicksMow = serialRobot.deltaTicksMow;
   }
-  leftTicks = serialRobot.encoderTicksLeft - lastEncoderTicksLeft;
-  rightTicks = serialRobot.encoderTicksRight - lastEncoderTicksRight;
-  mowTicks = serialRobot.encoderTicksMow - lastEncoderTicksMow;
-  if (leftTicks > 1000){
-    leftTicks = 0;
-  }
-  if (rightTicks > 1000){
-    rightTicks = 0;
-  } 
-  if (mowTicks > 1000){
-    mowTicks = 0;
-  }
-  lastEncoderTicksLeft = serialRobot.encoderTicksLeft;
-  lastEncoderTicksRight = serialRobot.encoderTicksRight;
-  lastEncoderTicksMow = serialRobot.encoderTicksMow;
-}
 
+  // write ticks to variables
+  leftTicks = serialRobot.deltaTicksLeft;
+  rightTicks = serialRobot.deltaTicksRight;
+  mowTicks = serialRobot.deltaTicksMow;
+  
+  // reset ticks in original getfunction when calling this function (that is now...)
+  serialRobot.deltaTicksLeft = 0;
+  serialRobot.deltaTicksRight = 0;
+  serialRobot.deltaTicksMow = 0;
+
+  if (leftTicks > 50){
+    leftTicks = 0;
+    CONSOLE.println("getMotorEncoderTicks: tickReset leftTicks > thresh");
+  }
+  if (rightTicks > 50){
+    rightTicks = 0;
+    CONSOLE.println("getMotorEncoderTicks: tickReset rightTicks > thresh");
+  } 
+  if (mowTicks > 50){
+    mowTicks = 0;
+    CONSOLE.println("getMotorEncoderTicks: tickReset mowTicks > thresh");
+  }
+  lastDeltaTicksLeft = serialRobot.deltaTicksLeft;
+  lastDeltaTicksRight = serialRobot.deltaTicksRight;
+  lastDeltaTicksMow = serialRobot.deltaTicksMow;
+} 
 
 // ------------------------------------------------------------------------------------
 

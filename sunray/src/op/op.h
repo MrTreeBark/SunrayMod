@@ -309,6 +309,8 @@ class EscapeRotationOp: public Op {
 class EscapeReverseOp: public Op {
   public:        
     unsigned long driveReverseStopTime;
+    float obsPosX;
+    float obsPosY;
     virtual String name() override;
     virtual void begin() override;
     virtual void end() override;

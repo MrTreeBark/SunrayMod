@@ -25,6 +25,7 @@ float stateRoll = 0;
 float statePitch = 0;
 float stateDeltaGPS = 0;
 float stateDeltaIMU = 0;
+float imuRawYaw_sc = 0; //raw yaw from imuDriver.yaw
 float stateGroundSpeed = 0; // m/s
 
 bool stateAprilTagFound = false;
@@ -40,20 +41,17 @@ float stateYReflectorTag = 0;
 float stateXReflectorTagLast = 0;
 float stateDeltaReflectorTag = 0; 
 
-unsigned long stateLeftTicks = 0;
-unsigned long stateRightTicks = 0;
-
 float lastPosN = 0;
 float lastPosE = 0;
 float lastPosDelta = 0;
 
 float stateDeltaLast = 0;
 float stateDeltaSpeed = 0;
-float stateDeltaSpeedLP = 0;
+//float stateDeltaSpeedLP = 0;
 float stateDeltaSpeedIMU = 0;
 float stateDeltaSpeedWheels = 0;
 float diffIMUWheelYawSpeed = 0;
-float diffIMUWheelYawSpeedLP = 0;
+//float diffIMUWheelYawSpeedLP = 0;
 
 bool gpsJump = false;
 bool resetLastPos = true;
@@ -75,6 +73,23 @@ unsigned long solutionTimeDelta = 0;
 const unsigned short bufLen = ROBOT_CONTROL_CYCLE/2;  //seems to be excactly the control cycle time for sync
 float ringBuffer[bufLen] = {0};
 unsigned short bufInd = 0;
+
+LowPassFilter imuLpfRoll(0.05);
+LowPassFilter imuLpfPitch(0.05);
+LowPassFilter imuLpfYaw(0.05);
+LowPassFilter imuLpfRollChange(0.05);
+LowPassFilter imuLpfPitchChange(0.05);
+LowPassFilter imuLpfYawChange(0.05);
+LowPassFilter imuLpfStateDeltaSpeed(0.15);
+LowPassFilter wheelsLpfDeltaSpeed(0.15);
+LowPassFilter stateLpfDeltaSpeed(0.1);
+
+/* LowPassFilter imuLpRoll(0.9);
+LowPassFilter imuLpPitch(0.9);
+LowPassFilter imuLpYaw(0.9);
+LowPassFilter imuLpRollChange(0.9);
+LowPassFilter imuLpPitchChange(0.9);
+LowPassFilter imuLpYawChange(0.9); */
 
 // https://learn.sparkfun.com/tutorials/9dof-razor-imu-m0-hookup-guide#using-the-mpu-9250-dmp-arduino-library
 // start IMU sensor and calibrate
@@ -138,7 +153,7 @@ void dumpImuTilt(){
   nextDumpTime = millis() + 10000;
   CONSOLE.print("IMU tilt: ");
   CONSOLE.print("ypr=");
-  CONSOLE.print(imuDriver.yaw/PI*180.0);
+  CONSOLE.print(imuRawYaw_sc/PI*180.0);
   CONSOLE.print(",");
   CONSOLE.print(imuDriver.pitch/PI*180.0);
   CONSOLE.print(",");
@@ -230,7 +245,7 @@ void dumpImuTilt(){
 
   }     
 }*/
-
+//TODO: just use one function run here, read imu and then compute all states directly with fresh sensor data. GPS is slow, IMU is fast. No problems so. A Lawnrobot without IMU should not exist in post 2020...
 void readIMU(){
   if (!imuDriver.imuFound) return;
   // Check for new data in the FIFO
@@ -239,46 +254,144 @@ void readIMU(){
     //CONSOLE.println("INFO: NO IMU DATA");
     return;
   }
-  #ifdef ENABLE_TILT_DETECTION    //this needs to be adapted to cycletime
-    if (fabs(imuDriver.roll - stateRoll) <  20.0/180.0*PI) {
-      rollChange = (imuDriver.roll - stateRoll); 
-      rollChange = 0.95 * rollChange;
-      stateRoll = imuDriver.roll;
-    } else {
-        CONSOLE.print("stateEstimator.cpp - IMU: ignore rollChange, delta val over threshold  (100deg/ite) --> ignored rollChange: ");
-        CONSOLE.println(fabs(imuDriver.roll - stateRoll));
-    }
-    if (fabs(imuDriver.pitch - statePitch) <  20.0/180.0*PI) {
-      pitchChange = (imuDriver.pitch - statePitch);
-      pitchChange = 0.95 * pitchChange;
-      statePitch = imuDriver.pitch;
-    } else {
-        CONSOLE.print("stateEstimator.cpp - IMU: ignore pitchChange, delta val over threshold  (100deg/ite) --> ignored pitchChange: ");
-        CONSOLE.println(fabs(imuDriver.pitch - statePitch));
-    }
-  
-    /*if ( (fabs(scalePI(stateRoll)) > 45.0/180.0*PI) || (fabs(scalePI(statePitch)) > 45.0/180.0*PI)
-          || (fabs(rollChange) > 20.0/180.0*PI) || (fabs(pitchChange) > 20.0/180.0*PI)   )  {*/
-    if ( (fabs(scalePI(stateRoll)) > 45.0/180.0*PI) || (fabs(scalePI(statePitch)) > 45.0/180.0*PI)
-          || (fabs(rollChange) > 20.0/180.0*PI) || (fabs(pitchChange) > 20.0/180.0*PI)   )  { //does´nt work like this, vals are much smaller
-      dumpImuTilt();
-      CONSOLE.println("Statestimator change activeOP -> onImuTilt");
-        CONSOLE.print("      stateRoll:  "); CONSOLE.print(fabs(scalePI(stateRoll))/PI*180); CONSOLE.print("      >  "); CONSOLE.println("45");  
-        CONSOLE.print("     rollChange:  "); CONSOLE.print(fabs(rollChange)/PI*180);         CONSOLE.print("      >  "); CONSOLE.println("20"); 
-        CONSOLE.print("     statePitch:  "); CONSOLE.print(fabs(scalePI(statePitch))/PI*180);CONSOLE.print("      >  "); CONSOLE.println("45");
-        CONSOLE.print("    pitchChange:  "); CONSOLE.print(fabs(pitchChange)/PI*180);        CONSOLE.print("      >  "); CONSOLE.println("20"); 
-      activeOp->onImuTilt();
-    }           
-    #endif
 
-    motor.robotPitch = scalePI(imuDriver.pitch);
-    imuDriver.yaw = scalePI(imuDriver.yaw);
-    //CONSOLE.println(imuDriver.yaw / PI * 180.0);
-    lastIMUYaw = scalePI(lastIMUYaw);
-    lastIMUYaw = scalePIangles(lastIMUYaw, imuDriver.yaw);
-    stateDeltaIMU = -scalePI ( distancePI(imuDriver.yaw, lastIMUYaw) );  
-    lastIMUYaw = imuDriver.yaw;      
-    imuDataTimeout = millis() + 10000;             
+  ////////////////////////////////////////////
+  //setup vals raw
+  static float imuRawRoll = 0;
+  static float imuRawYaw = 0;
+  static float imuRawPitch = 0;
+  static float imuRawRollLast = 0;
+  static float imuRawYawLast = 0;
+  static float imuRawPitchLast = 0;
+  static float imuRawRollChange = 0; 
+  static float imuRawYawChange = 0;
+  static float imuRawPitchChange = 0;    
+  //setup vals filter
+  static float imuLpRoll = 0;
+  static float imuLpYaw = 0;
+  static float imuLpPitch = 0;
+  static float imuLpRollLast = 0;
+  static float imuLpYawLast = 0;
+  static float imuLpPitchLast = 0;
+  static float imuLpRollChange = 0;
+  static float imuLpYawChange = 0;
+  static float imuLpPitchChange = 0;
+  //scaled vars
+  //static float imuRawYaw_sc = 0; //made extern
+  static float imuRawYawLast_sc = 0; //PI scaled yaw (rad/s)
+
+  //get raw vals
+  imuRawRoll = imuDriver.roll;
+  imuRawYaw = imuDriver.yaw;
+  imuRawPitch = imuDriver.pitch;
+  
+  //do raw calculations
+  imuRawRollChange = imuRawRoll - imuRawRollLast; 
+  imuRawYawChange = imuRawYaw - imuRawYawLast;
+  imuRawPitchChange = imuRawPitch - imuRawPitchLast;
+
+  //Filter all imuRaw values
+  imuLpRoll = imuLpfRoll(imuRawRoll);
+  imuLpYaw = imuLpfYaw(imuRawYaw);
+  imuLpPitch = imuLpfPitch(imuRawPitch);
+  
+  //do filtered calculations (extra: again with raw, so that filter can be adjusted seperately for state changes)
+  imuLpRollChange = imuLpfRollChange(imuRawRollChange);
+  imuLpYawChange = imuLpfYawChange(imuRawRollChange);
+  imuLpPitchChange = imuLpfPitchChange(imuRawPitchChange);
+  //imuLpRollChange = imuLpRoll - imuLpRollLast;
+  //imuLpYawChange = imuLpYaw - imuLpYawLast;
+  //imuLpPitchChange = imuLpPitch - imuLpPitchLast;
+  
+  //piscale values
+  imuRawYaw_sc = scalePI(imuRawYaw);
+  //imuRawYawLast_sc = scalePI(imuRawYawLast);
+  imuRawYawLast_sc = scalePIangles(imuRawYawLast_sc, imuRawYaw_sc);
+  stateDeltaIMU = -distancePI(imuRawYaw_sc, imuRawYawLast_sc);
+
+  //remember for change calculations
+  imuRawRollLast = imuRawRoll;
+  imuRawYawLast = imuRawYaw;
+  imuRawPitchLast = imuRawPitch;
+
+  imuLpRollLast = imuLpRoll;
+  imuLpYawLast = imuLpYaw;
+  imuLpPitch = imuLpPitch;
+  
+  imuRawYawLast_sc = imuRawYaw_sc;
+
+  //give vars to globals (FIXME)
+
+  motor.robotPitch = scalePI(imuLpPitch);   //give motor the pitch
+  
+/*   imuDriver.yaw = scalePI(imuDriver.yaw);   // ??? overwrite raw imu yaw so piscale ???
+  //CONSOLE.println(imuDriver.yaw / PI * 180.0);  
+  lastIMUYaw = scalePI(lastIMUYaw);         //this makes no sense with next line, what will happen???
+  lastIMUYaw = scalePIangles(lastIMUYaw, imuDriver.yaw);  //what is the value now??
+  stateDeltaIMU = -scalePI ( distancePI(imuDriver.yaw, lastIMUYaw) );  //maybe it makes sense?
+  lastIMUYaw = imuDriver.yaw;      //now its back to scaled version from second line? */
+  imuDataTimeout = millis() + 10000;  
+
+  #ifdef ENABLE_TILT_DETECTION    // this needs to be adapted to cycletime
+
+  // Alarm if spikes
+  if (imuRawRollChange > 50.0 / 180.0 * PI) {
+      CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawRollChange, delta over 50 deg/ite --> unplausible! IMU TILT ignored. imuRawRollChange: ");
+      CONSOLE.println(imuRawRollChange);
+  } else if (imuRawPitchChange > 50.0 / 180.0 * PI) {
+      CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawPitchChange, delta over 50 deg/ite --> unplausible! IMU TILT ignored. imuRawPitchChange: ");
+      CONSOLE.println(imuRawPitchChange);
+  } else if (
+      (fabs(scalePI(imuRawRoll)) > 45.0 / 180.0 * PI) || 
+      (fabs(scalePI(imuRawPitch)) > 45.0 / 180.0 * PI) ||
+      (fabs(imuRawRollChange) > 20.0 / 180.0 * PI) || 
+      (fabs(imuRawPitchChange) > 20.0 / 180.0 * PI)) 
+  {
+      // dumpImuTilt();  // optional aktivieren
+      CONSOLE.println("Statestimator change activeOP -> onImuTilt");
+
+      // >>>> Aktualisierte Statusanzeige <<<<
+      CONSOLE.print("     imuRawRoll:       ");
+      CONSOLE.print(fabs(scalePI(imuRawRoll)) * 180.0 / PI);
+      CONSOLE.println("°   > 45°");
+
+      CONSOLE.print("     imuRawRollChange: ");
+      CONSOLE.print(fabs(imuRawRollChange) * 180.0 / PI);
+      CONSOLE.println("°   > 20°");
+
+      CONSOLE.print("     imuRawPitch:      ");
+      CONSOLE.print(fabs(scalePI(imuRawPitch)) * 180.0 / PI);
+      CONSOLE.println("°   > 45°");
+
+      CONSOLE.print("     imuRawPitchChange:");
+      CONSOLE.print(fabs(imuRawPitchChange) * 180.0 / PI);
+      CONSOLE.println("°   > 20°");
+
+      // >>>> Triggerausgabe <<<<
+      if (fabs(scalePI(imuRawRoll)) > 45.0 / 180.0 * PI) {
+          CONSOLE.print("TRIGGERED: imuRawRoll > 45° (");
+          CONSOLE.print(fabs(scalePI(imuRawRoll)) * 180.0 / PI);
+          CONSOLE.println("°)");
+      }
+      if (fabs(scalePI(imuRawPitch)) > 45.0 / 180.0 * PI) {
+          CONSOLE.print("TRIGGERED: imuRawPitch > 45° (");
+          CONSOLE.print(fabs(scalePI(imuRawPitch)) * 180.0 / PI);
+          CONSOLE.println("°)");
+      }
+      if (fabs(imuRawRollChange) > 20.0 / 180.0 * PI) {
+          CONSOLE.print("TRIGGERED: imuRawRollChange > 20° (");
+          CONSOLE.print(fabs(imuRawRollChange) * 180.0 / PI);
+          CONSOLE.println("°)");
+      }
+      if (fabs(imuRawPitchChange) > 20.0 / 180.0 * PI) {
+          CONSOLE.print("TRIGGERED: imuRawPitchChange > 20° (");
+          CONSOLE.print(fabs(imuRawPitchChange) * 180.0 / PI);
+          CONSOLE.println("°)");
+      }
+
+      activeOp->onImuTilt();
+  }
+  #endif           
 }
 
 void resetImuTimeout(){
@@ -291,6 +404,19 @@ void resetImuTimeout(){
 // with IMU: heading (stateDelta) is computed by gyro (stateDeltaIMU)
 // without IMU: heading (stateDelta) is computed by odometry (deltaOdometry)
 void computeRobotState(){
+  static unsigned long lastControlTime = 0;
+  unsigned long controlTime = millis();
+  unsigned long deltaControlTime = (controlTime - lastControlTime);  // in Sekunden
+  lastControlTime = controlTime;
+
+  if (deltaControlTime < robot_control_cycle - 10 || deltaControlTime > robot_control_cycle + 10) {
+    CONSOLE.print("WARNING stateEstimator: unmatched cycletime --> "); 
+    CONSOLE.print(deltaControlTime);
+    CONSOLE.print("  robot_control_cycle = ");
+    CONSOLE.print(robot_control_cycle);
+    CONSOLE.println(" +- 10ms");
+  }
+
   float deltaTime;  
   stateLocalizationMode = LOC_GPS;
   bool useGPSposition = true; // use GPS position?
@@ -410,13 +536,12 @@ void computeRobotState(){
   #endif
 
   // ---------- odometry ticks ---------------------------
-  long leftDelta = motor.motorLeftTicks-stateLeftTicks;
-  long rightDelta = motor.motorRightTicks-stateRightTicks;  
-  stateLeftTicks = motor.motorLeftTicks;
-  stateRightTicks = motor.motorRightTicks;    
+  int leftDelta = motor.ticksLeft;
+  int rightDelta = motor.ticksRight;    
     
   float distLeft = ((float)leftDelta) / ((float)motor.ticksPerCm);
   float distRight = ((float)rightDelta) / ((float)motor.ticksPerCm);
+  
   if ( (abs(distLeft) > 10.0) ||  (abs(distRight) > 10.0) ) {
     CONSOLE.print("computeRobotState WARN: distOdometry too large - distLeft=");
     CONSOLE.print(distLeft);
@@ -425,19 +550,21 @@ void computeRobotState(){
     distLeft = 0;
     distRight = 0;
   }  
+  
   float distOdometry = (distLeft + distRight) / 2.0;  
   float deltaOdometry = -(distLeft - distRight) / motor.wheelBaseCm;    
-
+  //CONSOLE.print("deltaOdometry: ");CONSOLE.println(deltaOdometry);
   // ---------- GPS relative/absolute position source -----------------
   float posN = 0;
   float posE = 0;
 
-  deltaTime = (millis() - timeLastState)/1000.0;
-  float lp01 = 1 -0.1*deltaTime; //Ultraslow longpass
-  float lp1 = 1 - 1*deltaTime;   
-  float lp2 = 1 - 2*deltaTime;
-  float lp3 = 1 - 3*deltaTime;
-  float lp4 = 1 - 4*deltaTime;   //with iterationtime of 20ms (50Hz), this will be about 0.92 for LP filter
+  deltaTime = (millis() - timeLastState)/1000.0; //this is in seconds
+  /*
+  float lp01 = 0.99;//1 -0.1*deltaTime; //Ultraslow longpass
+  float lp1 = 0.9;//1 - 1*deltaTime;   
+  float lp2 = 0.8;// - 2*deltaTime;
+  float lp3 = 0.7;// - 3*deltaTime;
+  float lp4 = 0.6;// - 4*deltaTime;   //with iterationtime of 20ms (50Hz), this will be about 0.92 for LP filter */
  
   if (absolutePosSource){
     relativeLL(absolutePosSourceLat, absolutePosSourceLon, gps.lat, gps.lon, posN, posE);    
@@ -446,7 +573,7 @@ void computeRobotState(){
     posE = gps.relPosE;     
   }   
   
-  if (fabs(motor.linearSpeedSet) < MOTOR_MIN_SPEED/2){       //0.001
+  if (fabs(motor.linearSpeedSet) < MOTOR_MIN_SPEED/2){       //0.001    //this may cause gps not updating when moving manually
     resetLastPos = true;
   }
   
@@ -539,27 +666,33 @@ void computeRobotState(){
   */
   
 
-  // odometry
+  // odometry distances
   stateX += distOdometry/100.0 * cos(stateDelta);
   stateY += distOdometry/100.0 * sin(stateDelta);        
   if (stateOp == OP_MOW) statMowDistanceTraveled += distOdometry/100.0;
   
+  //direction angle
   if ((imuDriver.imuFound) && (maps.useIMU)) {
     // IMU available and should be used by planner        
     if (useImuAbsoluteYaw){
-      stateDelta = imuDriver.yaw; 
+      stateDelta = imuRawYaw_sc; //use fast lp here?
     } else {
       stateDelta = scalePI(stateDelta + stateDeltaIMU );          
     }     
   } else {
     // odometry
-    stateDelta = scalePI(stateDelta + deltaOdometry);  
+    stateDelta = scalePI(stateDelta + deltaOdometry);
   }
-  
+  //CONSOLE.print("stateDelta: ");CONSOLE.println(stateDelta);
   stateHeading = (stateDelta - PI/2) * 180/PI;
   
+  //angular speed of IMU
   if (imuDriver.imuFound){
-    stateDeltaSpeedIMU = lp2 * stateDeltaSpeedIMU + (1 - lp2) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep) 
+    //CONSOLE.print("stateDeltaIMU: ");CONSOLE.println(stateDeltaIMU);
+    //stateDeltaSpeedIMU = lp1 * stateDeltaSpeedIMU + (1 - lp1) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep)  
+    stateDeltaSpeedIMU = imuLpfStateDeltaSpeed(stateDeltaIMU/deltaTime);
+    //CONSOLE.print("stateDeltaIMU: ");CONSOLE.println(stateDeltaIMU/PI*180.0);
+    //CONSOLE.print("stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedIMU/PI*180.0);
   }
 
   /*
@@ -569,23 +702,29 @@ void computeRobotState(){
   if (bufInd == bufLen) bufInd = 0;                     //check overflow
   float stateDeltaSpeedWheelsSync = ringBuffer[bufInd]; //replace stateDeltaSpeedWheels with oldest element --> alway the next element that would come for index in next iteration
   */
-  //stateDeltaSpeedWheels = lp3 * stateDeltaSpeedWheels + (1 - lp3) * stateDeltaSpeedWheelsSync;//deltaOdometry / deltaTime; //0.99 * stateDeltaSpeedWheels + 0.01 * deltaOdometry / deltaTime; // wheels yaw rotation speed (20ms timestep)
-  stateDeltaSpeedWheels = lp2 * stateDeltaSpeedWheels + (1 - lp2) * deltaOdometry / deltaTime;
-
-  //stateDeltaSpeedWheels = deltaOdometry / deltaTime;
+  
+  //angular Speed of wheels
+  stateDeltaSpeedWheels = wheelsLpfDeltaSpeed(deltaOdometry/deltaTime);
+  //stateDeltaSpeedWheels = lp2 * stateDeltaSpeedWheels + (1 - lp2) * deltaOdometry / deltaTime;
 
   //CONSOLE.println(stateDelta / PI * 180.0);
   stateDeltaIMU = 0;
 
   // compute yaw rotation speed (delta speed)
+  // stateDelta can be calculated from odometrie or imu
   stateDeltaSpeed = (stateDelta - stateDeltaLast) / deltaTime;  // 20ms timestep
-  stateDeltaSpeedLP = lp3 * stateDeltaSpeedLP + (1 - lp3) * fabs(stateDeltaSpeed); //stateDeltaSpeedLP * 0.95 + fabs(stateDeltaSpeed) * 0.05;     
+  
+  //this is the wheels speed
+  stateDeltaSpeed = stateLpfDeltaSpeed(stateDeltaSpeed);
+  //stateDeltaSpeedLP = lp1 * stateDeltaSpeedLP + (1 - lp1) * fabs(stateDeltaSpeed); //stateDeltaSpeedLP * 0.95 + fabs(stateDeltaSpeed) * 0.05;     
+  
   stateDeltaLast = stateDelta;
 
   if (imuDriver.imuFound) {
     // compute difference between IMU yaw rotation speed and wheels yaw rotation speed
-    diffIMUWheelYawSpeed = stateDeltaSpeedIMU - stateDeltaSpeedWheels;
-    diffIMUWheelYawSpeedLP = lp1 * diffIMUWheelYawSpeedLP + (1 - lp1) * fabs(diffIMUWheelYawSpeed);  //MrTree changed from diffIMUWheelYawSpeedLP = diffIMUWheelYawSpeedLP * 0.95 + fabs(diffIMUWheelYawSpeed) * 0.05;
+    
+    diffIMUWheelYawSpeed = stateDeltaSpeedIMU - stateDeltaSpeedWheels; //already 2 filtered values
+    //diffIMUWheelYawSpeedLP = lp1 * diffIMUWheelYawSpeedLP + (1 - lp1) * fabs(diffIMUWheelYawSpeed);  //MrTree changed from diffIMUWheelYawSpeedLP = diffIMUWheelYawSpeedLP * 0.95 + fabs(diffIMUWheelYawSpeed) * 0.05;
   }
 
   // invalid position => reset to zero
@@ -596,13 +735,13 @@ void computeRobotState(){
 
   /*if (DEBUG_STATE_ESTIMATOR) {
     CONSOLE.print("             deltaTime: ");CONSOLE.println(deltaTime);
-    //CONSOLE.print("                imuyaw: ");CONSOLE.print(imuDriver.yaw);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
+    //CONSOLE.print("                imuyaw: ");CONSOLE.print(imuRawYaw_sc);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
     CONSOLE.print("            stateDelta: ");CONSOLE.print(stateDelta/180*PI);                 CONSOLE.print("           stateDeltaGps: ");CONSOLE.println(stateDeltaGPS);
     CONSOLE.print("        linearSpeedSet: ");CONSOLE.print(motor.linearSpeedSet);              CONSOLE.print("        stateGroundSpeed: ");CONSOLE.println(stateGroundSpeed);
     CONSOLE.print("       angularSpeedSet: ");CONSOLE.print(motor.angularSpeedSet/PI*180.0);    CONSOLE.print("         stateDeltaSpeed: ");CONSOLE.println(stateDeltaSpeed/PI*180); 
     CONSOLE.print(" stateDeltaSpeedWheels --> ");CONSOLE.print(stateDeltaSpeedWheels/PI*180.0);CONSOLE.print(" | ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);CONSOLE.println(" <-- stateDeltaSpeedIMU");
-    CONSOLE.print("  diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);     CONSOLE.print("   stateDeltaSpeedLP_IMU: ");CONSOLE.println(stateDeltaSpeedLP/PI*180);
-    CONSOLE.print("diffIMUWheelYawSpeedLP: ");CONSOLE.println(diffIMUWheelYawSpeedLP/PI*180.0);
+    CONSOLE.print("  diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);     CONSOLE.print("     stateDeltaSpeed_IMU: ");CONSOLE.println(stateDeltaSpeed/PI*180);
+    CONSOLE.print("  diffIMUWheelYawSpeed: ");CONSOLE.println(diffIMUWheelYawSpeed/PI*180.0);
     CONSOLE.print("                      stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
     
   }*/

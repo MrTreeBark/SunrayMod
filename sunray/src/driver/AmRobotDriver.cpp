@@ -98,18 +98,18 @@ float AmRobotDriver::getCpuTemperature(){
 
 void OdometryMowISR(){			  
     odomTicksMow++; 
-    asm("dsb");
+    //asm("dsb");
 }
 
 
 void OdometryLeftISR(){
     odomTicksLeft++;
-    asm("dsb");
+    //asm("dsb");
 }
 
 void OdometryRightISR(){
     odomTicksRight++;        
-    asm("dsb");
+    //asm("dsb");
 }
 
 
@@ -304,20 +304,20 @@ void AmMotorDriver::begin(){
   // left wheel motor
   pinMode(pinMotorEnable, OUTPUT);
   digitalWrite(pinMotorEnable, gearsDriverChip.enableActive);
-  pinMode(pinMotorLeftPWM, OUTPUT);
+  pinMode(pinMotorLeftPwm, OUTPUT);
   pinMode(pinMotorLeftDir, OUTPUT);
   pinMode(pinMotorLeftSense, INPUT);
   pinMode(pinMotorLeftFault, INPUT);
 
   // right wheel motor
-  pinMode(pinMotorRightPWM, OUTPUT);
+  pinMode(pinMotorRightPwm, OUTPUT);
   pinMode(pinMotorRightDir, OUTPUT);
   pinMode(pinMotorRightSense, INPUT);
   pinMode(pinMotorRightFault, INPUT);
 
   // mower motor
   pinMode(pinMotorMowDir, OUTPUT);
-  pinMode(pinMotorMowPWM, OUTPUT);
+  pinMode(pinMotorMowPwm, OUTPUT);
   pinMode(pinMotorMowSense, INPUT);
   pinMode(pinMotorMowRpm, INPUT);
   pinMode(pinMotorMowRpm, INPUT_PULLUP);  
@@ -432,9 +432,9 @@ void AmMotorDriver::setMotorPwm(int leftPwm, int rightPwm, int mowPwm, bool rele
   lastMowPwm = mowPwm;
   // apply motor PWMs
   //CONSOLE.println(mowPwm);
-  setMotorDriver(pinMotorLeftDir, pinMotorLeftPWM, leftPwm, gearsDriverChip, leftSpeedSign);
-  setMotorDriver(pinMotorRightDir, pinMotorRightPWM, rightPwm, gearsDriverChip, rightSpeedSign);
-  setMotorDriver(pinMotorMowDir, pinMotorMowPWM, mowPwm, mowDriverChip, mowSpeedSign);
+  setMotorDriver(pinMotorLeftDir, pinMotorLeftPwm, leftPwm, gearsDriverChip, leftSpeedSign);
+  setMotorDriver(pinMotorRightDir, pinMotorRightPwm, rightPwm, gearsDriverChip, rightSpeedSign);
+  setMotorDriver(pinMotorMowDir, pinMotorMowPwm, mowPwm, mowDriverChip, mowSpeedSign);
   
   // disable driver at zero speed (brake function)    
   bool enableGears = gearsDriverChip.enableActive;
@@ -518,6 +518,15 @@ void AmMotorDriver::getMotorCurrent(float &leftCurrent, float &rightCurrent, flo
 }
 
 void AmMotorDriver::getMotorEncoderTicks(int &leftTicks, int &rightTicks, int &mowTicks){
+  static unsigned long lastCallTime = 0;
+  unsigned long now = millis();
+  unsigned long deltaTime = now - lastCallTime;
+  lastCallTime = now;
+
+  CONSOLE.print("getMotorEncoderTicks() Delta: ");
+  CONSOLE.print(deltaTime);
+  CONSOLE.println(" ms");
+
   leftTicks = odomTicksLeft;
   rightTicks = odomTicksRight;  
   mowTicks = odomTicksMow;

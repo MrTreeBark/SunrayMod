@@ -31,51 +31,38 @@ void PID::reset(void) {
 }
 
 float PID::compute() {
-  unsigned long now = millis();
-  Ta = ((float)(now - lastControlTime)) / 1000.0;
-  //printf("%.3f\n", Ta);
-  lastControlTime = now;
-  if (Ta > TaMax) {
-    if (millis() > consoleWarnTimeout){
-      consoleWarnTimeout = millis() + 1000;
-      CONSOLE.print("WARN: PID unmet cycle time Ta=");
-      CONSOLE.print(Ta);
-      CONSOLE.print(" TaMax=");
-      CONSOLE.println(TaMax);
+    unsigned long now = millis();
+    float dt = (now - lastControlTime) * 1e-3f; // dt in Sekunden
+
+    if (dt <= 0.0f) dt = 1e-3f;  // Schutz gegen Division durch 0
+
+    float e = w - x;
+
+    esum += e * dt;                            // I-Anteil (mit Zeitgewichtung)
+    float dedt = (e - eold) / dt;              // D-Anteil (mit Zeitgewichtung)
+
+    float u = Kp * e + Ki * esum + Kd * dedt;  // PID-Gleichung
+
+    // Begrenzung
+    if (u > y_max) u = y_max;
+    else if (u < y_min) u = y_min;
+
+    // Rampenbegrenzung
+    if (output_ramp > 0) {
+        float max_delta = output_ramp * dt;
+        float delta = u - yold;
+        if (delta > max_delta) u = yold + max_delta;
+        else if (delta < -max_delta) u = yold - max_delta;
     }
-    Ta = TaMax;   // should only happen for the very first call
-  }
 
-  // compute error
-  float e = (w - x);
-  // integrate error
-  esum += e;
-  // anti wind-up
-  if (esum < -max_output)  esum = -max_output;
-  if (esum > max_output)  esum = max_output;
-  y = Kp * e
-      + Ki * Ta * esum
-      + Kd/Ta * (e - eold);
-  eold = e;
-  // restrict output to min/max
-  if (y > y_max) y = y_max;
-  if (y < y_min) y = y_min;
+    // Speichern
+    y = u;
+    yold = y;
+    eold = e;
+    lastControlTime = now;
 
-  // if output ramp defined
-  if(output_ramp > 0){
-      // limit the acceleration by ramping the output
-      float output_rate = (y - yold)/Ta;
-      if (output_rate > output_ramp)
-          y = yold + output_ramp*Ta;
-      else if (output_rate < -output_ramp)
-          y = yold - output_ramp*Ta;
-  }
-
-  yold = y;  
-
-  return y;
+    return y;
 }
-
 
 // ---------------------------------
 

@@ -30,6 +30,7 @@ extern float stateRoll;
 extern float statePitch;
 extern float stateDeltaGPS;
 extern float stateDeltaIMU;
+extern float imuRawYaw_sc; //PIscaled imu yaw from imudriver.yaw
 
 extern bool stateAprilTagFound; // found april-tag in camera stream?
 extern float stateXAprilTag; // camera-position in april-tag frame
@@ -48,11 +49,11 @@ extern float lateralError; // lateral error
 
 extern float stateDeltaLast;
 extern float stateDeltaSpeed;
-extern float stateDeltaSpeedLP;
+//extern float stateDeltaSpeedLP;
 extern float stateDeltaSpeedIMU;
 extern float stateDeltaSpeedWheels;
 extern float diffIMUWheelYawSpeed;
-extern float diffIMUWheelYawSpeedLP;
+//extern float diffIMUWheelYawSpeedLP;
 
 extern bool gpsJump;
 

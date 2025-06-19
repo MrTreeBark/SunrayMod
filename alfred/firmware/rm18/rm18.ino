@@ -1,5 +1,5 @@
 /*
-  Alfred MCU firmware (for RM24A/18 robot mower)
+  MODIFIED Alfred MCU firmware (for RM24A/18 robot mower)
   provides Sunray-compatible robot driver (serial robot driver)
   NOTE: For compiling this file on the Alfred, see README (https://github.com/Ardumower/Sunray/blob/master/alfred/README.md)
   
@@ -83,7 +83,7 @@
 
 //#define DEBUG 1
 
-#define VER "RM18,1.1.16"
+#define VER "ModdedRM18,1.1.16"
 
 #define pinSwdCLK          PA14
 #define pinSwdSDA          PA13
@@ -102,19 +102,19 @@
 #define pinBatteryV        PC5
 #define pinBatteryRX       PB6
 
-#define pinMotorRightPWM   PE9
+#define pinMotorRightPwm   PE9
 #define pinMotorRightBrake PB12
 #define pinMotorRightDir   PB13   
 #define pinMotorRightImp   PD0
 #define pinMotorRightCurr  PC1
 
-#define pinMotorLeftPWM    PE13
+#define pinMotorLeftPwm    PE13
 #define pinMotorLeftBrake  PD8
 #define pinMotorLeftDir    PD9
 #define pinMotorLeftImp    PD1
 #define pinMotorLeftCurr   PC0
 
-#define pinMotorMowPWM     PE11
+#define pinMotorMowPwm     PE11
 #define pinMotorMowImp     PD3
 #define pinMotorMowBrake   PB15
 #define pinMotorMowDir     PB14
@@ -163,9 +163,16 @@
 //#define TEST_PIN_ODOMETRY 1
 //#define TEST_PINS  1
 
-volatile int odomTicksLeft  = 0;
-volatile int odomTicksRight = 0;
-volatile int odomTicksMow = 0;
+unsigned long odomTicksLeft  = 0;
+unsigned long odomTicksRight = 0;
+unsigned long odomTicksMow = 0;
+unsigned long odomTicksLeftL  = 0;
+unsigned long odomTicksRightL = 0;
+unsigned long odomTicksMowL = 0;
+
+volatile unsigned long odomTicksLeftISR  = 0;
+volatile unsigned long odomTicksRightISR = 0;
+volatile unsigned long odomTicksMowISR = 0;
 
 volatile unsigned long motorLeftTicksTimeout = 0;
 volatile unsigned long motorRightTicksTimeout = 0;
@@ -225,6 +232,8 @@ bool chargerConnected = false;
 String cmd;
 String cmdResponse;
 
+unsigned int iteCount = 0;
+
 unsigned long motorTimeout = 0;
 unsigned long motorOverloadTimeout = 0;
 unsigned long nextBatTime = 0;
@@ -233,6 +242,12 @@ unsigned long stopButtonTimeout = 0;
 unsigned long nextMotorControlTime = 0;
 unsigned long mowBrakeStateTimeout = 0;
 int mowBrakeState = 0;
+
+/* bool oneShot = false;
+bool oneShotL = false;
+unsigned long deltaCtrlTime = 0;
+unsigned long ctrlTime = 0;
+unsigned long ctrlTimeL = 0; */
 
 // choose one UART to use for communication
 //HardwareSerial mSerial(pinUsartRX3, pinUsartTX3);  // rx, tx        - UART for perimeter MCU comm
@@ -263,83 +278,52 @@ void cmdAnswer(String s){
   cmdResponse = s;
 }
 
-void OdometryMowISR(){
-  /* if (digitalRead(pinMotorMowImp) == LOW) {
-    odoTickMotorMowFlag = false;
-    return;
-  } 
-  if (!odoTickMotorMowFlag) {
-    odomTicksMow++; 
-    odoTickMotorMowFlag = true;
-  } */
-    
-  if (digitalRead(pinMotorMowImp) == LOW) return;
-  if (millis() < motorMowTicksTimeout) return; // eliminate spikes  
-  #ifdef SUPER_SPIKE_ELIMINATOR
-    unsigned long duration = millis() - motorMowTransitionTime;
-    if (duration > 5) duration = 0;
-    motorMowTransitionTime = millis();
-    motorMowDurationMax = 0.7 * max(((float)motorMowDurationMax), ((float)duration));
-    motorMowTicksTimeout = millis() + motorMowDurationMax;
-  #else
-    motorMowTicksTimeout = millis() + 3;
-  #endif
-  odomTicksMow++;
+void OdometryMowISR() {
+  static unsigned long lastTriggerTime = 0;
+  static bool lastLevel = LOW;
+
+  bool currentLevel = digitalRead(pinMotorMowImp);
+  unsigned long now = micros();
+  const unsigned long debounceDelay = 500;
+
+  if (currentLevel != lastLevel && currentLevel == HIGH && (now - lastTriggerTime > debounceDelay)) {
+    odomTicksMowISR++;
+    lastTriggerTime = now;
+  }
+
+  lastLevel = currentLevel;
 }
 
-void OdometryLeftISR(){
-  /* odomTicksLeft++; 
-    if (digitalRead(pinMotorLeftImp) == LOW) {
-    odoTickMotorLeftFlag = false;
-    return;
-  } 
-  if (!odoTickMotorLeftFlag) {
-    odomTicksLeft++; 
-    odoTickMotorLeftFlag = true;
-  } */
-    			  
-  if (digitalRead(pinMotorLeftImp) == LOW) return;
-  if (millis() < motorLeftTicksTimeout) return; // eliminate spikes  
-  #ifdef SUPER_SPIKE_ELIMINATOR
-    unsigned long duration = millis() - motorLeftTransitionTime;
-    if (duration > 5) duration = 0;
-    motorLeftTransitionTime = millis();
-    motorLeftDurationMax = 0.7 * max(((float)motorLeftDurationMax), ((float)duration));
-    motorLeftTicksTimeout = millis() + motorLeftDurationMax;
-  #else
-    motorLeftTicksTimeout = millis() + 3;
-  #endif
-  odomTicksLeft++;    
+void OdometryLeftISR() {
+  static unsigned long lastTriggerTime = 0;
+  static bool lastLevel = LOW;
+
+  bool currentLevel = digitalRead(pinMotorLeftImp);
+  unsigned long now = micros();
+  const unsigned long debounceDelay = 500;  // µs
+
+  if (currentLevel != lastLevel && currentLevel == HIGH && (now - lastTriggerTime > debounceDelay)) {
+    odomTicksLeftISR++;
+    lastTriggerTime = now;
+  }
+
+  lastLevel = currentLevel;
 }
 
-void OdometryRightISR(){
- /*  if (digitalRead(pinMotorRightImp) == LOW) {
-    odoTickMotorRightFlag = false;
-    return;
-  } 
-  if (!odoTickMotorRightFlag) {
-    odomTicksRight++; 
-    odoTickMotorRightFlag = true;
-  } */
-  
-		
-  if (digitalRead(pinMotorRightImp) == LOW) return;  
-  if (millis() < motorRightTicksTimeout) return; // eliminate spikes
-  #ifdef SUPER_SPIKE_ELIMINATOR
-    unsigned long duration = millis() - motorRightTransitionTime;
-    if (duration > 5) duration = 0;  
-    motorRightTransitionTime = millis();
-    motorRightDurationMax = 0.7 * max(((float)motorRightDurationMax), ((float)duration));  
-    motorRightTicksTimeout = millis() + motorRightDurationMax;
-  #else
-    motorRightTicksTimeout = millis() + 3;
-  #endif
-  odomTicksRight++;
-  
-  #ifdef TEST_PIN_ODOMETRY
-    testValue = !testValue;
-    digitalWrite(pinKeyArea2, testValue);  
-  #endif
+void OdometryRightISR() {
+  static unsigned long lastTriggerTime = 0;
+  static bool lastLevel = LOW;
+
+  bool currentLevel = digitalRead(pinMotorRightImp);
+  unsigned long now = micros();
+  const unsigned long debounceDelay = 500;
+
+  if (currentLevel != lastLevel && currentLevel == HIGH && (now - lastTriggerTime > debounceDelay)) {
+    odomTicksRightISR++;
+    lastTriggerTime = now;
+  }
+
+  lastLevel = currentLevel;
 }
 
 void stopButtonISR(){
@@ -352,7 +336,7 @@ void stopButtonISR(){
   }
 }
 
-void mower(){
+/* void mower(){
   if (abs(mowSpeedSet) > 0){        
     if (millis() > mowBrakeStateTimeout){      
       mowBrakeStateTimeout = millis() + 1000;      
@@ -363,16 +347,16 @@ void mower(){
       }              
       if (mowBrakeState >= 3){       
         //digitalWrite(pinRelay, HIGH); // motor brake off            
-        //analogWrite(pinMotorMowPWM, 255);
-        analogWrite(pinMotorMowPWM, mowSpeedSet);  // set mower speed          
+        //analogWrite(pinMotorMowPwm, 255);
+        analogWrite(pinMotorMowPwm, mowSpeedSet);  // set mower speed          
       } 
       else {      
         if (mowBrakeState % 2 == 0){ 
           digitalWrite(pinRelay, HIGH); // motor brake off            
-          analogWrite(pinMotorMowPWM, 255);  
+          analogWrite(pinMotorMowPwm, 255);  
         } else {
           digitalWrite(pinRelay, LOW); // motor brake on
-          analogWrite(pinMotorMowPWM, 0);            
+          analogWrite(pinMotorMowPwm, 0);            
         }
       }
       if (mowBrakeState < 20) mowBrakeState++;            
@@ -381,7 +365,41 @@ void mower(){
     mowBrakeStateTimeout = millis();
     mowBrakeState = 0;
     digitalWrite(pinRelay, LOW);  // motor brake on    
-    analogWrite(pinMotorMowPWM, 0); // mower speed zero
+    analogWrite(pinMotorMowPwm, 0); // mower speed zero
+  }
+} */
+
+void mower(){
+  if (abs(mowSpeedSet) > 0){ 
+    analogWrite(pinMotorMowPwm, mowSpeedSet);  // set mower speed         
+    if (millis() > mowBrakeStateTimeout){      
+      mowBrakeStateTimeout = millis() + 1000;      
+      if (mowSpeedSet >= 0){
+        digitalWrite(pinMotorMowDir, LOW);  // set mower direction forward
+      } else {
+        digitalWrite(pinMotorMowDir, HIGH); // set mower direction backwards
+      }              
+      if (mowBrakeState >= 3){       
+        digitalWrite(pinRelay, HIGH); // motor brake off            
+        //analogWrite(pinMotorMowPwm, 255);
+        //analogWrite(pinMotorMowPwm, mowSpeedSet);  // set mower speed          
+      } 
+      else {     //MrTree... this pulsing could be iteration wise..... 
+        if (mowBrakeState % 2 == 0){
+          digitalWrite(pinRelay, HIGH); // motor brake off            
+          //analogWrite(pinMotorMowPwm, 255);  
+        } else {
+          digitalWrite(pinRelay, LOW); // motor brake on
+          //analogWrite(pinMotorMowPwm, 0);            
+        }
+      }
+      if (mowBrakeState < 20) mowBrakeState++;            
+    }
+  } else if (mowSpeedSet == 0) {  //continue if it´s a NaN
+    mowBrakeStateTimeout = millis();
+    mowBrakeState = 0;
+    digitalWrite(pinRelay, LOW);  // motor brake on    
+    analogWrite(pinMotorMowPwm, 0); // mower speed zero
   }
 }
 
@@ -397,24 +415,30 @@ void power(bool flag){
 void motor(){
   enableTractionBrakes = false;
   if (motorOverload) {
-    leftSpeedSet = 0;
-    rightSpeedSet = 0;           
+    //leftSpeedSet = 0;
+    //rightSpeedSet = 0;           
   } 
 
+  //MrTree: moved this to Sunray motor.cpp so it´s more convinient to tune!
   // bugfix MS4931 brushless driver sending incorrectly odometry/tire speeds for very low PWM values (e.g. 5)
   //if ((leftSpeedSet > 0) && (leftSpeedSet < 15)) leftSpeedSet = 15;
   //if ((rightSpeedSet > 0) && (rightSpeedSet < 15)) rightSpeedSet = 15;
   //if ((leftSpeedSet < 0) && (leftSpeedSet > -15)) leftSpeedSet = -15;
   //if ((rightSpeedSet < 0) && (rightSpeedSet > -15)) rightSpeedSet = -15;
 
-  if ((leftSpeedSet > 0) && (leftSpeedSet < 10)) leftSpeedSet = 0;
-  if ((rightSpeedSet > 0) && (rightSpeedSet < 10)) rightSpeedSet = 0;
-  if ((leftSpeedSet < 0) && (leftSpeedSet > -10)) leftSpeedSet = 0;
-  if ((rightSpeedSet < 0) && (rightSpeedSet > -10)) rightSpeedSet = 0;  
+  //if ((leftSpeedSet > 0) && (leftSpeedSet < 10)) leftSpeedSet = 0;
+  //if ((rightSpeedSet > 0) && (rightSpeedSet < 10)) rightSpeedSet = 0;
+  //if ((leftSpeedSet < 0) && (leftSpeedSet > -10)) leftSpeedSet = 0;
+  //if ((rightSpeedSet < 0) && (rightSpeedSet > -10)) rightSpeedSet = 0;  
 
   // traction brakes
-  if ((leftSpeedSet == 0) && (rightSpeedSet == 0)){
-    enableTractionBrakes = true; 
+  
+  if ((leftSpeedSet == 0) && (rightSpeedSet == 0) && !enableTractionBrakes){
+      iteCount++;
+      if (iteCount > 9) {
+        enableTractionBrakes = true;
+        iteCount = 0;
+      }
   } 
   
   // ----- left traction motor ------
@@ -429,7 +453,7 @@ void motor(){
   } else {
     digitalWrite(pinMotorLeftDir, LOW);  
   }                           
-  analogWrite(pinMotorLeftPWM, 255-abs(leftSpeedSet));
+  analogWrite(pinMotorLeftPwm, 255-abs(leftSpeedSet));
   digitalWrite(pinMotorLeftBrake, !enableTractionBrakes);   // set brakes
   
   // ----- right traction motor ------
@@ -444,7 +468,7 @@ void motor(){
   } else {
     digitalWrite(pinMotorRightDir, HIGH);      
   }
-  analogWrite(pinMotorRightPWM, 255-abs(rightSpeedSet));
+  analogWrite(pinMotorRightPwm, 255-abs(rightSpeedSet));
   digitalWrite(pinMotorRightBrake, !enableTractionBrakes);  // set brakes 
 }
 
@@ -515,7 +539,9 @@ void readSensors(){
 
 
 // read left/right gear motor current
-void readMotorCurrent(){      
+void readMotorCurrent(){
+  //MrTree: is this filtered here and than in SUNRAY AGAIN!?!?!?!?!?
+  
   // calibrated on 'black/orange' NGP robot:
   //motorLeftCurr = ((float)analogRead(pinMotorLeftCurr)) / 150.0;
   //motorRightCurr = ((float)analogRead(pinMotorRightCurr)) / 150.0;
@@ -533,12 +559,12 @@ void readMotorCurrent(){
   w = 0.99;    
   mowCurrLP = w * mowCurrLP + (1.0-w) * mowCurr;
 
-  if ((mowCurrLP > 4.0) || (motorLeftCurrLP > 1.5) || (motorRightCurrLP > 1.5)) {      
+  if ((mowCurrLP > 5.0) || (motorLeftCurrLP > 2.0) || (motorRightCurrLP > 2.0)) {      
     // too much current: turn off motors
     //motor(0, 0);
     //mower(false);
     motorOverload = true;
-    motorOverloadTimeout = millis() + 2000;       
+    motorOverloadTimeout = millis() + 2000;
   }
 
   // charging current (reading charging current does not work for some reason...)
@@ -596,7 +622,7 @@ void setup() {
   analogWriteFrequency(20000); // 8000
   
   pinMode(pinMotorMowCurr, INPUT);
-  pinMode(pinMotorMowPWM, OUTPUT);
+  pinMode(pinMotorMowPwm, OUTPUT);
   pinMode(pinMotorMowFault, INPUT_PULLUP);
   pinMode(pinMotorMowImp, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(pinMotorMowImp), OdometryMowISR, CHANGE);
@@ -609,7 +635,7 @@ void setup() {
   
   // motor left
   pinMode(pinMotorLeftCurr, INPUT);
-  pinMode(pinMotorLeftPWM, OUTPUT);
+  pinMode(pinMotorLeftPwm, OUTPUT);
   pinMode(pinMotorLeftBrake, OUTPUT);
   pinMode(pinMotorLeftDir, OUTPUT);
   pinMode(pinMotorLeftImp, INPUT_PULLUP);
@@ -617,7 +643,7 @@ void setup() {
 
   // motor right
   pinMode(pinMotorRightCurr, INPUT);
-  pinMode(pinMotorRightPWM, OUTPUT);
+  pinMode(pinMotorRightPwm, OUTPUT);
   pinMode(pinMotorRightBrake, OUTPUT);
   pinMode(pinMotorRightDir, OUTPUT);
   pinMode(pinMotorRightImp, INPUT_PULLUP);
@@ -642,7 +668,7 @@ unsigned nextInfoTime = 0;
 int lps = 0;
       
 
-
+/*
 // request motor 
 // AT+M,20,20,1
 void cmdMotor(){
@@ -693,7 +719,7 @@ void cmdMotor(){
     //digitalWrite(pinMotorLeftBrake, LOW);  // enable brakes
     //digitalWrite(pinMotorRightBrake, LOW);  // enable brakes    
   //}
-  motorTimeout = millis() + 3000;
+  motorTimeout = millis() + 5000;
   String s = F("M");
   s += ",";
   s += odomTicksLeft;
@@ -710,6 +736,85 @@ void cmdMotor(){
   s += ",";
   s += int(stopButton);
   cmdAnswer(s);
+} */
+
+int getIntField(String& s, int fieldIndex) {
+  int idx = 0;
+  int start = 0;
+  int commaCount = 0;
+  while (idx < s.length()) {
+    if (s[idx] == ',' || idx == s.length() - 1) {
+      if (commaCount == fieldIndex) {
+        int end = (s[idx] == ',') ? idx : idx + 1;
+        return s.substring(start, end).toInt();
+      }
+      commaCount++;
+      start = idx + 1;
+    }
+    idx++;
+  }
+  return 0;
+}
+
+/*float getFloatField(String& s, int fieldIndex) {
+  int idx = 0;
+  int start = 0;
+  int commaCount = 0;
+  while (idx < s.length()) {
+    if (s[idx] == ',' || idx == s.length() - 1) {
+      if (commaCount == fieldIndex) {
+        int end = (s[idx] == ',') ? idx : idx + 1;
+        return s.substring(start, end).toFloat();
+      }
+      commaCount++;
+      start = idx + 1;
+    }
+    idx++;
+  }
+  return 0.0;
+}*/
+
+void cmdMotor() {
+  if (cmd.length() < 6) return;  
+  
+  rightSpeedSet  = getIntField(cmd, 1);
+  leftSpeedSet = getIntField(cmd, 2);
+  mowSpeedSet   = getIntField(cmd, 3);
+  motorTimeout  = millis() + 3000;
+
+
+  // copy get Interrupts without Interrupts interfering
+  noInterrupts();
+  odomTicksLeft = odomTicksLeftISR;
+  odomTicksRight = odomTicksRightISR;
+  odomTicksMow = odomTicksMowISR;
+  interrupts();
+
+  //calc Tick deltas
+  int deltaTicksLeft  = odomTicksLeft  - odomTicksLeftL;
+  int deltaTicksRight = odomTicksRight - odomTicksRightL;
+  int deltaTicksMow   = odomTicksMow   - odomTicksMowL;
+
+  // save ticks
+  odomTicksLeftL  = odomTicksLeft;
+  odomTicksRightL = odomTicksRight;
+  odomTicksMowL   = odomTicksMow;
+
+  // send serial char from buffer
+  char chgVoltageStr[10];
+  dtostrf(chgVoltage, 4, 2, chgVoltageStr);
+  char buffer[250];
+
+  snprintf(buffer, sizeof(buffer), "M,%d,%d,%d,%s,%d,%d,%d",
+           deltaTicksLeft, 
+           deltaTicksRight, 
+           deltaTicksMow,
+           chgVoltageStr,
+           int(bumper), 
+           int(lift), 
+           int(stopButton));
+
+  cmdAnswer(buffer);
 }
 
 // perform hang test (watchdog should trigger)
@@ -726,8 +831,7 @@ void cmdVersion(){
   cmdAnswer(s);
 }
 
-
-// request summary
+/*// request summary
 void cmdSummary(){
   String s = F("S,");
   s += batVoltage;  
@@ -753,6 +857,41 @@ void cmdSummary(){
   s += ",";
   s += batteryTemp;
   cmdAnswer(s);  
+}*/
+
+// request summary
+void cmdSummary() {
+  char batVoltageStr[10];
+  char chgVoltageStr[10];
+  char chgCurrentLPStr[10];
+  char mowCurrLPStr[10];
+  char motorRightCurrLPStr[10];
+  char motorLeftCurrLPStr[10];
+  char batteryTempStr[10];
+  char buffer[250];
+  
+  dtostrf(batVoltage, 1, 2, batVoltageStr);
+  dtostrf(chgVoltage, 1, 2, chgVoltageStr);
+  dtostrf(chgCurrentLP, 1, 2, chgCurrentLPStr);
+  dtostrf(mowCurrLP, 1, 2, mowCurrLPStr);
+  dtostrf(motorRightCurrLP, 1, 2, motorRightCurrLPStr);
+  dtostrf(motorLeftCurrLP, 1, 2, motorLeftCurrLPStr);
+  dtostrf(batteryTemp, 1, 2, batteryTempStr);
+  
+  snprintf(buffer, sizeof(buffer), "S,%s,%s,%s,%d,%d,%d,%d,%s,%s,%s,%s",
+           batVoltageStr,
+           chgVoltageStr,
+           chgCurrentLPStr,
+           int(lift),
+           int(bumper),
+           int(raining),
+           int(motorOverload),
+           mowCurrLPStr,
+           motorLeftCurrLPStr,
+           motorRightCurrLPStr,
+           batteryTempStr);
+
+  cmdAnswer(buffer);
 }
 
 
@@ -812,7 +951,7 @@ void processCmd(bool checkCrc){
 void processConsole(){
   char ch;
   if (CONSOLE.available()) {
-    unsigned long timeout = millis() + 10;       
+    unsigned long timeout = millis() + 10;     //10  
     //battery.resetIdle();  
     while ( (CONSOLE.available()) && (millis() < timeout) ){               
       ch = CONSOLE.read();          
@@ -829,7 +968,7 @@ void processConsole(){
     }
   }
   if (CONSOLE2.available()) {
-    unsigned long timeout = millis() + 10;       
+    unsigned long timeout = millis() + 10;     //10 
     //battery.resetIdle();  
     while ( (CONSOLE2.available()) && (millis() < timeout) ){               
       ch = CONSOLE2.read();          
@@ -907,25 +1046,28 @@ void testPins(){
 
 
 void loop() {
-  
-  if (millis() > nextMotorControlTime){
+  static bool taskExcecuted = false;
+
+  if (!taskExcecuted && millis() > nextMotorControlTime){
     nextMotorControlTime = millis() + 20;
     motor();
     mower();
     readSensorsHighFrequency();
+    taskExcecuted = true;
   }
 
-  if (millis() > motorTimeout){
+  if (!taskExcecuted && millis() > motorTimeout){
     leftSpeedSet = 0;
     rightSpeedSet = 0;
     mowSpeedSet = 0;
     //motor(0,0);
     //mower(false);
+    taskExcecuted = true;
   }
 
   processConsole();
 
-  if (millis() > nextInfoTime){
+  if (!taskExcecuted && millis() > nextInfoTime){
     nextInfoTime = millis() + 1000;
     #ifdef DEBUG
       printInfo();           
@@ -934,21 +1076,25 @@ void loop() {
     #ifdef TEST_PINS
       testPins();
     #endif
-  }
-   
-  if (millis() > nextBatTime){
-    nextBatTime = millis() + 100;
-    readSensors();
+    taskExcecuted = true;
   }
 
-  if (millis() > nextMotorSenseTime){    
+  if (!taskExcecuted && millis() > nextBatTime){
+    nextBatTime = millis() + 100;
+    readSensors();
+    taskExcecuted = true;
+  }
+
+  if (!taskExcecuted && millis() > nextMotorSenseTime){    
     nextMotorSenseTime = millis() + 100;    
     readMotorCurrent();
+    taskExcecuted = true;
   }
 
   if (millis() > motorOverloadTimeout){
     // allow motor to turn on again after timeout
-    motorOverload = false;
+    // motorOverload = false;
+    //CONSOLE.println("RM18: MOTOROVERLOAD IGNORED!");
   }
 
   /*if (counter % 2 == 0){
@@ -960,7 +1106,7 @@ void loop() {
     digitalWrite(pinLoraMOSI, LOW);
     digitalWrite(pinSCL, LOW);
   }*/
-
+  taskExcecuted = false;
   lps++;
   IWatchdog.reload();
 }

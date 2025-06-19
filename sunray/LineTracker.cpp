@@ -97,9 +97,40 @@ void rotateToTarget() {
       resetStateEstimation();
       if (CurrRot == 0) angleToTargetPrecise = true;                          //MrTree Step out of everything when angle is precise... and we stopped rotating 
     }
-    //add option to disable and start rotsatating even if still moving
+    //add option to disable and start rotating even if still moving
     if (fabs(CurrSpeed) > 0.0) angular = 0;                //MrTree reset angular if current speed is over given value (still deccelerating)
-    
+    // test for alfred wheels slipping
+    // we need an imu feedback of possible wheel slipping
+    float angularTest = 0;
+    angularTest = turnInPlaceControl(angular);
+    //CONSOLE.print("angular | angularTest  ");CONSOLE.print(angular);CONSOLE.print(" | ");CONSOLE.println(angularTest);
+}
+
+float turnInPlaceControl(float angularIn) {
+  const int MAX_SPEED = 100;
+  const int MIN_SPEED = 30;
+  const float SLOWDOWN_FACTOR = 0.8;
+  const float RECOVERY_RATE = 5;
+  const float THRESHOLD = 0.5;  // Verhältnis: IMU/Soll-Drehrate
+  float angularOut = 0;
+  float imuZ = stateDeltaIMU;
+  float desiredZ = fabs(angularIn);
+
+  if (desiredZ < 0.01) desiredZ = 0.01; // Schutz gegen Division durch 0
+
+  float ratio = imuZ / desiredZ;
+
+  if (ratio < THRESHOLD) {
+    // Verdacht auf Schlupf oder Blockade
+    angularIn = max(int(angularIn * SLOWDOWN_FACTOR), MIN_SPEED);
+  } else {
+    // Normalverhalten – wieder hochregeln
+    angularIn = min(angularIn + int(RECOVERY_RATE), MAX_SPEED);
+  }
+  angularOut = angularIn;
+  // Drehen basierend auf Vorzeichen der Soll-Drehrate
+  //int direction = (getDesiredYawRate() >= 0) ? 1 : -1;
+  return(angularOut);
 }
 
 void stanleyTracker() {
@@ -288,6 +319,10 @@ void linearSpeedState(){
       angular = 0;
   }
 
+  if (linear != 0){
+    if (linear > MOTOR_MAX_SPEED) linear = MOTOR_MAX_SPEED;
+    if (linear < MOTOR_MIN_SPEED) linear = MOTOR_MIN_SPEED;
+  }
 
   if (maps.trackReverse) linear *= -1;   // reverse line tracking needs negative speed
 

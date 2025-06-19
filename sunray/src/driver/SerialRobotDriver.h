@@ -22,10 +22,12 @@ class SerialRobotDriver: public RobotDriver {
     String mcuFirmwareVersion;
     int requestLeftPwm;
     int requestRightPwm;
-    int requestMowPwm;        
-    unsigned long encoderTicksLeft;
-    unsigned long encoderTicksRight;
-    unsigned long encoderTicksMow;
+    int requestMowPwm;
+
+    unsigned int deltaTicksLeft;
+    unsigned int deltaTicksRight;
+    unsigned int deltaTicksMow;
+    
     bool mcuCommunicationLost;
     bool motorFault;
     float batteryVoltage;
@@ -84,9 +86,10 @@ class SerialRobotDriver: public RobotDriver {
 
 class SerialMotorDriver: public MotorDriver {
   public:        
-    unsigned long lastEncoderTicksLeft;
-    unsigned long lastEncoderTicksRight; 
-    unsigned long lastEncoderTicksMow;     
+    unsigned long lastDeltaTicksLeft;
+    unsigned long lastDeltaTicksRight; 
+    unsigned long lastDeltaTicksMow;
+         
     SerialRobotDriver &serialRobot;
     SerialMotorDriver(SerialRobotDriver &sr);
     void begin() override;

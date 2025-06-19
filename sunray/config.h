@@ -49,9 +49,9 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 
 //#define DRV_SERIAL_ROBOT  1   // Linux (Alfred)
 //#define DRV_CAN_ROBOT  1      // Linux (owlRobotics platform)
-#define DRV_ARDUMOWER     1   // keep this for Ardumower
+#define DRV_ARDUMOWER     1     // keep this for Ardumower
 //#define DRV_SIM_ROBOT     1   // simulation
-
+#define ALFRED false            // is it Alfred with bananaPi or other Pi and RM18/21?
 
 // ------- Bluetooth4.0/BLE module -----------------------------------
 // see Wiki on how to install the BLE module and configure the jumpers:
@@ -200,6 +200,9 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOW_START_AT_WAYMOW         false // (WARNING: IF YOU SET THIS TRUE, YOU CANNOT START MOWMOTOR WITH APP MANUALLY ANYMORE) mowmotor only starts if way state of mower is waymow for the first time, used for mowmotor not starting directly at dock, but at mow area. This is a onetime trigger that only works when mower is (---> undocking ) ---> wayfree ---> mowarea ---> start mowmotor. After this, mowmotor will behave like it used to be
 #define WATCHDOG_CONTINUE           false // set true if you have watchdog reset issues, mower will start mowing after rebooting
 #define WATCHDOG_TIME               16000 // (ms) resettimer for watchdog trigger
+#define HODOR_ENDURANCE             5000  // (ms) The Time Hodor will hold the Door if HTTP Server is over timeout and whiling around in get or send loop, HODOR_GENTLE_TIME is the time Hodor waits until holding the door and thus protecting the hobit (Mower) if not in MOW_OP. 
+#define HODOR_GENTLE_TIME           200   // (ms) HODOR_GENTLE_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if not in MOW_OP.
+#define HODOR_BRUTAL_TIME           10    // (ms) HODOR_BRUTAL_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if in MOW_OP.
 //OBSTACLES
 #define OBSTACLE_DETECTION_ROTATION true  // detect robot rotation stuck (requires IMU) (wheel at backside, popo situation)
 #define ROTATION_TIMEOUT            5000  // Timeout of rotation movement that triggers an obstacle with escapeReverse (goal for shorter trigger times)
@@ -212,6 +215,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 //#define OVERLOAD_ROTATION_AMPS      0.4 // if one motor consumes more than _AMPS and robot is rotating, an obstacle is assumed <-- to be revived
 #define OVERLOAD_ROTATION_DEADTIME  1000  // (ms) trigger dead time for OVERLOAD_ROTATION (similar like BUMPER_DEADTIME)
 #define OBSTACLE_CHAINING           true  // if true, obstacle and obstaclerotation detection is allowed during an obstacle evasion operation (chaining) 
+#define SHOULDROTATE_DELAY          1000  // internal state bool will trigger shouldrotate with this delay after rotation command in code startet
 //DRIVER (try to fix 8308 driver with pwm (keep FALSE if you have no issues or no DRV8308, this is for experiments only)) ---> to be removed
 #define DRV8308_FIX                 false // only for testing, if true and charger is connected, drivers pwm will be 1 for DRVFIXITERATIONS iteration of code everytime DRVFIXTIMER is met
 #define DRVFIXITERATIONS            5     // iterations of code for pwm of drivers to be PWM_GEAR and PWM_MOW (below)
@@ -237,8 +241,10 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
     #define DEBUG_STATE_ESTIMATOR   false
     #define DEBUG_LINETRACKER       false
     #define DEBUG_SPEEDS            false
-    #define DEBUG_MOTORCONTROL      true
-      #define DEBUG_MOTOR_CONTROL_TIME    100
+    #define DEBUG_MOTORCONTROL      false
+    #define DEBUG_PID               true
+      #define DEBUG_MOTOR_CONTROL_TIME    1000
+      #define DEBUG_MOTOR_MOWSTALL false
     #define DEBUG_BATTERY           false
     #define DEBUG_UBLOX             false // will output unparsed ublox rx messages
     #define DEBUG_HTTPSERVER        false
@@ -687,17 +693,17 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
   // ...
 #else
   #define pinMotorEnable  37         // EN motors enable
-  #define pinMotorLeftPWM 5          // M1_IN1 left motor PWM pin
+  #define pinMotorLeftPwm 5          // M1_IN1 left motor PWM pin
   #define pinMotorLeftDir 31         // M1_IN2 left motor Dir pin
   #define pinMotorLeftSense A1       // M1_FB  left motor current sense
   #define pinMotorLeftFault 25       // M1_SF  left motor fault
                                                               
-  #define pinMotorRightPWM  3        // M2_IN1 right motor PWM pin
+  #define pinMotorRightPwm  3        // M2_IN1 right motor PWM pin
   #define pinMotorRightDir 33        // M2_IN2 right motor Dir pin
   #define pinMotorRightSense A0      // M2_FB  right motor current sense
   #define pinMotorRightFault 27      // M2_SF  right motor fault
                                       
-  #define pinMotorMowPWM 2           // M1_IN1 mower motor PWM pin (if using MOSFET, use this pin)
+  #define pinMotorMowPwm 2           // M1_IN1 mower motor PWM pin (if using MOSFET, use this pin)
   #define pinMotorMowDir 29          // M1_IN2 mower motor Dir pin (if using MOSFET, keep unconnected)
   #define pinMotorMowSense A3        // M1_FB  mower motor current sense  
   #define pinMotorMowFault 26        // M1_SF  mower motor fault   (if using MOSFET/L298N, keep unconnected)

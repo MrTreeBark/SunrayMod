@@ -485,17 +485,17 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
   // ...
 #else
   #define pinMotorEnable  37         // EN motors enable
-  #define pinMotorLeftPWM 5          // M1_IN1 left motor PWM pin
+  #define pinMotorLeftPwm 5          // M1_IN1 left motor PWM pin
   #define pinMotorLeftDir 31         // M1_IN2 left motor Dir pin
   #define pinMotorLeftSense A1       // M1_FB  left motor current sense
   #define pinMotorLeftFault 25       // M1_SF  left motor fault
                                                               
-  #define pinMotorRightPWM  3        // M2_IN1 right motor PWM pin
+  #define pinMotorRightPwm  3        // M2_IN1 right motor PWM pin
   #define pinMotorRightDir 33        // M2_IN2 right motor Dir pin
   #define pinMotorRightSense A0      // M2_FB  right motor current sense
   #define pinMotorRightFault 27      // M2_SF  right motor fault
                                       
-  #define pinMotorMowPWM 2           // M1_IN1 mower motor PWM pin (if using MOSFET, use this pin)
+  #define pinMotorMowPwm 2           // M1_IN1 mower motor PWM pin (if using MOSFET, use this pin)
   #define pinMotorMowDir 29          // M1_IN2 mower motor Dir pin (if using MOSFET, keep unconnected)
   #define pinMotorMowSense A3        // M1_FB  mower motor current sense  
   #define pinMotorMowFault 26        // M1_SF  mower motor fault   (if using MOSFET/L298N, keep unconnected)

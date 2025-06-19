@@ -102,19 +102,19 @@
 #define pinBatteryV        PC5
 #define pinBatteryRX       PB6
 
-#define pinMotorRightPWM   PE9
+#define pinMotorRightPwm   PE9
 #define pinMotorRightBrake PB12
 #define pinMotorRightDir   PB13   
 #define pinMotorRightImp   PD0
 #define pinMotorRightCurr  PC1
 
-#define pinMotorLeftPWM    PE13
+#define pinMotorLeftPwm    PE13
 #define pinMotorLeftBrake  PD8
 #define pinMotorLeftDir    PD9
 #define pinMotorLeftImp    PD1
 #define pinMotorLeftCurr   PC0
 
-#define pinMotorMowPWM     PE11
+#define pinMotorMowPwm     PE11
 #define pinMotorMowImp     PD3
 #define pinMotorMowBrake   PB15
 #define pinMotorMowDir     PB14
@@ -338,16 +338,16 @@ void mower(){
       }              
       if (mowBrakeState >= 3){       
         //digitalWrite(pinRelay, HIGH); // motor brake off            
-        //analogWrite(pinMotorMowPWM, 255);
-        analogWrite(pinMotorMowPWM, mowSpeedSet);  // set mower speed          
+        //analogWrite(pinMotorMowPwm, 255);
+        analogWrite(pinMotorMowPwm, mowSpeedSet);  // set mower speed          
       } 
       else {      
         if (mowBrakeState % 2 == 0){ 
           digitalWrite(pinRelay, HIGH); // motor brake off            
-          analogWrite(pinMotorMowPWM, 255);  
+          analogWrite(pinMotorMowPwm, 255);  
         } else {
           digitalWrite(pinRelay, LOW); // motor brake on
-          analogWrite(pinMotorMowPWM, 0);            
+          analogWrite(pinMotorMowPwm, 0);            
         }
       }
       if (mowBrakeState < 20) mowBrakeState++;            
@@ -356,7 +356,7 @@ void mower(){
     mowBrakeStateTimeout = millis();
     mowBrakeState = 0;
     digitalWrite(pinRelay, LOW);  // motor brake on    
-    analogWrite(pinMotorMowPWM, 0); // mower speed zero
+    analogWrite(pinMotorMowPwm, 0); // mower speed zero
   }
 }
 
@@ -399,7 +399,7 @@ void motor(){
   } else {
     digitalWrite(pinMotorLeftDir, LOW);  
   }                           
-  analogWrite(pinMotorLeftPWM, 255-abs(leftSpeedSet));
+  analogWrite(pinMotorLeftPwm, 255-abs(leftSpeedSet));
   digitalWrite(pinMotorLeftBrake, !enableTractionBrakes);   // set brakes
   
   // ----- right traction motor ------
@@ -414,7 +414,7 @@ void motor(){
   } else {
     digitalWrite(pinMotorRightDir, HIGH);      
   }
-  analogWrite(pinMotorRightPWM, 255-abs(rightSpeedSet));
+  analogWrite(pinMotorRightPwm, 255-abs(rightSpeedSet));
   digitalWrite(pinMotorRightBrake, !enableTractionBrakes);  // set brakes 
 }
 
@@ -566,7 +566,7 @@ void setup() {
   analogWriteFrequency(20000); // 8000
   
   pinMode(pinMotorMowCurr, INPUT);
-  pinMode(pinMotorMowPWM, OUTPUT);
+  pinMode(pinMotorMowPwm, OUTPUT);
   pinMode(pinMotorMowFault, INPUT_PULLUP);
   pinMode(pinMotorMowImp, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(pinMotorMowImp), OdometryMowISR, CHANGE);
@@ -579,7 +579,7 @@ void setup() {
   
   // motor left
   pinMode(pinMotorLeftCurr, INPUT);
-  pinMode(pinMotorLeftPWM, OUTPUT);
+  pinMode(pinMotorLeftPwm, OUTPUT);
   pinMode(pinMotorLeftBrake, OUTPUT);
   pinMode(pinMotorLeftDir, OUTPUT);
   pinMode(pinMotorLeftImp, INPUT_PULLUP);
@@ -587,7 +587,7 @@ void setup() {
 
   // motor right
   pinMode(pinMotorRightCurr, INPUT);
-  pinMode(pinMotorRightPWM, OUTPUT);
+  pinMode(pinMotorRightPwm, OUTPUT);
   pinMode(pinMotorRightBrake, OUTPUT);
   pinMode(pinMotorRightDir, OUTPUT);
   pinMode(pinMotorRightImp, INPUT_PULLUP);

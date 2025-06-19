@@ -19,6 +19,10 @@ void EscapeReverseOp::begin(){
     // obstacle avoidance
     driveReverseStopTime = millis() + (ESCAPE_REVERSE_WAY/OBSTACLEAVOIDANCESPEED*1000);
     resetMotion();
+    //Save the position
+    
+    obsPosX = stateX;
+    obsPosY = stateY;
 }
 
 
@@ -29,13 +33,17 @@ void EscapeReverseOp::end(){
 void EscapeReverseOp::run(){
     battery.resetIdle();
     motor.setLinearAngularSpeed(-OBSTACLEAVOIDANCESPEED,0,false);				
-																				
+	
+    float distGPS = sqrt( sq(stateX-obsPosX)+sq(stateY-obsPosY) );
+
+
 	if (DISABLE_MOW_MOTOR_AT_OBSTACLE && motor.switchedOn) {	//MrTree
       CONSOLE.println("EscapeReverseOp:: switch OFF mowmotor");			//MrTree
 	  motor.setMowState(false);  																	  	
 	}  																                                   																					
-    if (millis() > driveReverseStopTime){
-        CONSOLE.println("driveReverseStopTime");
+    //if (millis() > driveReverseStopTime){
+    if (distGPS > ESCAPE_REVERSE_WAY) {
+        CONSOLE.println("EscapeReverseOp:: distGPS reached");
         motor.setLinearAngularSpeed(0,0,false);
         //motor.stopImmediately(false); 
         driveReverseStopTime = 0;

@@ -49,6 +49,7 @@
 #include "bumper.h"
 #include "mqtt.h"
 #include "events.h"
+#include "lowpass_filter.h"
 
 // #define I2C_SPEED  10000
 #define _BV(x) (1 << (x))
@@ -144,7 +145,7 @@ const long watchdogTime = WATCHDOG_TIME;
 OperationType stateOp = OP_IDLE; // operation-mode
 Sensor stateSensor = SENS_NONE; // last triggered sensor
 
-unsigned int robot_control_cycle = ROBOT_IDLE_CYCLE;
+unsigned int robot_control_cycle = ROBOT_CONTROL_CYCLE;
 unsigned long deltaTime = 0; 
 unsigned long timeLast = 0;
 unsigned long controlLoops = 0;
@@ -237,10 +238,9 @@ void resetStateEstimation(){
   //stateDeltaSpeed = 0;
   stateDeltaSpeedIMU = 0;
   stateDeltaSpeed = 0;
-  stateDeltaSpeedLP = 0;
+  //stateDeltaSpeedLP = 0;
   stateDeltaSpeedWheels = 0;
   diffIMUWheelYawSpeed = 0;
-  diffIMUWheelYawSpeedLP = 0;
 }
 
 // reset linear motion measurement
@@ -749,29 +749,42 @@ bool robotShouldMove(){
 
 // should robot move forward?
 bool robotShouldMoveForward(){
-   return (motor.linearSpeedSet >= MOTOR_MIN_SPEED / 2.0);
+   return (motor.linearSpeedSet >= MOTOR_MIN_SPEED );
 }
 
 // should robot move backward?
 bool robotShouldMoveBackward(){
-   return (motor.linearSpeedSet <= - MOTOR_MIN_SPEED / 2.0);   
+   return (motor.linearSpeedSet <= - MOTOR_MIN_SPEED );   
 }
 
 // should robot rotate? only applies when robot is nearly still
 bool robotShouldRotate(){
-  if (fabs(motor.linearSpeedSet) < MOTOR_MIN_SPEED && fabs(motor.angularSpeedSet)/PI*180.0 > 4.0) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+  if (fabs(motor.angularSpeedSet)/PI*180.0 > 10.0) return true; //&& millis() > angularMotionStartTime + SHOULDROTATE_DELAY) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
 }
+
+/* // should robot rotate left? only applies when robot is nearly still
+bool robotShouldRotateLeft(){
+  if (fabs(motor.linearSpeedSet) < (MOTOR_MIN_SPEED*2) && (motor.angularSpeedSet/PI*180.0 < -5.0)) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+    else return (false);   
+} */
 
 // should robot rotate left? only applies when robot is nearly still
 bool robotShouldRotateLeft(){
-  if (fabs(motor.linearSpeedSet) < (MOTOR_MIN_SPEED*2) && (motor.angularSpeedSet/PI*180.0 < -4.0)) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+  if (motor.angularSpeedSet/PI*180.0 < -5.0) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
 }
 
+
+/* // should robot rotate right? only applies when robot is nearly still
+bool robotShouldRotateRight(){
+  if (fabs(motor.linearSpeedSet) < (MOTOR_MIN_SPEED*2) && (motor.angularSpeedSet/PI*180.0 > 5.0)) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+    else return (false);   
+} */
+
 // should robot rotate right? only applies when robot is nearly still
 bool robotShouldRotateRight(){
-  if (fabs(motor.linearSpeedSet) < (MOTOR_MIN_SPEED*2) && (motor.angularSpeedSet/PI*180.0 > 4.0)) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+  if (motor.angularSpeedSet/PI*180.0 > 5.0) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
 }
 
@@ -955,7 +968,7 @@ bool detectObstacle(){
     } else {
       CONSOLE.println("bumper obstacle!");    
       statMowBumperCounter++;
-      maps.setObstaclePosition(stateX, stateY, 0, ESCAPE_REVERSE_WAY, OBSTACLE_DIAMETER);
+      maps.setObstaclePosition(stateX, stateY, 0, MOWER_RADIUS_FRONT, OBSTACLE_DIAMETER);
     }
     Logger.event(EVT_BUMPER_OBSTACLE);
     statMowBumperCounter++;
@@ -967,7 +980,7 @@ bool detectObstacle(){
     CONSOLE.println("LiDAR bumper obstacle!");    
     Logger.event(EVT_LIDAR_BUMPER_OBSTACLE);
     statMowBumperCounter++;
-    maps.setObstaclePosition(stateX, stateY, 0, ESCAPE_REVERSE_WAY, OBSTACLE_DIAMETER);
+    maps.setObstaclePosition(stateX, stateY, 0, MOWER_RADIUS_FRONT, OBSTACLE_DIAMETER);
     triggerObstacle();
     return true;
   }
@@ -986,7 +999,7 @@ bool detectObstacle(){
 
   // check GPS stateGroundSpeed difference to linearSpeedSet
   if (millis() > linearMotionStartTime + GPS_SPEED_DEADTIME) {
-    if (stateGroundSpeed < fabs(motor.linearSpeedSet/4)) {
+    if (stateGroundSpeed < fabs(motor.linearSpeedSet/4) && !robotShouldRotate) {
       noGPSSpeedTime += deltaTime;
       if (NO_GPS_OBSTACLE && gpsObstacleNotAllowed){
         CONSOLE.println("GPS_SPEED_DETECTION: ignoring gps no groundspeed!");
@@ -1007,7 +1020,7 @@ bool detectObstacle(){
   }
 
   // check if GPS motion (obstacle detection)  
-  if ((millis() > nextGPSMotionCheckTime) || (millis() > overallMotionTimeout)) {        
+  if ((millis() > nextGPSMotionCheckTime) || (millis() > overallMotionTimeout) && !robotShouldRotate) {        
     updateGPSMotionCheckTime();
     resetOverallMotionTimeout(); // this resets overall motion timeout (overall motion timeout happens if e.g. 
     // motion between anuglar-only and linar-only toggles quickly, and their specific timeouts cannot apply due to the quick toggling)
@@ -1045,18 +1058,18 @@ bool detectObstacle(){
     lastGPSMotionX = stateX;      
     lastGPSMotionY = stateY;      
   }
-  // obstacle detection due to deflection of mower during linetracking 
+  // obstacle detection due to deflection of mower during linetracking ---> this is now changed to stateDeltaSpeedIMU, for ALfred, ODO measurement is just tooo bad for now
   if (imuDriver.imuFound && targetDist > NEARWAYPOINTDISTANCE/2 && lastTargetDist > NEARWAYPOINTDISTANCE/2 && millis() > linearMotionStartTime + BUMPER_DEADTIME){ // function only starts when mower is going between points 
     // during mowing a line, getting deflected by obstacle while it should not rotate version 1
-    if (!robotShouldRotate() && fabs(diffIMUWheelYawSpeedLP) > 12.0/180.0 * PI) {  // yaw speed difference between wheels and IMU more than 8 degree/s, e.g. due to obstacle AND imu shows not enough rotation
+    if (!robotShouldRotate() && fabs(stateDeltaSpeedIMU) > 12.0/180.0 * PI) {  // yaw speed difference between wheels and IMU more than 8 degree/s, e.g. due to obstacle AND imu shows not enough rotation
       CONSOLE.println("During Linetracking: IMU yaw difference between wheels and IMU while !robotShouldRotate => assuming obstacle at mower side");
-      CONSOLE.print("                                                           diffIMUWheelYawSpeedLP = ");CONSOLE.println(fabs(diffIMUWheelYawSpeedLP)*180/PI);
+      CONSOLE.print("                                                               stateDeltaSpeedIMU = ");CONSOLE.println(fabs(stateDeltaSpeedIMU)*180/PI);
       CONSOLE.print("                                                                    trigger value = ");CONSOLE.println(12.0);
       statMowDiffIMUWheelYawSpeedCounter++;
       //resetStateEstimation();
       //resetAngularMotionMeasurement();
       //resetLinearMotionMeasurement();
-      maps.setObstaclePosition(stateX, stateY, 0, MOWER_RADIUS_BACK, OBSTACLE_DIAMETER); //need to add sides            
+      maps.setObstaclePosition(stateX, stateY, 0, MOWER_RADIUS_FRONT, OBSTACLE_DIAMETER); //need to add sides            
       triggerObstacle();
       return true;            
     }
@@ -1091,17 +1104,19 @@ bool detectObstacleRotation(){
     CONSOLE.println("too long rotation time (timeout) for requested rotation => assuming obstacle");
     Logger.event(EVT_ANGULAR_MOTION_TIMEOUT_OBSTACLE);
     statMowRotationTimeoutCounter++;
+    //FIXME obstaclerotation should find out about conditions
     if (FREEWHEEL_IS_AT_BACKSIDE){
       //resetStateEstimation();
       //resetLinearMotionMeasurement();
       //resetAngularMotionMeasurement();
+      maps.setObstaclePosition(stateX, stateY, 0, MOWER_RADIUS_BACK, OBSTACLE_DIAMETER);
       triggerObstacleRotation(); //MrTree changed to trigger freewheel dependent
     } else {
       //resetStateEstimation();
       //resetLinearMotionMeasurement();
       //resetAngularMotionMeasurement();
       maps.setObstaclePosition(stateX, stateY, 0, MOWER_RADIUS_FRONT, OBSTACLE_DIAMETER);     
-      triggerObstacle(); //MrTree changed to trigger freewheel dependent        
+      triggerObstacle(); //MrTree changed to trigger freewheel dependent  ---> FORWARD      
     }
     return true;
   }
@@ -1131,19 +1146,19 @@ bool detectObstacleRotation(){
   if (imuDriver.imuFound){
     if (millis() > angularMotionStartTime + ROTATION_TIME) { 
       // less than 3 degree/s yaw speed, e.g. due to obstacle                 
-      if (fabs(stateDeltaSpeedLP) < 3.0/180.0 * PI){ 
-        CONSOLE.print("no IMU rotation speed detected for requested rotation => assuming obstacle: stateDeltaSpeedLP = ");
-        CONSOLE.println(stateDeltaSpeedLP * 180/PI);
+      if (fabs(stateDeltaSpeedIMU) < 10.0/180.0 * PI){ 
+        CONSOLE.print("no IMU rotation speed detected for requested rotation => assuming obstacle: stateDeltaSpeed = ");
+        CONSOLE.println(stateDeltaSpeed * 180/PI);
         statMowImuNoRotationSpeedCounter++;
         Logger.event(EVT_IMU_NO_ROTATION_OBSTACLE);    
         triggerObstacleRotation();
         //maps.nextPoint(false, stateX, stateY); //take next point instead of going back to point mower wanted to reach?
         return true;      
       }
-      // yaw speed difference between wheels and IMU more than 8 degree/s, e.g. due to obstacle AND imu shows not enough rotation
-      if (diffIMUWheelYawSpeedLP > 10.0/180.0 * PI ){
-        CONSOLE.print("yaw difference between wheels and IMU for requested rotation => assuming obstacle: diffIMUWheelYawSpeedLP = ");
-        CONSOLE.println(diffIMUWheelYawSpeedLP * 180/PI);
+      // yaw speed difference between wheels and IMU more than x degree/s, e.g. due to obstacle AND imu shows not enough rotation
+      if (diffIMUWheelYawSpeed > 10.0/180.0 * PI ){
+        CONSOLE.print("yaw difference between wheels and IMU for requested rotation => assuming obstacle: diffIMUWheelYawSpeed = ");
+        CONSOLE.println(diffIMUWheelYawSpeed * 180/PI);
         statMowDiffIMUWheelYawSpeedCounter++;
         Logger.event(EVT_IMU_WHEEL_DIFFERENCE_OBSTACLE);
         //resetStateEstimation();
@@ -1165,10 +1180,14 @@ void tuningOutput(){
   CONSOLE.println("---------------------------------------------------->");
   if (DEBUG_ADAPTIVESPEED) {
   CONSOLE.println("motor.cpp: adaptive_speed()");
-      CONSOLE.print("      ");CONSOLE.print("motorMowRpmSet: ");CONSOLE.print(motor.motorMowRpmSet);  CONSOLE.print(" RPM, ");CONSOLE.print("    Driver PWM: ");CONSOLE.print(motor.motorMowPWMCurr);CONSOLE.println(" val ");
-      CONSOLE.print("      ");CONSOLE.print("         battV: ");CONSOLE.print(battery.batteryVoltage);CONSOLE.print(" V,   ");CONSOLE.print("motorMowPower: ");CONSOLE.print(motor.mowPowerAct);     CONSOLE.println(" Watt");     
-      CONSOLE.print("      ");CONSOLE.print("      gpsSpeed: ");CONSOLE.print(stateGroundSpeed);      CONSOLE.print(" m/s, ");CONSOLE.print("      speedSet: ");CONSOLE.print(motor.linearCurrSet);  CONSOLE.println(" m/s ");
-      CONSOLE.print("      ");CONSOLE.print(" ADSpeedfactor: ");CONSOLE.print(motor.SpeedFactor);     CONSOLE.print(" val, ");CONSOLE.print("      actSpeed: ");CONSOLE.print(motor.linearSpeedSet); CONSOLE.println(" m/s ");
+      CONSOLE.print("      ");CONSOLE.print("   motorMowRpmSet: ");CONSOLE.print(motor.motorMowRpmSet);         CONSOLE.print(" RPM, ");CONSOLE.print("   motorMowPwmSet: ");CONSOLE.print(motor.motorMowPwmSet);   CONSOLE.println(" val ");
+      CONSOLE.print("      ");CONSOLE.print("      motorMowRpm: ");CONSOLE.print(motor.motorMowRpm);            CONSOLE.print(" RPM, ");CONSOLE.print("      motorMowPwm: ");CONSOLE.print(motor.motorMowPwm);      CONSOLE.println(" val ");
+      CONSOLE.print("      ");CONSOLE.print("    motorMowRpmLP: ");CONSOLE.print(motor.motorMowRpmLPFast);      CONSOLE.print(" RPM, ");CONSOLE.print("    motorMowPwmLP: ");CONSOLE.print(motor.motorMowPwmLP);    CONSOLE.println(" val ");
+      CONSOLE.print("      ");CONSOLE.print("            battV: ");CONSOLE.print(battery.batteryVoltage);       CONSOLE.print(" V,   ");CONSOLE.print("    motorMowPower: ");CONSOLE.print(motor.mowPowerAct);      CONSOLE.println(" Watt");
+      CONSOLE.print("      ");CONSOLE.print("         speedSet: ");CONSOLE.print(motor.linearCurrSet);          CONSOLE.print(" m/s, ");CONSOLE.print(" motorMowPowerMax: ");CONSOLE.print(motor.motorMowPowerMax); CONSOLE.println(" Watt");     
+      CONSOLE.print("      ");CONSOLE.print("         gpsSpeed: ");CONSOLE.print(stateGroundSpeed);           CONSOLE.println(" m/s");
+      CONSOLE.print("      ");CONSOLE.print("    ADSpeedfactor: ");CONSOLE.print(motor.SpeedFactor);          CONSOLE.println(" val");
+      CONSOLE.print("      ");CONSOLE.print("         actSpeed: ");CONSOLE.print(motor.linearSpeedSet);       CONSOLE.println(" m/s");
       CONSOLE.println();
   }
   if (DEBUG_SENSE) {
@@ -1181,13 +1200,13 @@ void tuningOutput(){
   }
   if (DEBUG_IMU) {
   CONSOLE.println("IMU              -- ");
-      CONSOLE.print("      ");CONSOLE.print("diffIMUWheelYawSpeedLP: ");CONSOLE.print(diffIMUWheelYawSpeedLP/PI*180.0);CONSOLE.println(" deg/s");
-      CONSOLE.print("      ");CONSOLE.print("    stateDeltaSpeedIMU: ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);CONSOLE.println(" deg/s");
-      CONSOLE.print("      ");CONSOLE.print(" stateDeltaSpeedWheels: ");CONSOLE.print(stateDeltaSpeedWheels/PI*180.0);CONSOLE.println(" deg/s");
-      CONSOLE.print("      ");CONSOLE.print("     stateDeltaSpeedLP: ");CONSOLE.print(stateDeltaSpeedLP/PI*180.0);CONSOLE.println(" deg/s");
-      CONSOLE.print("      ");CONSOLE.print("               heading: ");CONSOLE.print(imuDriver.heading);CONSOLE.println(" none");
-      CONSOLE.print("      ");CONSOLE.print("                    ax: ");CONSOLE.print(imuDriver.ax);CONSOLE.print(" g, ay: "); CONSOLE.print(imuDriver.ay);CONSOLE.print(" g, az: ");CONSOLE.print(imuDriver.az);CONSOLE.println(" g");
-      CONSOLE.print("      ");CONSOLE.print("                  roll: ");CONSOLE.print(imuDriver.roll);CONSOLE.print(" rad, pitch: "); CONSOLE.print(imuDriver.pitch);CONSOLE.print("rad, yaw: ");CONSOLE.print(imuDriver.yaw);CONSOLE.println(" rad");
+      CONSOLE.print("      ");CONSOLE.print("  diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);   CONSOLE.println(" deg/s");
+      CONSOLE.print("      ");CONSOLE.print("    stateDeltaSpeedIMU: ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);     CONSOLE.println(" deg/s");
+      CONSOLE.print("      ");CONSOLE.print(" stateDeltaSpeedWheels: ");CONSOLE.print(stateDeltaSpeedWheels/PI*180.0);  CONSOLE.println(" deg/s");
+      CONSOLE.print("      ");CONSOLE.print("       stateDeltaSpeed: ");CONSOLE.print(stateDeltaSpeed/PI*180.0);        CONSOLE.println(" deg/s");
+      CONSOLE.print("      ");CONSOLE.print("               heading: ");CONSOLE.print(imuDriver.heading);               CONSOLE.println(" none");
+      CONSOLE.print("      ");CONSOLE.print("                    ax: ");CONSOLE.print(imuDriver.ax);                      CONSOLE.print(" g, ay: ");      CONSOLE.print(imuDriver.ay);   CONSOLE.print("  g, az: ");CONSOLE.print(imuDriver.az); CONSOLE.println(" g");
+      CONSOLE.print("      ");CONSOLE.print("                  roll: ");CONSOLE.print(imuDriver.roll);                    CONSOLE.print(" rad, pitch: "); CONSOLE.print(imuDriver.pitch);CONSOLE.print("rad, yaw: ");CONSOLE.print(imuRawYaw_sc);CONSOLE.println(" rad");
   }
       CONSOLE.println("Info             -- ");
       CONSOLE.print("      ");CONSOLE.print("Operation: ");CONSOLE.print(stateOp);CONSOLE.println("");
@@ -1248,14 +1267,16 @@ void run(){
   deltaTime = timeLast - millis();
   timeLast = millis();
 
+  if (stateOp == OP_MOW) robot_control_cycle = ROBOT_CONTROL_CYCLE;
+  else robot_control_cycle = ROBOT_IDLE_CYCLE;
 
   // LED LIGHTS
   if (stateChargerConnected) { 
-    robot_control_cycle = ROBOT_IDLE_CYCLE;         
+    //robot_control_cycle = ROBOT_IDLE_CYCLE;         
     digitalWrite(pinRemoteSpeed, HIGH);
   } else {
     digitalWrite(pinRemoteSpeed, LOW);
-    robot_control_cycle = ROBOT_CONTROL_CYCLE;          
+    //robot_control_cycle = ROBOT_CONTROL_CYCLE;          
   }
   
   // state saving
@@ -1312,7 +1333,7 @@ void run(){
     if (imuIsCalibrating) {
       activeOp->onImuCalibration();             
     } else {
-      readIMU();
+      readIMU(); //why is the imu not read there where its needed? in the stateestimator...
       // LiDAR relocalization
       if (gps.isRelocalizing){
         activeOp->onRelocalization();
@@ -1533,13 +1554,13 @@ void run(){
       tuningOutput();
       if (DEBUG_STATE_ESTIMATOR) {
         CONSOLE.print("                              deltaTime: ");CONSOLE.println(deltaTime*1000,0);
-        //CONSOLE.print("                                 imuyaw: ");CONSOLE.print(imuDriver.yaw);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
+        //CONSOLE.print("                                 imuyaw: ");CONSOLE.print(imuRawYaw_sc);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
         CONSOLE.print("                             stateDelta: ");CONSOLE.print(stateDelta/180*PI);                 CONSOLE.print("           stateDeltaGps: ");CONSOLE.println(stateDeltaGPS);
         CONSOLE.print("                         linearSpeedSet: ");CONSOLE.print(motor.linearSpeedSet);              CONSOLE.print("        stateGroundSpeed: ");CONSOLE.println(stateGroundSpeed);
         CONSOLE.print("                        angularSpeedSet: ");CONSOLE.print(motor.angularSpeedSet/PI*180.0);    CONSOLE.print("         stateDeltaSpeed: ");CONSOLE.println(stateDeltaSpeed/PI*180); 
         CONSOLE.print("               stateDeltaSpeedWheels --> ");CONSOLE.print(stateDeltaSpeedWheels/PI*180.0);CONSOLE.print(" | ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);CONSOLE.println(" <-- stateDeltaSpeedIMU");
-        CONSOLE.print("                   diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);     CONSOLE.print("   stateDeltaSpeedLP_IMU: ");CONSOLE.println(stateDeltaSpeedLP/PI*180);
-        CONSOLE.print("                 diffIMUWheelYawSpeedLP: ");CONSOLE.println(diffIMUWheelYawSpeedLP/PI*180.0);
+        CONSOLE.print("                   diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);     CONSOLE.print("     stateDeltaSpeed_IMU: ");CONSOLE.println(stateDeltaSpeed/PI*180);
+        CONSOLE.print("                   diffIMUWheelYawSpeed: ");CONSOLE.println(diffIMUWheelYawSpeed/PI*180.0);
         CONSOLE.print("stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
       }
     }

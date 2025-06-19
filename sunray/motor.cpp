@@ -9,6 +9,25 @@
 #include "robot.h"
 #include "Arduino.h"
 #include "rcmodel.h"
+#include <math.h>
+
+//RPM Lowpassfilter
+LowPassFilter lpfMotorLeftRpm(0.1);
+LowPassFilter lpfMotorRightRpm(0.1);
+LowPassFilter lpfMotorMowRpm(0.1); 
+LowPassFilter lpfMotorMowRpmFast(0.01);       //faslt for adaptive speed
+
+//Current Lowpassfilter
+LowPassFilter lpfMotorLeftSense(0.05);
+LowPassFilter lpfMotorRightSense(0.05);
+LowPassFilter lpfMotorMowSense(0.05); 
+LowPassFilter lpfMotorMowSenseFast(0.01);   //fast for adaptive speed
+
+//Pwm Lowpassfilter
+
+LowPassFilter lpfMotorLeftPwm(2);
+LowPassFilter lpfMotorRightPwm(2);
+LowPassFilter lpfMotorMowPwm(2); 
 
 void Motor::begin() {
   speedUpTrig = false;
@@ -32,18 +51,22 @@ void Motor::begin() {
   wheelDiameter = WHEEL_DIAMETER; // wheel diameter (mm)
   ticksPerCm = ((float)ticksPerRevolution) / (((float)wheelDiameter)/10.0) / PI;    // computes encoder ticks per cm (do not change)  
 
-  motorLeftPID.Kp       = MOTOR_PID_KP/50.0*ROBOT_CONTROL_CYCLE;  // 2.0;  //calculate according to different controlcyletimes
-  motorLeftPID.Ki       = MOTOR_PID_KI/50.0*ROBOT_CONTROL_CYCLE;  // 0.03; 
-  motorLeftPID.Kd       = MOTOR_PID_KD/50.0*ROBOT_CONTROL_CYCLE;  // 0.03;
+  ticksLeft = 0;
+  ticksRight = 0;
+  ticksMow = 0;
+
+  motorLeftPID.Kp       = MOTOR_PID_KP;// /50.0*robot_control_cycle;  // 2.0;  //calculate according to different controlcyletimes
+  motorLeftPID.Ki       = MOTOR_PID_KI;// /50.0*robot_control_cycle;  // 0.03; 
+  motorLeftPID.Kd       = MOTOR_PID_KD;// /50.0*robot_control_cycle;  // 0.03;
   motorLeftPID.reset(); 
-  motorRightPID.Kp       = MOTOR_PID_KP/50.0*ROBOT_CONTROL_CYCLE; //motorLeftPID.Kp;
-  motorRightPID.Ki       = MOTOR_PID_KI/50.0*ROBOT_CONTROL_CYCLE; //motorLeftPID.Ki;
-  motorRightPID.Kd       = MOTOR_PID_KD/50.0*ROBOT_CONTROL_CYCLE; //motorLeftPID.Kd;
+  motorRightPID.Kp       = MOTOR_PID_KP;// /50.0*robot_control_cycle;
+  motorRightPID.Ki       = MOTOR_PID_KI;// 50.0*robot_control_cycle;
+  motorRightPID.Kd       = MOTOR_PID_KD;// /50.0*robot_control_cycle;
   motorRightPID.reset();
-  motorMowPID.Kp       = MOWMOTOR_PID_KP/50.0*ROBOT_CONTROL_CYCLE; //MrTree
-  motorMowPID.Ki       = MOWMOTOR_PID_KI/50.0*ROBOT_CONTROL_CYCLE; //MrTree
-  motorMowPID.Kd       = MOWMOTOR_PID_KD/50.0*ROBOT_CONTROL_CYCLE; //MrTree
-  motorMowPID.reset();     	              //MrTree
+  motorMowPID.Kp       = MOWMOTOR_PID_KP;// /50.0*robot_control_cycle;
+  motorMowPID.Ki       = MOWMOTOR_PID_KI;// /50.0*robot_control_cycle;
+  motorMowPID.Kd       = MOWMOTOR_PID_KD;// /50.0*robot_control_cycle; 
+  motorMowPID.reset();     	              
 
   motorLeftLpf.Tf = MOTOR_PID_LP;
   motorLeftLpf.reset();
@@ -99,7 +122,7 @@ void Motor::begin() {
   motorMowRpmSet = 0;//MrTree
   mowPowerAct = 0; //MrTree
   mowPowerActLP = 0; //MrTree
-  motorMowPWMSet = 0;
+  motorMowPwmSet = 0;
   motorMowPowerMax = 35; //MrTree  
   motorMowForwardSet = true;
   toggleMowDir = MOW_TOGGLE_DIR;
@@ -111,34 +134,33 @@ void Motor::begin() {
   lp3 = 0;
   lp4 = 0;
 
-  currTime = 0;
-  deltaControlTimeMs = 0;
-  deltaControlTimeSec = 0;
+  deltaControlTime = 0;
   lastControlTime = 0;
   //nextSenseTime = 0;
   lastMowStallCheckTime = 0; //MrTree
   nextOutputTime = 0;
-  motorLeftTicks =0;  
-  motorRightTicks =0;
+  motorLeftTicks = 0;  
+  motorRightTicks = 0;
   motorMowTicks = 0;
-  motorLeftTicksZero=0;
-  motorRightTicksZero=0;
-  motorLeftPWMCurr =0;    
-  motorRightPWMCurr=0; 
-  motorMowPWMCurr = 0;
-  motorLeftPWMCurrLP = 0;
-  motorRightPWMCurrLP=0;   
-  motorMowPWMCurrLP = 0;
+  motorLeftTicksZero = 0;
+  motorRightTicksZero = 0;
+  motorMowTicksZero = 0;
+  motorLeftPwm = 0;    
+  motorRightPwm= 0; 
+  motorMowPwm = 0;
+  motorLeftPwmLP = 0;
+  motorRightPwmLP= 0;   
+  motorMowPwmLP = 0;
   
-  motorLeftRpmCurr=0;
-  motorRightRpmCurr=0;
-  motorMowRpmCurr=0;  
+  motorLeftRpm= 0;
+  motorRightRpm= 0;
+  motorMowRpm= 0;  
   motorLeftRpmLast = 0;
   motorRightRpmLast = 0;
-  motorLeftRpmCurrLP = 0;
-  motorRightRpmCurrLP = 0;
-  motorMowRpmCurrLP = 0;
-  motorMowRpmCurrLPFast = 0;  //MrTree
+  motorLeftRpmLP = 0;
+  motorRightRpmLP = 0;
+  motorMowRpmLP = 0;
+  motorMowRpmLPFast = 0;  //MrTree
   
   setLinearAngularSpeedTimeoutActive = false;  
   setLinearAngularSpeedTimeout = 0;
@@ -160,6 +182,20 @@ void Motor::begin() {
   drvfixtimer = DRVFIXTIMER; //MrTree
   drvfixreset = false; //MrTree
   drvfixcounter = 0; //MrTree
+}
+
+int pwmCap(int val, int min, int max){
+  if (val > 0) {
+    if (val < min) return 0;
+    if (val > max) return max;
+    return val;
+  }
+  if (val < 0) {
+    if (val > -min) return 0;
+    if (val < -max) return -max;
+    return val;
+  }
+return 0;
 }
 
 void Motor::setMowPwm( int val ){
@@ -263,11 +299,9 @@ void Motor::setLinearAngularSpeed(float linear, float angular, bool useLinearRam
   //CONSOLE.print("MOTOR START linearDelta: "); CONSOLE.println(linearDelta);
 
   if (activateLinearSpeedRamp && useLinearRamp && speedChange ){                              //this is a speed ramp for changes in speed during operation, to smooth transitions a little bit. needs to be quick
-    //linearSpeedSet = 0.82 * linearSpeedSet + 0.18 * linear;
-    //if (linearCurrSet > linearSpeedSet) linear = linearSpeedSet + 0.10/deltaControlTimeMs;         //cm/s² acc ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges
-    //if (linearCurrSet < linearSpeedSet) linear = linearSpeedSet - 0.20/deltaControlTimeMs;        //cm/s² dec ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges                
-    if (linearCurrSet > linearSpeedSet) linear = linearSpeedSet + 0.10*deltaControlTimeMs/100;         //cm/s² acc ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges
-    if (linearCurrSet < linearSpeedSet) linear = linearSpeedSet - 0.20*deltaControlTimeMs/100;        //cm/s² dec ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges              
+    //linearSpeedSet = 0.82 * linearSpeedSet + 0.18 * linear;          
+    if (linearCurrSet > linearSpeedSet) linear = linearSpeedSet + 0.10*deltaControlTime/100;         //cm/s² acc ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges
+    if (linearCurrSet < linearSpeedSet) linear = linearSpeedSet - 0.20*deltaControlTime/100;        //cm/s² dec ramp with estimated controlfreq of 20Hz (50ms), only trigger this if larger speedchanges              
 
 
     //we want to cut the ramp if linear is zero to improve pointprecision
@@ -319,12 +353,93 @@ void Motor::setReleaseBrakesWhenZero(bool release){
   releaseBrakesWhenZero = release;
 }
 
+void Motor::setMowState(bool switchOn) {
+  if (!USE_MOW_RPM_SET) {
+    handleMowPwmMode(switchOn);
+  } else {
+    handleMowRpmMode(switchOn);
+  }
+}
 
-void Motor::setMowState(bool switchOn){
+void Motor::handleMowPwmMode(bool switchOn) {
+  if (enableMowMotor && switchOn) {
+    if (abs(motorMowPwmSet) > 0) {
+      CONSOLE.println("Motor::setMowState PWM - Motor already switched on!");
+      return;
+    }
+
+    switchedOn = true;
+    mowPwm = MOW_PWM_NORMAL;
+    motorMowSpinUpTime = millis();
+
+    if (!buzzer.isPlaying()) buzzer.sound(SND_MOWSTART, true);
+
+    if (toggleMowDir) {
+      motorMowForwardSet = !motorMowForwardSet;
+      motorMowPwmSet = motorMowForwardSet ? mowPwm : -mowPwm;
+    } else {
+      motorMowPwmSet = mowPwm;
+    }
+
+    CONSOLE.print("Motor::setMowState ");
+    CONSOLE.print(switchOn);
+    CONSOLE.print(" PWM: ");
+    CONSOLE.println(motorMowPwmSet);
+
+  } else if (switchedOn) {
+    motorMowSpinUpTime = millis();
+    motorMowPwmSet = 0;
+    motorMowRpmSet = 0;
+    switchedOn = false;
+    motorMowSpunUp = false;
+    CONSOLE.println("Motor::setMowState PWM OFF");
+
+  } else {
+    CONSOLE.println("Motor::setMowState PWM - Motor already switched off!");
+  }
+}
+
+void Motor::handleMowRpmMode(bool switchOn) {
+  if (enableMowMotor && switchOn) {
+    if (abs(motorMowRpmSet) > 0) {
+      CONSOLE.println("Motor::setMowState RPM - Motor already switched on!");
+      return;
+    }
+
+    switchedOn = true;
+    motorMowSpinUpTime = millis();
+
+    if (!buzzer.isPlaying()) buzzer.sound(SND_MOWSTART, true);
+
+    if (toggleMowDir) {
+      motorMowForwardSet = !motorMowForwardSet;
+      motorMowRpmSet = motorMowForwardSet ? mowRpm : -mowRpm;
+    } else {
+      motorMowRpmSet = mowRpm;
+    }
+
+    CONSOLE.print("Motor::setMowState ");
+    CONSOLE.print(switchOn);
+    CONSOLE.print(" RPM: ");
+    CONSOLE.println(motorMowRpmSet);
+
+  } else if (switchedOn) {
+    CONSOLE.println("Motor::setMowState RPM OFF");
+    motorMowSpinUpTime = millis();
+    motorMowRpmSet = 0;
+    switchedOn = false;
+    motorMowSpunUp = false;
+
+  } else {
+    CONSOLE.println("Motor::setMowState RPM - Motor already switched off!");
+  }
+}
+
+/* void Motor::setMowState(bool switchOn){
 
   if (!USE_MOW_RPM_SET){
     if ((enableMowMotor) && (switchOn)){       
-      if (abs(motorMowPWMSet) > 0) {
+      if (abs(motorMowPwmSet) > 0) {
         CONSOLE.print("Motor::setMowState PWM - ");
         CONSOLE.println("Motor already switched on!");
         return; // mowing motor already switch ON
@@ -337,26 +452,29 @@ void Motor::setMowState(bool switchOn){
       if (toggleMowDir){
         // toggle mowing motor direction each mow motor start
         motorMowForwardSet = !motorMowForwardSet;
-        if (motorMowForwardSet) motorMowPWMSet = mowPwm;  
-          else motorMowPWMSet = -mowPwm;  
+        if (motorMowForwardSet) motorMowPwmSet = mowPwm;  
+          else motorMowPwmSet = -mowPwm;  
       } else {      
-        motorMowPWMSet = mowPwm;  
+        motorMowPwmSet = mowPwm;  
       }
       CONSOLE.print("Motor::setMowState ");
       CONSOLE.print(switchOn);
       CONSOLE.print(" PWM: ");
-      CONSOLE.println(motorMowPWMSet);
+      CONSOLE.println(motorMowPwmSet);
       //triggerMotorMowWait();
-    } else {
+    } else if (switchedOn) {
       motorMowSpinUpTime = millis();
       //waitMowMotor();
-      motorMowPWMSet = 0;
+      motorMowPwmSet = 0;
       motorMowRpmSet = 0;
       switchedOn = false;
       motorMowSpunUp = false;  
       CONSOLE.println("Motor::setMowState PWM OFF");
       //triggerMotorMowWait();  
-      //motorMowPWMCurr = 0; MrTree when we switchoff, there is no need for mowdriver to go to full break. its no emergency, we can use the ramp 
+      //motorMowPwm = 0; MrTree when we switchoff, there is no need for mowdriver to go to full break. its no emergency, we can use the ramp 
+    } else {
+      CONSOLE.print("Motor::setMowState PWM - ");
+      CONSOLE.println("Motor already switched off!");
     }
   }
    
@@ -383,7 +501,7 @@ void Motor::setMowState(bool switchOn){
       CONSOLE.print(" RPM: ");
       CONSOLE.println(motorMowRpmSet);
       //triggerMotorMowWait();
-    } else {
+    } else if (switchedOn) {
       CONSOLE.println("Motor::setMowState RPM OFF");
       motorMowSpinUpTime = millis();
       //waitMowMotor();
@@ -391,35 +509,38 @@ void Motor::setMowState(bool switchOn){
       switchedOn = false;
       motorMowSpunUp = false;
       //triggerMotorMowWait();  
+    } else {
+      CONSOLE.print("Motor::setMowState RPM - ");
+      CONSOLE.println("Motor already switched off!");
     }
   } 
-}
+} */
 
 void Motor::stopImmediately(bool includeMowerMotor){
   CONSOLE.println("motor.cpp - STOP IMMEDIATELY");
   linearSpeedSet = 0;
   angularSpeedSet = 0;
-  motorRightRpmSet = 0;
-  motorLeftRpmSet = 0;      
-  motorLeftPWMCurr = 0;
-  motorRightPWMCurr = 0;
+  motorLeftRpmSet = 0; 
+  motorRightRpmSet = 0;   
+  motorLeftPwm = 0;
+  motorRightPwm = 0;
    
   if (includeMowerMotor) {
     #ifdef DRV_SERIAL_ROBOT
-      motorMowPWMCurr = 0;//MrTree
-      motorMowRpmCurr = 0;//MrTree
+      motorMowPwm = 0;//MrTree
+      motorMowRpm = 0;//MrTree
       //switchedOn = false;
     #endif
     //switchedOn = false;
     motorMowSpunUp = false;  
-    motorMowPWMSet = 0;
-    //motorMowPWMCurr = 0;//MrTree
+    motorMowPwmSet = 0;
+    //motorMowPwm = 0;//MrTree
     motorMowRpmSet = 0;//MrTree
-    //motorMowRpmCurr = 0;//MrTree
+    //motorMowRpm = 0;//MrTree
     setMowState(false);    
   }
   setLinearAngularSpeed(0, 0, false);  
-  speedPWM(motorLeftPWMCurr, motorRightPWMCurr, motorMowPWMCurr);
+  speedPWM(motorLeftPwm, motorRightPwm, motorMowPwm);
   // reset PID
   motorLeftPID.reset();
   motorRightPID.reset();
@@ -428,20 +549,19 @@ void Motor::stopImmediately(bool includeMowerMotor){
   motorRightLpf.reset();
   motorMowLpf.reset();
   // reset unread encoder ticks
-  int ticksLeft=0;
-  int ticksRight=0;
-  int ticksMow=0;
+  ticksLeft=0;
+  ticksRight=0;
+  ticksMow=0;
   motorDriver.getMotorEncoderTicks(ticksLeft, ticksRight, ticksMow);        
 }
 
 void Motor::run() {
 
-  currTime = millis();
-  deltaControlTimeMs =  currTime - lastControlTime;
-  deltaControlTimeSec = (float)deltaControlTimeMs/1000.0;
-  lastControlTime = currTime;
   
-  if (deltaControlTimeMs < 15) return;
+  deltaControlTime = millis() - lastControlTime;
+  lastControlTime = millis();
+
+  if (deltaControlTime < 15) return;
 
 
   //Change to stopimmediately!
@@ -505,64 +625,83 @@ void Motor::run() {
     }
   }
   
-  int ticksLeft;
-  int ticksRight;
-  int ticksMow;
   motorDriver.getMotorEncoderTicks(ticksLeft, ticksRight, ticksMow);  
   
-  if (motorLeftPWMCurr < 0) ticksLeft *= -1;
-  if (motorRightPWMCurr < 0) ticksRight *= -1;
-  if (motorMowPWMCurr < 0) ticksMow *= -1;
+  if (motorLeftPwm < 0) ticksLeft *= -1;
+  if (motorRightPwm < 0) ticksRight *= -1;
+  if (motorMowPwm < 0) ticksMow *= -1;
   
   motorLeftTicks += ticksLeft;
   motorRightTicks += ticksRight;
   motorMowTicks += ticksMow;
-  
-  lp005 = 0.995; //1 - 0.05*deltaControlTimeSec;
-  lp01 = 0.99;   //1 - 0.1*deltaControlTimeSec; //Very Very slow
-  lp1 = 0.9;     //1 - 1*deltaControlTimeSec; //slow 1 - 0.02 = 0.98
-  lp2 = 0.8;     //1 - 2*deltaControlTimeSec; //medium
-  lp3 = 0.7;     //1 - 3*deltaControlTimeSec; //semi fast
-  lp4 = 0.6;     //1 - 4*deltaControlTimeSec; //fast
+
+  //CONSOLE.print("leftTicks: ");CONSOLE.print(ticksLeft);CONSOLE.print("  rightTicks: ");CONSOLE.print(ticksRight);CONSOLE.print("   mowTicks: ");CONSOLE.println(ticksMow);
+
+  lp005 = 0.995; //1 - 0.05*deltaControlTime;
+  lp01 = 0.99;   //1 - 0.1*deltaControlTime; //Very Very slow
+  lp1 = 0.9;     //1 - 1*deltaControlTime; //slow 1 - 0.02 = 0.98
+  lp2 = 0.8;     //1 - 2*deltaControlTime; //medium
+  lp3 = 0.7;     //1 - 3*deltaControlTime; //semi fast
+  lp4 = 0.6;     //1 - 4*deltaControlTime; //fast
 
   // calculate speed via tick count
   // 2000 ticksPerRevolution: @ 30 rpm  => 0.5 rps => 1000 ticksPerSec
   // 20 ticksPerRevolution: @ 30 rpm => 0.5 rps => 10 ticksPerSec
-  motorLeftRpmCurr = 60.0 * ( ((float)ticksLeft) / ((float)ticksPerRevolution) ) / deltaControlTimeSec;
-  motorRightRpmCurr = 60.0 * ( ((float)ticksRight) / ((float)ticksPerRevolution) ) / deltaControlTimeSec;
-  motorMowRpmCurr = 60.0 * ( ((float)ticksMow) / ((float)mowticksPerRevolution) ) / deltaControlTimeSec;
- 
-  motorLeftRpmCurrLP = lp1 * motorLeftRpmCurrLP + (1.0-lp1) * motorLeftRpmCurr;
-  motorRightRpmCurrLP = lp1 * motorRightRpmCurrLP + (1.0-lp1) * motorRightRpmCurr;
-  motorMowRpmCurrLP = lp1 * motorMowRpmCurrLP + (1.0-lp1) * motorMowRpmCurr; 
- 
-  motorMowRpmCurrLPFast = lp3 * motorMowRpmCurrLPFast + (1.0-lp3) * motorMowRpmCurr;
+  motorLeftRpm = 60.0 * ( ((float)ticksLeft) / ((float)ticksPerRevolution) ) / deltaControlTime * 1000;
+  motorRightRpm = 60.0 * ( ((float)ticksRight) / ((float)ticksPerRevolution) ) / deltaControlTime * 1000;
+  motorMowRpm = 60.0 * ( ((float)ticksMow) / ((float)mowticksPerRevolution) ) / deltaControlTime * 1000; 
+    
+  motorLeftRpmLP = lpfMotorLeftRpm(motorLeftRpm);
+  motorRightRpmLP = lpfMotorRightRpm(motorRightRpm);
+  motorMowRpmLP = lpfMotorMowRpm(motorMowRpm); 
+  motorMowRpmLPFast = lpfMotorMowRpmFast(motorMowRpm);
+
 
   if (ticksLeft == 0) {
     motorLeftTicksZero++;
-    if (motorLeftTicksZero > 2) motorLeftRpmCurr = 0;
+    if (motorLeftTicksZero > 5) {
+      motorLeftRpm = 0;
+      motorLeftRpmLP = 0;
+    } 
+  } else motorLeftTicksZero = 0;
+
+  if (ticksMow == 0) {
+    motorMowTicksZero++;
+    if (motorMowTicksZero > 20) {
+      motorMowRpm = 0;
+      motorMowRpmLP = 0;
+    } 
   } else motorLeftTicksZero = 0;
 
   if (ticksRight == 0) {
     motorRightTicksZero++;
-    if (motorRightTicksZero > 2) motorRightRpmCurr = 0;
+    if (motorRightTicksZero > 5) {
+      motorRightRpm = 0;
+      motorRightRpmLP = 0;
+    }
   } else motorRightTicksZero = 0;
-
+  
+  if (motorRightTicksZero || motorLeftTicksZero > 100) {
+    motorRightTicksZero = 0;
+    motorLeftTicksZero = 0;
+  }
   // speed controller
   
-  control();    
-  motorLeftRpmLast = motorLeftRpmCurr;
-  motorRightRpmLast = motorRightRpmCurr;
+  control();
+
+  motorLeftRpmLast = motorLeftRpm;
+  motorRightRpmLast = motorRightRpm;
 
   //DEBUG OUTPUT
-  if (DEBUG_MOTORCONTROL && DEBUG_OUTPUT) {
-    if (millis() > nextOutputTime){
+  if (DEBUG_OUTPUT) {
+
+    if (DEBUG_MOTORCONTROL && millis() > nextOutputTime){
       nextOutputTime = millis() + DEBUG_MOTOR_CONTROL_TIME;
       CONSOLE.println("     motor.cpp --------------------------------> ");
       CONSOLE.println(" ");
-      CONSOLE.print("               PWMCurr (l,r,m) = ");  CONSOLE.print(motorLeftPWMCurr);CONSOLE.print(", ");  CONSOLE.print(motorRightPWMCurr);CONSOLE.print(", ");CONSOLE.println(motorMowPWMCurr);
-      CONSOLE.print("       motor*PWMCurrLP (l,r,m) = ");CONSOLE.print(motorLeftPWMCurrLP);CONSOLE.print(", ");CONSOLE.print(motorRightPWMCurrLP);CONSOLE.print(", ");CONSOLE.println(motorMowPWMCurrLP);
-      CONSOLE.print("         motor*SenseLP (l,r,m) = ");  CONSOLE.print(motorLeftSenseLP);CONSOLE.print(", ");  CONSOLE.print(motorRightSenseLP);CONSOLE.print(", ");CONSOLE.println(motorMowSenseLP);
+      CONSOLE.print("                   PWMCurr (l,r,m) = ");  CONSOLE.print(motorLeftPwm);  CONSOLE.print(", ");  CONSOLE.print(motorRightPwm);    CONSOLE.print(", ");CONSOLE.println(motorMowPwm);
+      CONSOLE.print("               motor*PWMLP (l,r,m) = ");CONSOLE.print(motorLeftPwmLP);  CONSOLE.print(", ");  CONSOLE.print(motorRightPwmLP);  CONSOLE.print(", ");CONSOLE.println(motorMowPwmLP);
+      CONSOLE.print("             motor*SenseLP (l,r,m) = ");CONSOLE.print(motorLeftSenseLP);CONSOLE.print(", ");  CONSOLE.print(motorRightSenseLP);CONSOLE.print(", ");CONSOLE.println(motorMowSenseLP);
       CONSOLE.println("     <------------------------------------------ ");
     }
   }
@@ -589,23 +728,23 @@ bool Motor::checkCurrentTooHighError(){
 // check if motor current too low
 bool Motor::checkCurrentTooLowError(){
 
-  if  (    ( (abs(motorMowPWMCurr) > 100) && (abs(motorMowPWMCurrLP) > 100) && (motorMowSenseLP < MOW_TOO_LOW_CURRENT)) 
-        ||  ( (abs(motorLeftPWMCurr) > 100) && (abs(motorLeftPWMCurrLP) > 100) && (motorLeftSenseLP < MOTOR_TOO_LOW_CURRENT))    
-        ||  ( (abs(motorRightPWMCurr) > 100) && (abs(motorRightPWMCurrLP) > 100) && (motorRightSenseLP < MOTOR_TOO_LOW_CURRENT))  ){        
+  if  (    ( (abs(motorMowPwm) > 100) && (abs(motorMowPwmLP) > 100) && (motorMowSenseLP < MOW_TOO_LOW_CURRENT)) 
+        ||  ( (abs(motorLeftPwm) > 100) && (abs(motorLeftPwmLP) > 100) && (motorLeftSenseLP < MOTOR_TOO_LOW_CURRENT))    
+        ||  ( (abs(motorRightPwm) > 100) && (abs(motorRightPwmLP) > 100) && (motorRightSenseLP < MOTOR_TOO_LOW_CURRENT))  ){        
     // at least one motor is not consuming current      
     // first try recovery, then indicate a motor error to the robot control (so it can try an obstacle avoidance)    
     CONSOLE.print("ERROR: motor current too low: PWM (left,right,mow)=");
-    CONSOLE.print(motorLeftPWMCurr);
+    CONSOLE.print(motorLeftPwm);
     CONSOLE.print(",");
-    CONSOLE.print(motorRightPWMCurr);
+    CONSOLE.print(motorRightPwm);
     CONSOLE.print(",");
-    CONSOLE.print(motorMowPWMCurr);
-    CONSOLE.print("  motor*PWMCurrLP (left,right,mow)=");
-    CONSOLE.print(motorLeftPWMCurrLP);
+    CONSOLE.print(motorMowPwm);
+    CONSOLE.print("  motor*PWMLP (left,right,mow)=");
+    CONSOLE.print(motorLeftPwmLP);
     CONSOLE.print(",");
-    CONSOLE.print(motorRightPWMCurrLP);
+    CONSOLE.print(motorRightPwmLP);
     CONSOLE.print(",");
-    CONSOLE.print(motorMowPWMCurrLP);
+    CONSOLE.print(motorMowPwmLP);
     CONSOLE.print("  average current amps (left,right,mow)=");
     CONSOLE.print(motorLeftSenseLP);
     CONSOLE.print(",");
@@ -644,14 +783,14 @@ bool Motor::checkFault(){
 // check odometry errors
 bool Motor::checkOdometryError(){
   if (ENABLE_ODOMETRY_ERROR_DETECTION){
-    if  (   ( (abs(motorLeftPWMCurr) > 100) && (abs(motorLeftPWMCurrLP) > 100) && (abs(motorLeftRpmCurrLP) < 0.001))    
-        ||  ( (abs(motorRightPWMCurr) > 100) && (abs(motorRightPWMCurrLP) > 100) && (abs(motorRightRpmCurrLP) < 0.001))  )
+    if  (   ( (abs(motorLeftPwm) > 100) && (abs(motorLeftPwmLP) > 100) && (abs(motorLeftRpmLP) < 0.001))    
+        ||  ( (abs(motorRightPwm) > 100) && (abs(motorRightPwmLP) > 100) && (abs(motorRightRpmLP) < 0.001))  )
     {               
       // odometry error
       CONSOLE.print("ERROR: odometry error - rpm too low (left, right)=");
-      CONSOLE.print(motorLeftRpmCurrLP);
+      CONSOLE.print(motorLeftRpmLP);
       CONSOLE.print(",");
-      CONSOLE.println(motorRightRpmCurrLP);     
+      CONSOLE.println(motorRightRpmLP);     
       return true;        
     }
   }
@@ -715,13 +854,13 @@ float Motor::adaptiveSpeed(){
     } 
 
     if (ADAPTIVE_SPEED_MODE == 2) {
-      x = abs(motorMowRpmCurrLPFast) * 1000;
+      x = abs(motorMowRpmLPFast) * 1000;
       x1 = (abs(motorMowRpmSet) * (MOW_RPMtr_SLOW+5)/100) * 1000; //add some offset to trigger slow, because we dont want to trigger slowstate but become slow before that happens
       x2 = (abs(motorMowRpmSet) - MOW_RPM_DEADZONE) * 1000;         
       y1 = 100;
       if (ADAPTIVE_SPEED_USE_MINSPEED) y2 = ADAPTIVE_SPEED_MINSPEED/linearCurrSet*100; //linearSpeedSet
       else y2 = MOTOR_MIN_SPEED/linearCurrSet*100; //linearSpeedSet
-      if (TEST_WAIT_BEFORE_REVERSE && (abs(motorMowRpmCurrLPFast) > (abs(motorMowRpmSet) * (MOW_RPMtr_STALL)/100)) && (abs(motorMowRpmCurrLPFast) < (abs(motorMowRpmSet) * (MOW_RPMtr_STALL+MOW_RPMtr_WAITZONE)/100))){
+      if (TEST_WAIT_BEFORE_REVERSE && (abs(motorMowRpmLPFast) > (abs(motorMowRpmSet) * (MOW_RPMtr_STALL)/100)) && (abs(motorMowRpmLPFast) < (abs(motorMowRpmSet) * (MOW_RPMtr_STALL+MOW_RPMtr_WAITZONE)/100))){
         //waitOp.waitTime = 3000;
         triggerWaitCommand(3000);
       }
@@ -731,7 +870,7 @@ float Motor::adaptiveSpeed(){
     //CONSOLE.print("y= "); CONSOLE.print(y);CONSOLE.print("   x= "); CONSOLE.print(x); CONSOLE.print(" x1= ");CONSOLE.print(x1); CONSOLE.print(" x2= ");CONSOLE.print(x2);CONSOLE.print(" y2= ");CONSOLE.print(y2);CONSOLE.print(" y1= ");CONSOLE.println(y1);                             
     y = constrain(y, MOTOR_MIN_SPEED/linearCurrSet*100, 100);     //limit val
     
-    if (y > y_before) y = y_before + 5*deltaControlTimeSec; //0.2;//y = 0.995 * y_before + 0.005 * y; //if speed was reduced use a ramp for getting faster only (smoothing)
+    if (y > y_before) y = y_before + 5*deltaControlTime; //0.2;//y = 0.995 * y_before + 0.005 * y; //if speed was reduced use a ramp for getting faster only (smoothing)
     //if ((speedUpTrig)&&(linear >= linearCurrSet)) linear = 0.998 * linearSpeedSet + 0.002 * linear; //Speed up slow if triggered from adaptive speed function
     y_before = y;
     SpeedFactor = y/100.0;                                        //used for linear modifier as: MOTOR_MIN_SPEED/setSpeed*100 < Speedfactor <= 1
@@ -767,19 +906,21 @@ void Motor::changeSpeedSet(){
   if (USE_MOW_RPM_SET){
     slowtrig = MOW_RPM_NORMAL * MOW_RPMtr_SLOW/100;
     //retrytrig = 0;
-    controlval = abs(motorMowRpmCurrLPFast);
+    controlval = abs(motorMowRpmLPFast);
     mownormal = MOW_RPM_NORMAL;
     mowslow = MOW_RPM_SLOW;
     mowretry = MOW_RPM_RETRY;
     mowset = motorMowRpmSet;
   } else {
-    slowtrig = mowPowerAct;                           //because we are rising with mowpower not falling like rpm, we flip the controlval to be the trigger
+    slowtrig = mowPowerMax * MOW_POWERtr_SLOW/100;  //set the trigger to be the controlval....                           //because we are rising with mowpower not falling like rpm, we flip the controlval to be the trigger
     //retrytrig = 0;
-    controlval = mowPowerMax * MOW_POWERtr_SLOW/100;  //set the trigger to be the controlval....
+    if (MOWPOWERMAX_AUTO) controlval = motorMowPowerMax - mowPowerAct;
+    else controlval = mowPowerMax - mowPowerAct;
     mownormal = MOW_PWM_NORMAL;
     mowslow = MOW_PWM_SLOW;
     mowretry = MOW_PWM_RETRY;
-    mowset = motorMowPWMSet;
+    mowset = motorMowPwmSet;
+    //CONSOLE.print("controlval = ");CONSOLE.print(controlval);CONSOLE.print("slowtrig = ");CONSOLE.println(slowtrig);
   }
 
   if (keepslow && retryslow) keepslow = false;             //reset keepslow because retryslow is prior
@@ -796,8 +937,8 @@ void Motor::changeSpeedSet(){
           if (motorMowRpmSet < 0) motorMowRpmSet = -mowslow;                   //set new rpm. should use max pwm, cause no one knows if controller can reach rpmset with drained batterie without testing?    
         } else {
           CONSOLE.println("Adaptive_Speed: Using MOW_PWM_SLOW");
-          if (motorMowPWMSet > 0) motorMowPWMSet = mowslow;                    //set new rpm. should use max pwm, cause no one knows if controller can reach rpmset with drained batterie without testing?
-          if (motorMowPWMSet < 0) motorMowPWMSet = -mowslow;                   //set new rpm. should use max pwm, cause no one knows if controller can reach rpmset with drained batterie without testing? 
+          if (motorMowPwmSet > 0) motorMowPwmSet = mowslow;                    //set new rpm. should use max pwm, cause no one knows if controller can reach rpmset with drained batterie without testing?
+          if (motorMowPwmSet < 0) motorMowPwmSet = -mowslow;                   //set new rpm. should use max pwm, cause no one knows if controller can reach rpmset with drained batterie without testing? 
         }                                                   
       }
     }                                                                  //step out of trigger condition
@@ -812,9 +953,9 @@ void Motor::changeSpeedSet(){
         if (motorMowRpmSet > 0) motorMowRpmSet = mowretry; 
         if (motorMowRpmSet < 0) motorMowRpmSet = -mowretry;
       } else {
-        CONSOLE.println("Adaptive_Speed: Using MOW_RPM_RETRY");
-        if (motorMowPWMSet > 0) motorMowPWMSet = mowretry; 
-        if (motorMowPWMSet < 0) motorMowPWMSet = -mowretry; 
+        CONSOLE.println("Adaptive_Speed: Using MOW_PWM_RETRY");
+        if (motorMowPwmSet > 0) motorMowPwmSet = mowretry; 
+        if (motorMowPwmSet < 0) motorMowPwmSet = -mowretry; 
       }                      
     }            
     if (millis() > retrySlowTime) {
@@ -838,13 +979,14 @@ void Motor::changeSpeedSet(){
   if (speedUpTrig){
     if (millis() > keepSlowTime + KEEPSLOWTIME) {
       CONSOLE.println("Adaptive_Speed: Speeding up done!");
-      CONSOLE.println("Adaptive_Speed: Using MOW_RPM_NORMAL");
+      if (USE_MOW_RPM_SET) CONSOLE.println("Adaptive_Speed: Using MOW_RPM_NORMAL");
+      else CONSOLE.println("Adaptive_Speed: Using MOW_PWM_NORMAL");
       if (USE_MOW_RPM_SET){
         if (motorMowRpmSet > 0) motorMowRpmSet = mownormal;
         if (motorMowRpmSet < 0) motorMowRpmSet = -mownormal;
       } else {
-        if (motorMowPWMSet > 0) motorMowPWMSet = mownormal;
-        if (motorMowPWMSet < 0) motorMowPWMSet = -mownormal;
+        if (motorMowPwmSet > 0) motorMowPwmSet = mownormal;
+        if (motorMowPwmSet < 0) motorMowPwmSet = -mownormal;
       }
       speedUpTrig = false;
     }
@@ -855,84 +997,103 @@ void Motor::changeSpeedSet(){
 void Motor::checkMotorMowStall(){ 
   if (ESCAPE_LAWN && switchedOn && !RC_Mode && !robotShouldWait()) {
     static unsigned long lastStalltime = 0;
-    unsigned long deltaControlTimeSec = (millis() - lastMowStallCheckTime);
+    unsigned long deltaStallTime = (millis() - lastMowStallCheckTime);
     lastMowStallCheckTime = millis();
     
-    //test workaround not moving around without switched on mowmotor
-    //if switchedOn && (abs(motorMowRpmCurrLP) < 500){
-    //  robotShouldWait();
-    //  motor.setMowState(true)
-    //  return;
-    //}
-    
-    //return
     if (millis() < lastStalltime + BUMPER_DEADTIME || bumper.obstacle()) return;
-    //if (motor.waitSpinUp) {
-    //  motorMowSpunUp = false;
-    //  return;
-    //}
-    //if (millis() < linearMotionStartTime + 2000) return;
 
+    //initial Message when mowmotor is turned on
     if (ESCAPE_LAWN_MODE == 1){
-          motorMowStall = (mowPowerAct > mowPowerMax *MOW_POWERtr_STALL/100);
-          if (!motorMowSpunUp){
-            motorMowSpunUp = true;    
-            CONSOLE.println("checkMotorMowStall: Using mow motor power for triggering escape lawn.");
-          }
+      if (!motorMowSpunUp){
+        motorMowSpunUp = true;    
+        CONSOLE.println("checkMotorMowStall: Using mow motor power for triggering escape lawn.");
+      }
+      if (MOWPOWERMAX_AUTO){    
+        CONSOLE.println("checkMotorMowStall: MOWPOWERMAX_AUTO is enabled. Using max calculated Mowpower from batVoltage and mowMotor amps during operation.");
+      }
     }
 
+    //initial Message when mowmotor is turned on
     if (ESCAPE_LAWN_MODE == 2) {  //MrTree in RPM mode we put out some messages with rpm data to use for configuration and information 
       if (!motorMowSpunUp){
-        if (!USE_MOW_RPM_SET) motorMowRpmSet = motorMowRpmCurrLPFast;
-        if ((abs(motorMowRpmCurrLPFast) < abs(motorMowRpmSet)-150) || (abs(motorMowRpmCurrLPFast) > abs(motorMowRpmSet)+150)){
+        //if (!USE_MOW_RPM_SET) motorMowRpmSet = motorMowRpmLPFast;
+        if ((abs(motorMowRpmLPFast) < abs(motorMowRpmSet)-150) || (abs(motorMowRpmLPFast) > abs(motorMowRpmSet)+150)){
           motorMowSpunUp = true;    
           CONSOLE.println("checkMotorMowStall: WARNING mow motor did not spun up to RPM set, ignore small values.");
           CONSOLE.println("Increase SPINUPTIME or consider mow motor not reaching or overspinning specific RPM set by more than +- 150 RPM.");
           CONSOLE.print("DATA: SPINUPTIME (ms), driverPWM, mowRPM, mowRPMSet, RPM difference: ");
           CONSOLE.print(MOWSPINUPTIME);
           CONSOLE.print(", ");
-          CONSOLE.print(abs(motorMowPWMCurr));
+          CONSOLE.print(abs(motorMowPwm));
           CONSOLE.print(", ");
-          CONSOLE.print(abs(motorMowRpmCurrLPFast));
+          CONSOLE.print(abs(motorMowRpmLPFast));
           CONSOLE.print(", ");
           CONSOLE.print(abs(motorMowRpmSet));
           CONSOLE.print(", ");
-          CONSOLE.println(abs(motorMowRpmSet)-abs(motorMowRpmCurrLPFast));
+          CONSOLE.println(abs(motorMowRpmSet)-abs(motorMowRpmLPFast));
         } else {
-            motorMowSpunUp = true;
-            CONSOLE.println("checkMotorMowStall: Mow motor Spun up!");
-            CONSOLE.print("DATA: SPINUPTIME (ms), driverPWM, mowRPM, mowRPMSet: ");
-            CONSOLE.print(MOWSPINUPTIME);
-            CONSOLE.print(", ");
-            CONSOLE.print(abs(motorMowPWMCurr));
-            CONSOLE.print(", ");
-            CONSOLE.print(abs(motorMowRpmCurrLPFast));
-            CONSOLE.print(", ");
-            CONSOLE.println(abs(motorMowRpmSet));
+          motorMowSpunUp = true;
+          CONSOLE.println("checkMotorMowStall: Mow motor Spun up!");
+          CONSOLE.print("DATA: SPINUPTIME (ms), driverPWM, mowRPM, mowRPMSet: ");
+          CONSOLE.print(MOWSPINUPTIME);
+          CONSOLE.print(", ");
+          CONSOLE.print(abs(motorMowPwm));
+          CONSOLE.print(", ");
+          CONSOLE.print(abs(motorMowRpmLPFast));
+          CONSOLE.print(", ");
+          CONSOLE.println(abs(motorMowRpmSet));
         }
-      }
-
-      if (USE_MOW_RPM_SET) motorMowStall = (abs(motorMowRpmCurrLPFast) < (abs(MOW_RPM_NORMAL)*MOW_RPMtr_STALL/100));  //LPFast? // changed motorMowRpmSet to mowRpm
-      else motorMowStall = (abs(motorMowRpmCurrLPFast) < (abs(motorMowRpmSet)*MOW_RPMtr_STALL/100));
+      } 
     }
+
+    //checking the stall condition
+    if (USE_MOW_RPM_SET) {
+        motorMowStall = (abs(motorMowRpmLPFast) < (abs(MOW_RPM_NORMAL)*MOW_RPMtr_STALL/100));  //LPFast? // changed motorMowRpmSet to mowRpm
+      } else {
+        if (MOWPOWERMAX_AUTO) motorMowStall = (mowPowerAct > motorMowPowerMax * MOW_POWERtr_STALL/100);
+        else motorMowStall = (mowPowerAct > mowPowerMax * MOW_POWERtr_STALL/100);
+      }
     
+    //output of stallcondition, counting time and output when condition is over
     if ((motorMowStall) ){
       lastStalltime = millis();
       if (motorMowStallDuration == 0)CONSOLE.println("checkMotorMowStall:: mow motor stalled!");
       motorMowStallFlag = true;
-      motorMowStallDuration += deltaControlTimeSec;     
+      motorMowStallDuration += deltaStallTime;     
     } else {
       if (motorMowStallDuration != 0){
         motorMowStallFlag = false;         
         CONSOLE.print("checkMotorMowStall: WARNING mow motor stalled for duration(ms) >= ");
         CONSOLE.println(motorMowStallDuration);
-        CONSOLE.print("Data: Trigger RPM, Mow RPM: ");
-        CONSOLE.print((abs(MOW_RPM_NORMAL)*MOW_RPMtr_STALL/100));
-        CONSOLE.print(", ");
-        CONSOLE.println(abs(motorMowRpmSet));      
+        if (ESCAPE_LAWN_MODE == 2){
+          CONSOLE.print("Data: Trigger RPM, Mow RPM: ");
+          CONSOLE.print((abs(MOW_RPM_NORMAL)*MOW_RPMtr_STALL/100));
+          CONSOLE.print(", ");
+          CONSOLE.println(abs(motorMowRpmSet));
+        }     
+        if (ESCAPE_LAWN_MODE == 1){
+          CONSOLE.print("Data: POWERtrigger, MowPower: ");
+          CONSOLE.print(motorMowPowerMax*MOW_POWERtr_STALL/100);
+          CONSOLE.print(", ");
+          CONSOLE.println(mowPowerAct);
+        }      
       }
       motorMowStallDuration = 0;
-    }     
+    }
+    
+    if (DEBUG_OUTPUT) {
+  
+      if (DEBUG_MOTOR_MOWSTALL && millis() > nextOutputTime) {
+        nextOutputTime = millis() + DEBUG_MOTOR_CONTROL_TIME;
+        CONSOLE.println("     motor.cpp / checkMowMotorStall -----------> ");
+        CONSOLE.println(" ");
+        CONSOLE.print("            motorMowStall: ");CONSOLE.print(motorMowStall);                      CONSOLE.print(" bool,            mowPowerAct: ");CONSOLE.print(mowPowerAct);                                           CONSOLE.print(" Watt,   motorMowPowerMax: ");CONSOLE.print(motorMowPowerMax);CONSOLE.println(" Watt");
+        CONSOLE.print("          mowStallTrigger: ");CONSOLE.print(mowPowerMax * MOW_POWERtr_STALL/100);CONSOLE.print(" Watt,   mowStallTrigger_AUTO: ");CONSOLE.print(mowPowerAct > motorMowPowerMax * MOW_POWERtr_STALL/100);CONSOLE.print(" bool,       AUTO enabled: ");CONSOLE.print(MOWPOWERMAX_AUTO);CONSOLE.println("   bool");
+        CONSOLE.println("");
+        CONSOLE.println("     <------------------------------------------ ");
+      }
+    }
+
     return;
   }
   motorMowStall = false;
@@ -949,7 +1110,7 @@ void Motor::drvfix(){
         drvfixcounter = 0;
       }
     }
-    if ((millis() >= drvfixtimer) && (battery.chargerConnected()) && (motorLeftPWMCurr == 0) && (motorRightPWMCurr == 0) && (motorMowPWMCurr == 0)){
+    if ((millis() >= drvfixtimer) && (battery.chargerConnected()) && (motorLeftPwm == 0) && (motorRightPwm == 0) && (motorMowPwm == 0)){
       drvfixtimer = millis() + DRVFIXTIMER;
       speedPWM(PWM_GEAR, PWM_GEAR, PWM_MOW);
       drvfixreset = true;
@@ -962,13 +1123,13 @@ void Motor::drvfix(){
 
 bool Motor::checkMowRpmFault(){
   if (ENABLE_RPM_FAULT_DETECTION){
-    if  ( (abs(motorMowPWMCurr) > 100) && (abs(motorMowPWMCurrLP) > 100) && (abs(motorMowRpmCurrLP) < 10.0)) {        
+    if  ( (abs(motorMowPwm) > 100) && (abs(motorMowPwmLP) > 100) && (abs(motorMowRpmLP) < 10.0)) {        
       CONSOLE.print("ERROR: mow motor, average rpm too low: pwm=");
-      CONSOLE.print(motorMowPWMCurr);
+      CONSOLE.print(motorMowPwm);
       CONSOLE.print("  pwmLP=");      
-      CONSOLE.print(motorMowPWMCurrLP);      
+      CONSOLE.print(motorMowPwmLP);      
       CONSOLE.print("  rpmLP=");
-      CONSOLE.print(motorMowRpmCurrLP);
+      CONSOLE.print(motorMowRpmLP);
       CONSOLE.println("  (NOTE: choose ENABLE_RPM_FAULT_DETECTION=false in config.h, if your mowing motor has no rpm sensor!)");
       return true;
     }
@@ -979,31 +1140,39 @@ bool Motor::checkMowRpmFault(){
 // measure motor currents
 void Motor::sense(){
   motorDriver.getMotorCurrent(motorLeftSense, motorRightSense, motorMowSense);
+  
+  motorLeftSenseLP = lpfMotorLeftSense(motorLeftSense);
+  motorRightSenseLP = lpfMotorRightSense(motorRightSense);
+  motorMowSenseLP = lpfMotorMowSense(motorMowSense);
 
+ /*  motorLeftSenseLP = lp2 * motorLeftSenseLP + (1.0-lp2) * motorLeftSense;
   motorRightSenseLP = lp2 * motorRightSenseLP + (1.0-lp2) * motorRightSense;
-  motorLeftSenseLP = lp2 * motorLeftSenseLP + (1.0-lp2) * motorLeftSense;
-  motorMowSenseLP = lp2 * motorMowSenseLP + (1.0-lp2) * motorMowSense; 
+  motorMowSenseLP = lp2 * motorMowSenseLP + (1.0-lp2) * motorMowSense;  */
 
   motorsSenseLP = motorRightSenseLP + motorLeftSenseLP + motorMowSenseLP;
+  
+  motorLeftPwmLP = lpfMotorLeftPwm(motorLeftPwm);
+  motorRightPwmLP = lpfMotorRightPwm(motorRightPwm);
+  motorMowPwmLP = lpfMotorMowPwm(motorMowPwm);
 
-  motorRightPWMCurrLP = lp01 * motorRightPWMCurrLP + (1.0-lp01) * ((float)motorRightPWMCurr);
-  motorLeftPWMCurrLP = lp01 * motorLeftPWMCurrLP + (1.0-lp01) * ((float)motorLeftPWMCurr);  
-  motorMowPWMCurrLP = lp01 * motorMowPWMCurrLP + (1.0-lp01) * ((float)motorMowPWMCurr); 
+  /* motorLeftPwmLP = lp01 * motorLeftPwmLP + (1.0-lp01) * ((float)motorLeftPwm);  
+  motorRightPwmLP = lp01 * motorRightPwmLP + (1.0-lp01) * ((float)motorRightPwm);
+  motorMowPwmLP = lp01 * motorMowPwmLP + (1.0-lp01) * ((float)motorMowPwm);  */
  
   // compute normalized current (normalized to 1g gravity)
-  //float leftAcc = (motorLeftRpmCurr - motorLeftRpmLast) / deltaControlTimeSec;
-  //float rightAcc = (motorRightRpmCurr - motorRightRpmLast) / deltaControlTimeSec;
+  //float leftAcc = (motorLeftRpm - motorLeftRpmLast) / deltaControlTime;
+  //float rightAcc = (motorRightRpm - motorRightRpmLast) / deltaControlTime;
   float cosPitch = cos(robotPitch); 
 	float pitchfactor;
   float robotMass = 1.0;
 	// left wheel friction
-	if (  ((motorLeftPWMCurr >= 0) && (robotPitch <= 0)) || ((motorLeftPWMCurr < 0) && (robotPitch >= 0)) )
+	if (  ((motorLeftPwm >= 0) && (robotPitch <= 0)) || ((motorLeftPwm < 0) && (robotPitch >= 0)) )
 		pitchfactor = cosPitch; // decrease by angle
 	else 
 		pitchfactor = 2.0-cosPitch;  // increase by angle
 	motorLeftSenseLPNorm = abs(motorLeftSenseLP) * robotMass * pitchfactor;  
 	// right wheel friction
-	if (  ((motorRightPWMCurr >= 0) && (robotPitch <= 0)) || ((motorRightPWMCurr < 0) && (robotPitch >= 0)) )
+	if (  ((motorRightPwm >= 0) && (robotPitch <= 0)) || ((motorRightPwm < 0) && (robotPitch >= 0)) )
 		pitchfactor = cosPitch;  // decrease by angle
 	else 
 		pitchfactor = 2.0-cosPitch; // increase by angle
@@ -1012,11 +1181,11 @@ void Motor::sense(){
   //////////////////////////////// MrTree need more data
   mowPowerAct = battery.batteryVoltage * motorMowSense;             //actual mow motor Power
   mowPowerActLP = battery.batteryVoltage * motorMowSenseLP;
-  motorRightPowerAct = battery.batteryVoltage * motorRightSenseLP;      //actual right motor power
   motorLeftPowerAct = battery.batteryVoltage * motorLeftSenseLP;        //actual left motor power
-  motorMowPowerMax = max(motorMowPowerMax, mowPowerActLP);              //save mow motor max power during mower activated
-  motorRightPowerMax = max(motorRightPowerMax, motorRightPowerAct);   //save right motor max power during mower activated
+  motorRightPowerAct = battery.batteryVoltage * motorRightSenseLP;      //actual right motor power
   motorLeftPowerMax = max(motorLeftPowerMax, motorLeftPowerAct);      //save left motor max power during mower activated
+  motorRightPowerMax = max(motorRightPowerMax, motorRightPowerAct);   //save right motor max power during mower activated
+  motorMowPowerMax = max(motorMowPowerMax, mowPowerActLP);              //save mow motor max power during mower activated
   ///////////////////////////////
   checkOverload();  
 }
@@ -1024,73 +1193,56 @@ void Motor::sense(){
 
 void Motor::control(){  
   
-    motorLeftPID.Kp       = MOTOR_PID_KP/50.0*robot_control_cycle;  // 2.0;  //calculate according to different controlcyletimes
-    motorLeftPID.Ki       = MOTOR_PID_KI/50.0*robot_control_cycle;  // 0.03; 
-    motorLeftPID.Kd       = MOTOR_PID_KD/50.0*robot_control_cycle;  // 0.03;
-    //motorLeftPID.reset(); 
-    motorRightPID.Kp       = MOTOR_PID_KP/50.0*robot_control_cycle; //motorLeftPID.Kp;
-    motorRightPID.Ki       = MOTOR_PID_KI/50.0*robot_control_cycle;
-    motorRightPID.Kd       = MOTOR_PID_KD/50.0*robot_control_cycle; //motorLeftPID.Kd;
-    //motorRightPID.reset();
+  motorLeftPID.Kp       = MOTOR_PID_KP;
+  motorLeftPID.Ki       = MOTOR_PID_KI;
+  motorLeftPID.Kd       = MOTOR_PID_KD;
+  //motorLeftPID.reset(); 
+  motorRightPID.Kp       = MOTOR_PID_KP;
+  motorRightPID.Ki       = MOTOR_PID_KI;
+  motorRightPID.Kd       = MOTOR_PID_KD;
+  //motorRightPID.reset();
   if (USE_MOW_RPM_SET) {
-    motorMowPID.Kp       = MOWMOTOR_PID_KP/50.0*robot_control_cycle; //MrTree
-    motorMowPID.Ki       = MOWMOTOR_PID_KI/50.0*robot_control_cycle; //MrTree
-    motorMowPID.Kd       = MOWMOTOR_PID_KD/50.0*robot_control_cycle; //MrTree
-    //motorMowPID.reset();     	              //MrTree
+    motorMowPID.Kp       = MOWMOTOR_PID_KP;
+    motorMowPID.Ki       = MOWMOTOR_PID_KI;
+    motorMowPID.Kd       = MOWMOTOR_PID_KD;
+    //motorMowPID.reset();     	              
   }
-  //########################  Calculate PWM for left driving motor ############################
-  //CONSOLE.print("motorLeftLpf(motorLeftRpmCurr):  ");CONSOLE.println(valuesome);  
-  //CONSOLE.print("motorLeftRpmSet:                 ");CONSOLE.println(motorLeftRpmSet);
-  //CONSOLE.print("motorLeftRpmCurr:                ");CONSOLE.println(motorLeftRpmCurr);
-  //CONSOLE.print("pwmMax:                          ");CONSOLE.println(pwmMax);
-  //CONSOLE.print("motorLeftPID.Kp:                 ");CONSOLE.println(motorLeftPID.Kp);
-  //CONSOLE.print("motorRightPID.Ki:                ");CONSOLE.println(motorRightPID.Ki);
-  //CONSOLE.print("motorRightPID.Kd:                ");CONSOLE.println(motorRightPID.Kd);
-  
+
+  //Calculate PWM for left driving motor
   motorLeftPID.TaMax = 0.25;
-  //motorLeftPID.x = motorLeftLpf(motorLeftRpmCurr); //gives a NaN after some time..................
-  motorLeftPID.x = motorLeftRpmCurr;
+  //motorLeftPID.x = motorLeftLpf(motorLeftRpm); //gives a NaN after some time..................
+  if (ALFRED) {
+    if (ticksLeft == 0 || ticksLeft > 10) motorLeftPID.x = motorLeftRpmLP;
+    else motorLeftPID.x = motorLeftRpmLP;
+  } else motorLeftPID.x = motorLeftRpm;
   motorLeftPID.w = motorLeftRpmSet;
   motorLeftPID.y_min = -pwmMax;
   motorLeftPID.y_max = pwmMax;
   motorLeftPID.max_output = pwmMax;
   motorLeftPID.output_ramp = MOTOR_PID_RAMP;
-  //CONSOLE.print(motorLeftPID.x);
-  //CONSOLE.print(",");
-  //CONSOLE.print(motorLeftPID.w);
-  //CONSOLE.println();
   motorLeftPID.compute();
-  //CONSOLE.print("motorLeftPID.y:                  ");CONSOLE.println(motorLeftPID.y);
-  motorLeftPWMCurr = motorLeftPWMCurr + motorLeftPID.y;
-  //CONSOLE.print("pwmcurr:  ");CONSOLE.println(motorLeftPWMCurr);  
-  //if (motorLeftRpmSet > 0) motorLeftPWMCurr = min( max(0, (int)motorLeftPWMCurr), pwmMax); // 0.. pwmMax  //MrTree Bugfix deleted =
-  //if (motorLeftRpmSet < 0) motorLeftPWMCurr = max(-pwmMax, min(0, (int)motorLeftPWMCurr));  // -pwmMax..0
+  //CONSOLE.print("motorLeftPID.y:    ");CONSOLE.println(motorLeftPID.y);
+  motorLeftPwm = motorLeftPwm + motorLeftPID.y;
+  //CONSOLE.print("motorLeftPwm:  ");CONSOLE.println(motorLeftPwm);  
+  motorLeftPwm = pwmCap(motorLeftPwm,6,255);
 
-  if (motorLeftRpmSet > 0) motorLeftPWMCurr = constrain(motorLeftPWMCurr,20,255); // 0.. pwmMax  //MrTree Bugfix deleted =
-  if (motorLeftRpmSet < 0) motorLeftPWMCurr = constrain(motorLeftPWMCurr,-255,-20);  // -pwmMax..0
-  //if (abs(motorLeftPWMCurr) < 10) motorLeftPWMCurr = 0;
-  //########################  Calculate PWM for right driving motor ############################
-  
+  //Calculate PWM for right driving motor
   motorRightPID.TaMax = 0.25;
-  //motorRightPID.x = motorRightLpf(motorRightRpmCurr); //gives a NaN after some time..................
-  motorRightPID.x = motorRightRpmCurr;
+  //motorRightPID.x = motorRightLpf(motorRightRpm); //gives a NaN after some time..................
+  if (ALFRED) {
+    if (ticksRight == 0 || ticksRight > 10) motorRightPID.x = motorRightRpmLP; 
+    else motorRightPID.x = motorRightRpmLP;
+  } else motorRightPID.x = motorRightRpm;
   motorRightPID.w = motorRightRpmSet;
   motorRightPID.y_min = -pwmMax;
   motorRightPID.y_max = pwmMax;
   motorRightPID.max_output = pwmMax;
   motorRightPID.output_ramp = MOTOR_PID_RAMP;
   motorRightPID.compute();
-  //CONSOLE.print("deltaTime ");CONSOLE.print(deltaControlTimeMs);CONSOLE.print("   motorRightRpmSet ");CONSOLE.print(motorRightRpmSet);CONSOLE.print("   motorRightRPMCurr ");CONSOLE.print(motorRightRpmCurr);CONSOLE.print("   motorRightPWMCurr ");CONSOLE.print(motorRightPWMCurr);CONSOLE.print("   motorRightPID.y ");CONSOLE.println(motorRightPID.y);
-  motorRightPWMCurr = motorRightPWMCurr + motorRightPID.y;
+  motorRightPwm = motorRightPwm + motorRightPID.y;
+  motorRightPwm = pwmCap(motorRightPwm,6,255);  // 0<-clampzero>min-max<-
 
-  //if (motorRightRpmSet > 0) motorRightPWMCurr = min( max(0, (int)motorRightPWMCurr), pwmMax);  // 0.. pwmMax //MrTree Bugfix deleted =
-  //if (motorRightRpmSet < 0) motorRightPWMCurr = max(-pwmMax, min(0, (int)motorRightPWMCurr));   // -pwmMax..0  
-
-  if (motorRightRpmSet > 0) motorRightPWMCurr = constrain(motorRightPWMCurr,20,255);  // 0.. pwmMax //MrTree Bugfix deleted =
-  if (motorRightRpmSet < 0) motorRightPWMCurr = constrain(motorRightPWMCurr,-255,-20);   // -pwmMax..0  
-  //if (abs(motorRightPWMCurr) < 10) motorRightPWMCurr = 0;
-  //########################  Calculate PWM for mow motor ############################
-
+  //Calculate PWM for mow motor
   if (USE_MOW_RPM_SET) {                                                               
     if ((mowRPM_RC != 0)&&(RC_Mode)) {
       if (motorMowRpmSet < 0)motorMowRpmSet = -mowRPM_RC; //MrTree
@@ -1101,50 +1253,68 @@ void Motor::control(){
     if (motorMowRpmSet < 0) comp = -comp;
     
     motorMowPID.TaMax = 0.25;
-    //motorMowPID.x = motorMowLpf(motorMowRpmCurr) - comp; //gives a NaN after some time..................
-    motorMowPID.x = motorMowRpmCurr - comp;
+    //motorMowPID.x = motorMowLpf(motorMowRpm) - comp; //gives a NaN after some time..................
+    if (ALFRED) {
+      if (ticksMow == 0 || ticksMow > 10) motorMowPID.x = motorMowRpmLP - comp;
+      else motorMowPID.x = motorMowRpm - comp;
+    } else motorMowPID.x = motorMowRpm - comp;
     motorMowPID.w = motorMowRpmSet;
     motorMowPID.y_min = -pwmMax;
     motorMowPID.y_max = pwmMax;
     motorMowPID.max_output = pwmMax;
     motorMowPID.output_ramp = MOWMOTOR_PID_RAMP;
     motorMowPID.compute();
-    motorMowPWMCurr = motorMowPWMCurr + motorMowPID.y;
+    motorMowPwm = motorMowPwm + motorMowPID.y;
 
-    //if (motorMowRpmSet > 0) motorMowPWMCurr = min( max(0, (int)motorMowPWMCurr), pwmMax);  // 0.. pwmMax
-    //if (motorMowRpmSet < 0) motorMowPWMCurr = max(-pwmMax, min(0, (int)motorMowPWMCurr));   // -pwmMax..0  
-
-    if (motorMowRpmSet > 0) motorMowPWMCurr = constrain(motorMowPWMCurr,20,255);  // 0.. pwmMax
-    if (motorMowRpmSet < 0) motorMowPWMCurr = constrain(motorMowPWMCurr,-255,-20);   // -pwmMax..0 
+    motorMowPwm = pwmCap(motorMowPwm,10,255);
 
     if (motorMowRpmSet == 0){ //we use simple low pass when stopping mow motor
-      motorMowPWMCurr = lp1 * motorMowPWMCurr + (1 - lp1) * motorMowPWMSet;
-      if (abs(motorMowRpmCurrLPFast) < 400) motorMowPWMCurr = 0;    
+      motorMowPwm = lp1 * motorMowPwm + (1 - lp1) * motorMowPwmSet;
+      if (abs(motorMowRpmLPFast) < 400) motorMowPwm = 0;    
     }      
-    if (!USE_MOW_RPM_SET && motorMowPWMSet == 0){ //we use simple low pass when stopping mow motor
-      motorMowPWMCurr = lp1 * motorMowPWMCurr + (1 - lp1) * motorMowPWMSet;
-      if (abs(motorMowPWMCurr) < 20) motorMowPWMCurr = 0;    
+    if (!USE_MOW_RPM_SET && motorMowPwmSet == 0){ //we use simple low pass when stopping mow motor
+      motorMowPwm = lp1 * motorMowPwm + (1 - lp1) * motorMowPwmSet;
+      if (abs(motorMowPwm) < 20) motorMowPwm = 0;    
     }      
-  } else { //if !USE_RPM_SET
+  } else {
     if (mowPWM_RC != 0 && RC_Mode) {
-      if (motorMowPWMSet < 0)motorMowPWMSet = -mowPWM_RC; //MrTree
-      if (motorMowPWMSet > 0)motorMowPWMSet = mowPWM_RC; //MrTree
+      if (motorMowPwmSet < 0)motorMowPwmSet = -mowPWM_RC; //MrTree
+      if (motorMowPwmSet > 0)motorMowPwmSet = mowPWM_RC; //MrTree
     } 
-    motorMowPWMCurr = lp4 * motorMowPWMCurr + (1 - lp3) * motorMowPWMSet;     //MrTree slightly increased spinuprate (0.99|0.01) before)
-    if (motorMowPWMCurr > 0) motorMowPWMCurr = constrain(motorMowPWMCurr,20,255);  // 0.. pwmMax
-    if (motorMowPWMCurr < 0) motorMowPWMCurr = constrain(motorMowPWMCurr,-255,-20);   // -pwmMax..0 
-    if (abs(motorMowPWMSet) < 50) motorMowPWMCurr = 0;
+    motorMowPwm = lp3 * motorMowPwm + (1 - lp3) * motorMowPwmSet;     //MrTree slightly increased spinuprate (0.99|0.01) before)
+    if (abs(motorMowPwmSet) < 50) motorMowPwm = 0;
+    //motorMowPwm = pwmCap(motorMowPwm,50,255);
+    /* if (motorMowPwm > 0) motorMowPwm = constrain(motorMowPwm,50,255);  // 0.. pwmMax
+    if (motorMowPwm < 0) motorMowPwm = constrain(motorMowPwm,-255,-50);   // -pwmMax..0 
+    if (abs(motorMowPwmSet) < 50) motorMowPwm = 0; */
   }                                                                                                            //MrTree
   
   //set PWM for all motors
   if (!tractionMotorsEnabled){
-    //CONSOLE.println("!tractionMotorsEnabled");
-    motorLeftPWMCurr = motorRightPWMCurr = 0;
-    //CONSOLE.println("traction off!");
+    motorLeftPwm = motorRightPwm = 0;
+  }
+
+  //CONSOLE.print("motorLeftLpf(motorLeftRpm):  ");CONSOLE.println(valuesome);  
+  if (DEBUG_OUTPUT){
+    
+    static unsigned long nextOutputTime = 0;
+    if (DEBUG_PID) {
+      CONSOLE.print("motorTicks      l|r|m  -  ");CONSOLE.print(ticksLeft);       CONSOLE.print("    | ");CONSOLE.print(ticksRight); CONSOLE.print("    | ");CONSOLE.println(ticksMow);
+    }
+    if (DEBUG_PID && millis() > nextOutputTime){
+      nextOutputTime = millis() + 1000;
+      
+      CONSOLE.print("motorRpmSet     l|r|m  -  ");CONSOLE.print(motorLeftRpmSet);   CONSOLE.print(" | ");CONSOLE.print(motorRightRpmSet);   CONSOLE.print(" | ");CONSOLE.println(motorMowRpmSet);
+      CONSOLE.print("motorRpm        l|r|m  -  ");CONSOLE.print(motorLeftRpm);  CONSOLE.print(" | ");CONSOLE.print(motorRightRpm);  CONSOLE.print(" | ");CONSOLE.println(motorMowRpm);
+      CONSOLE.print("motorRpmLP      l|r|m  -  ");CONSOLE.print(motorLeftRpmLP);  CONSOLE.print(" | ");CONSOLE.print(motorRightRpmLP);  CONSOLE.print(" | ");CONSOLE.println(motorMowRpmLP);
+      CONSOLE.print("motorPWM        l|r|m  -  ");CONSOLE.print(motorLeftPwm);  CONSOLE.print(" | ");CONSOLE.print(motorRightPwm);  CONSOLE.print(" | ");CONSOLE.println(motorMowPwm);
+      //CONSOLE.print("motorPWMCurrLP  l|r|m  -  ");CONSOLE.print(motorLeftPwmLP);CONSOLE.print(" | ");CONSOLE.print(motorRightPwmLP);CONSOLE.print(" | ");CONSOLE.println(motorMowPwmLP);
+    }
   }
   //CONSOLE.println();
-  //CONSOLE.print("deltaTime ");CONSOLE.print(deltaControlTimeMs);CONSOLE.print("   motorLeftPWMCurr ");CONSOLE.print(motorLeftPWMCurr);CONSOLE.print("   motorRightPWMCurr ");CONSOLE.print(motorRightPWMCurr);CONSOLE.print("   motorMowPWMCurr ");CONSOLE.println(motorMowPWMCurr);
-  speedPWM(motorLeftPWMCurr, motorRightPWMCurr, motorMowPWMCurr); 
+  //CONSOLE.print("deltaTime ");CONSOLE.print(deltaControlTime);CONSOLE.print("   motorLeftPwm ");CONSOLE.print(motorLeftPwm);CONSOLE.print("   motorRightPwm ");CONSOLE.print(motorRightPwm);CONSOLE.print("   motorMowPwm ");CONSOLE.println(motorMowPwm);
+  
+  speedPWM(motorLeftPwm, motorRightPwm, motorMowPwm); 
 }
 
 void Motor::dumpOdoTicks(int seconds){
@@ -1169,43 +1339,60 @@ void Motor::dumpOdoTicks(int seconds){
 }
 
 void Motor::test(){
-  CONSOLE.println("motor test - 10 revolutions");
-  motorLeftTicks = 0;  
-  motorRightTicks = 0;  
+  CONSOLE.println("motor test - 10 revolutions");  
   unsigned long nextInfoTime = 0;
   int seconds = 0;
-  int pwmLeft = 200;
-  int pwmRight = 200; 
+  int pwmLeft = 0;
+  int pwmRight = 0;
   bool slowdown = true;
   unsigned long stopTicks = ticksPerRevolution * 10;
   unsigned long nextControlTime = 0;
-  while (motorLeftTicks < stopTicks || motorRightTicks < stopTicks){
-    if (millis() > nextControlTime){
-      nextControlTime = millis() + 20;
-      if ((slowdown) && ((motorLeftTicks + ticksPerRevolution  > stopTicks)||(motorRightTicks + ticksPerRevolution > stopTicks))){  //Letzte halbe drehung verlangsamen
-        pwmLeft = pwmRight = 20;
-        slowdown = false;
-      }    
-      if (millis() > nextInfoTime){      
-        nextInfoTime = millis() + 1000;            
-        dumpOdoTicks(seconds);
-        seconds++;      
-      }    
-      if(motorLeftTicks >= stopTicks)
-      {
-        pwmLeft = 0;
-      }  
-      if(motorRightTicks >= stopTicks)
-      {
-        pwmRight = 0;      
+  int testPwms[] = {200, 150, 100, 50};
+
+  for (int i = 0; i <= 3; i++) {
+    
+    int pwmTarget = testPwms[i];
+    motorLeftTicks = 0;  
+    motorRightTicks = 0;
+    pwmLeft = pwmRight = pwmTarget;
+    slowdown = true;
+
+    CONSOLE.print("Testcycle = ");
+    CONSOLE.println(i+1);
+    CONSOLE.print("Testing PWM = ");
+    CONSOLE.println(pwmTarget);
+
+    while (motorLeftTicks < stopTicks || motorRightTicks < stopTicks){
+
+      if (millis() > nextControlTime){
+        nextControlTime = millis() + 20;
+        if ((slowdown) && ((motorLeftTicks + ticksPerRevolution  > stopTicks)||(motorRightTicks + ticksPerRevolution > stopTicks))){  //Letzte halbe drehung verlangsamen
+          pwmLeft = pwmRight = 20;
+          slowdown = false;
+        }    
+        if (millis() > nextInfoTime){      
+          nextInfoTime = millis() + 1000;            
+          dumpOdoTicks(seconds);
+          seconds++;      
+        }    
+        if(motorLeftTicks >= stopTicks)
+        {
+          pwmLeft = 0;
+        }  
+        if(motorRightTicks >= stopTicks)
+        {
+          pwmRight = 0;      
+        }
+        
+        speedPWM(pwmLeft, pwmRight, 0);
+        sense();
+        //delay(50);         
+        watchdogReset();     
+        robotDriver.run();
       }
-      
-      speedPWM(pwmLeft, pwmRight, 0);
-      sense();
-      //delay(50);         
-      watchdogReset();     
-      robotDriver.run();
+    
     }
+    delay(2000);
   }  
   speedPWM(0, 0, 0);
   CONSOLE.println("motor test done - please ignore any IMU/GPS errors");
