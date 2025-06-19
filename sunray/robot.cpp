@@ -759,7 +759,7 @@ bool robotShouldMoveBackward(){
 
 // should robot rotate? only applies when robot is nearly still
 bool robotShouldRotate(){
-  if (fabs(motor.angularSpeedSet)/PI*180.0 > 10.0) return true; //&& millis() > angularMotionStartTime + SHOULDROTATE_DELAY) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+  if (fabs(motor.angularSpeedSet)/PI*180.0 > 20.0) return true; //&& millis() > angularMotionStartTime + SHOULDROTATE_DELAY) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
 }
 
@@ -771,7 +771,7 @@ bool robotShouldRotateLeft(){
 
 // should robot rotate left? only applies when robot is nearly still
 bool robotShouldRotateLeft(){
-  if (motor.angularSpeedSet/PI*180.0 < -5.0) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+  if (motor.angularSpeedSet/PI*180.0 < -20.0) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
 }
 
@@ -784,7 +784,7 @@ bool robotShouldRotateRight(){
 
 // should robot rotate right? only applies when robot is nearly still
 bool robotShouldRotateRight(){
-  if (motor.angularSpeedSet/PI*180.0 > 5.0) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+  if (motor.angularSpeedSet/PI*180.0 > 20.0) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
 }
 
@@ -1061,10 +1061,11 @@ bool detectObstacle(){
   // obstacle detection due to deflection of mower during linetracking ---> this is now changed to stateDeltaSpeedIMU, for ALfred, ODO measurement is just tooo bad for now
   if (imuDriver.imuFound && targetDist > NEARWAYPOINTDISTANCE/2 && lastTargetDist > NEARWAYPOINTDISTANCE/2 && millis() > linearMotionStartTime + BUMPER_DEADTIME){ // function only starts when mower is going between points 
     // during mowing a line, getting deflected by obstacle while it should not rotate version 1
-    if (!robotShouldRotate() && fabs(stateDeltaSpeedIMU) > 12.0/180.0 * PI) {  // yaw speed difference between wheels and IMU more than 8 degree/s, e.g. due to obstacle AND imu shows not enough rotation
+    if (!robotShouldRotate() && fabs(stateDeltaSpeedIMU) > IMU_YAW_THRESHOLD/180.0 * PI) {  // yaw speed difference between wheels and IMU more than 8 degree/s, e.g. due to obstacle AND imu shows not enough rotation
       CONSOLE.println("During Linetracking: IMU yaw difference between wheels and IMU while !robotShouldRotate => assuming obstacle at mower side");
       CONSOLE.print("                                                               stateDeltaSpeedIMU = ");CONSOLE.println(fabs(stateDeltaSpeedIMU)*180/PI);
-      CONSOLE.print("                                                                    trigger value = ");CONSOLE.println(12.0);
+      CONSOLE.print("                                                            motor.angularSpeedSet = ");CONSOLE.println(fabs(motor.angularSpeedSet)*180/PI);
+      CONSOLE.print("                                                                    trigger value = ");CONSOLE.println(IMU_YAW_THRESHOLD);
       statMowDiffIMUWheelYawSpeedCounter++;
       //resetStateEstimation();
       //resetAngularMotionMeasurement();
@@ -1074,7 +1075,7 @@ bool detectObstacle(){
       return true;            
     }
     // during mowing a line, getting deflected by obstacle while it should not rotate version 2
-    if (!robotShouldRotate() && fabs(stateDeltaSpeedIMU) > 12.0/180.0 * PI && fabs(stateDeltaSpeedWheels) < fabs(stateDeltaSpeedIMU/3)){ 
+    if (!robotShouldRotate() && fabs(stateDeltaSpeedIMU) > 25.0/180.0 * PI && fabs(stateDeltaSpeedWheels) < fabs(stateDeltaSpeedIMU/3)){ 
       //if (millis() > linearMotionStartTime + 2500) {  // give time to straighten and accelerate to track the line after a rotation, could use lastTargetDist and targetDist also!
       CONSOLE.println("During Linetracking: IMU deltaSpeed while !robotShouldRotate => assuming obstacle at mower side");
       CONSOLE.print("                                                                  stateDeltaSpeed = ");CONSOLE.println(fabs(stateDeltaSpeedIMU)*180/PI);

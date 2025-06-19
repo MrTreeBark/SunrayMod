@@ -20,12 +20,12 @@ LocalizationMode stateLocalizationMode = LOC_GPS;
 float stateX = 0;  // position-east (m)
 float stateY = 0;  // position-north (m)
 float stateDelta = 0;  // direction (rad)
-float stateHeading = 0;
+float stateHeading = 0; // direction (deg)
 float stateRoll = 0;
 float statePitch = 0;
 float stateDeltaGPS = 0;
 float stateDeltaIMU = 0;
-float imuRawYaw_sc = 0; //raw yaw from imuDriver.yaw
+float imuRawYaw_sc = 0; //PIscaled raw yaw from imuDriver.yaw
 float stateGroundSpeed = 0; // m/s
 
 bool stateAprilTagFound = false;
@@ -307,8 +307,8 @@ void readIMU(){
   imuRawYaw_sc = scalePI(imuRawYaw);
   //imuRawYawLast_sc = scalePI(imuRawYawLast);
   imuRawYawLast_sc = scalePIangles(imuRawYawLast_sc, imuRawYaw_sc);
-  stateDeltaIMU = -distancePI(imuRawYaw_sc, imuRawYawLast_sc);
-
+  //stateDeltaIMU = -distancePI(imuRawYaw_sc, imuRawYawLast_sc);
+  stateDeltaIMU = -scalePI ( distancePI(imuDriver.yaw, lastIMUYaw) );
   //remember for change calculations
   imuRawRollLast = imuRawRoll;
   imuRawYawLast = imuRawYaw;
@@ -688,11 +688,13 @@ void computeRobotState(){
   
   //angular speed of IMU
   if (imuDriver.imuFound){
-    //CONSOLE.print("stateDeltaIMU: ");CONSOLE.println(stateDeltaIMU);
+    CONSOLE.print("stateDeltaIMU: ");CONSOLE.println(stateDeltaIMU);
+
     //stateDeltaSpeedIMU = lp1 * stateDeltaSpeedIMU + (1 - lp1) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep)  
     stateDeltaSpeedIMU = imuLpfStateDeltaSpeed(stateDeltaIMU/deltaTime);
-    //CONSOLE.print("stateDeltaIMU: ");CONSOLE.println(stateDeltaIMU/PI*180.0);
-    //CONSOLE.print("stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedIMU/PI*180.0);
+    CONSOLE.print("stateDeltaIMURaw: ");CONSOLE.println(stateDeltaIMU/deltaTime/PI*180);
+    CONSOLE.print("stateDeltaIMU: ");CONSOLE.println(stateDeltaIMU/PI*180.0);
+    CONSOLE.print("stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedIMU/PI*180.0);
   }
 
   /*

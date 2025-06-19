@@ -224,6 +224,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define OVERLOAD_ROTATION_DEADTIME  1000  // (ms) trigger dead time for OVERLOAD_ROTATION (similar like BUMPER_DEADTIME)
 #define OBSTACLE_CHAINING           true  // if true, obstacle and obstaclerotation detection is allowed during an obstacle evasion operation (chaining)
 #define SHOULDROTATE_DELAY          1000  // internal state bool will trigger shouldrotate with this delay after rotation command in code startet
+#define IMU_YAW_THRESHOLD           30.0  // (deg/s) threshold for OBSTACLE_DEFLECTION, if imu yaw is over the threshold --> assume Obstacle 
 //DRIVER (try to fix 8308 driver with pwm (keep FALSE if you have no issues or no DRV8308, this is for experiments only)) ---> to be removed
 #define DRV8308_FIX                 false // only for testing, if true and charger is connected, drivers pwm will be 1 for DRVFIXITERATIONS iteration of code everytime DRVFIXTIMER is met
 #define DRVFIXITERATIONS            5     // iterations of code for pwm of drivers to be PWM_GEAR and PWM_MOW (below)
