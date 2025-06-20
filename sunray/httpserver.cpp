@@ -262,11 +262,11 @@ void processWifiAppServer()
               // "Refresh: 1\r\n"        // refresh the page automatically every 20 sec                        
               );
             //checkTimeViolation(httpStartTime, maxDuration, 11);
-            client.print("Content-length: ");
-            client.print(cmdResponse.length());
+              client.print("Content-length: ");
+              client.print(cmdResponse.length());
             //checkTimeViolation(httpStartTime, maxDuration, 12);
-            client.print("\r\n\r\n");                      // <-- this is the [1b blob data]  
-            client.print(cmdResponse);
+              client.print("\r\n\r\n");                      // <-- this is the [1b blob data]  
+              client.print(cmdResponse);
             //checkTimeViolation(httpStartTime, maxDuration, 13);
 
             if (DEBUG_HTTPSERVER) {

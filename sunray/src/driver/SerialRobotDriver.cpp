@@ -711,15 +711,15 @@ void SerialMotorDriver::getMotorEncoderTicks(int &leftTicks, int &rightTicks, in
   serialRobot.deltaTicksRight = 0;
   serialRobot.deltaTicksMow = 0;
 
-  if (leftTicks > 50){
+  if (leftTicks > 1000){
     leftTicks = 0;
     CONSOLE.println("getMotorEncoderTicks: tickReset leftTicks > thresh");
   }
-  if (rightTicks > 50){
+  if (rightTicks > 1000){
     rightTicks = 0;
     CONSOLE.println("getMotorEncoderTicks: tickReset rightTicks > thresh");
   } 
-  if (mowTicks > 50){
+  if (mowTicks > 1000){
     mowTicks = 0;
     CONSOLE.println("getMotorEncoderTicks: tickReset mowTicks > thresh");
   }

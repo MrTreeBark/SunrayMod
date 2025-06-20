@@ -21,8 +21,10 @@ extern float stanleyTrackingSlowP;
 //extern bool allowDockLastPointWithoutGPS; // Svol0: allow go on docking by loosing gps fix
 extern bool allowDockRotation;   // MrTree: disable rot of mower to last dock point
 
+extern bool transition;
 extern float targetDist;  //MrTree
 extern float lastTargetDist;//MrTree
+extern float trackerDiffDelta;
 
 void trackLine(bool runControl);
 float turnInPlaceControl(float angularIn);  

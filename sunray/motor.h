@@ -74,6 +74,8 @@ public:
   float motorMowPwmSet;
 
   //Measured values
+  float trackerDiffDelta = 0;
+
   float motorLeftPowerAct;
   float motorLeftPowerMax = 0;
   float motorRightPowerAct;
@@ -116,10 +118,7 @@ public:
   unsigned long keepSlowTime;
   unsigned long retrySlowTime;
   unsigned long motorReleaseBrakesTime;
-  unsigned long currTime;
-  unsigned long deltaControlTimeMs;
   unsigned long deltaControlTime;
-  unsigned long lastControlTime;
   unsigned long lastMowStallCheckTime;
   unsigned long drvfixtimer;
   bool drvfixreset;

@@ -38,6 +38,7 @@ Point lastTarget;
 bool mow = false;
 bool trackslow_allowed = false;
 bool straight = false;
+bool transition = false;
 bool shouldRotate = false;                      //MrTree
 bool shouldRotatel = false;                     //MrTree
 bool angleToTargetFits = false;
@@ -61,10 +62,10 @@ bool allowDockRotation = true;                //MrTree: disable rotation on last
 bool AngleToTargetFits() {
   // allow rotations only near last or next waypoint or if too far away from path
   if (targetDist < 0.3 || lastTargetDist < 0.3 || fabs(distToPath) > 1.0 ) {
-    angleToTargetFits = (fabs(trackerDiffDelta) / PI * 180.0 <= TRANSITION_ANGLE);              //MrTree we have more than TRANSITION_ANGLE difference to point, else linetracker stanley angular faktor p will sort things out
+    angleToTargetFits = ((fabs(trackerDiffDelta) * 180.0 / PI )<= TRANSITION_ANGLE);              //MrTree we have more than TRANSITION_ANGLE difference to point, else linetracker stanley angular faktor p will sort things out
   } else {
 	// while tracking the mowing line do allow rotations if angle to target increases (e.g. due to gps jumps)
-    angleToTargetFits = (fabs(trackerDiffDelta)/PI*180.0 < 45);       
+    angleToTargetFits = ((fabs(trackerDiffDelta) * 180.0 / PI) < TARGETFITS_ANGLE);       
   }
 
   if ((!angleToTargetFits || !angleToTargetPrecise)) angleToTargetFits = false;   //MrTree added !dockTimer to prevent the jumping gps point to cause linear=0 because of !angleToTargetFits, added !angleToTargetPrecise 
@@ -85,14 +86,14 @@ void rotateToTarget() {
       angular = constrain(angular, ROTATION_RAMP_MIN / 180.0 * PI, ROTATION_RAMP_MAX / 180.0 * PI);
       //CONSOLE.print("constrain angular:  ");CONSOLE.println(angular*180/PI);
     } else {
-      if (fabs(trackerDiffDelta)/PI*180.0 >= ANGLEDIFF1) angular = ROTATETOTARGETSPEED1 / 180.0 * PI;   //MrTree set angular to fast defined in config.h
-      if (fabs(trackerDiffDelta)/PI*180.0 < ANGLEDIFF1) angular = ROTATETOTARGETSPEED2  / 180.0 * PI;    //MrTree slow down turning when near desired angle     
-      if (fabs(trackerDiffDelta)/PI*180.0 <= ANGLEDIFF2) angular = ROTATETOTARGETSPEED3 / 180.0 * PI;    //MrTree slow down turning even more when almost at desired angle     
+      if (fabs(trackerDiffDelta) * 180.0 / PI >= ANGLEDIFF1) angular = ROTATETOTARGETSPEED1 / 180.0 * PI;   //MrTree set angular to fast defined in config.h
+      if (fabs(trackerDiffDelta) * 180.0 / PI < ANGLEDIFF1) angular = ROTATETOTARGETSPEED2  / 180.0 * PI;    //MrTree slow down turning when near desired angle     
+      if (fabs(trackerDiffDelta) * 180.0 / PI <= ANGLEDIFF2) angular = ROTATETOTARGETSPEED3 / 180.0 * PI;    //MrTree slow down turning even more when almost at desired angle     
     }
     if (trackerDiffDelta < 0) {     //MrTree set rotation direction and do not keep it :)
       angular *= -1;
     }                     
-    if (fabs(trackerDiffDelta)/PI*180.0 < ANGLEPRECISE){
+    if (fabs(trackerDiffDelta) * 180.0 / PI < ANGLEPRECISE){
       angular = 0;
       resetStateEstimation();
       if (CurrRot == 0) angleToTargetPrecise = true;                          //MrTree Step out of everything when angle is precise... and we stopped rotating 
@@ -139,18 +140,23 @@ void stanleyTracker() {
   static float k;
   static float p;
 
-  if (MAP_STANLEY_CONTROL) {
+  //do not use agressive stanley if floatsittuaion
+  if (gps.solution == SOL_FLOAT || gps.solution == SOL_INVALID) {
+    stanleyTrackingNormalK = STANLEY_FLOAT_K_NORMAL; 
+    stanleyTrackingNormalP = STANLEY_FLOAT_P_NORMAL;
+    stanleyTrackingSlowK = STANLEY_FLOAT_K_SLOW;
+    stanleyTrackingSlowP = STANLEY_FLOAT_P_SLOW;
+  } else {
+    stanleyTrackingNormalK = STANLEY_CONTROL_K_NORMAL; 
+    stanleyTrackingNormalP = STANLEY_CONTROL_P_NORMAL;
+    stanleyTrackingSlowK = STANLEY_CONTROL_K_SLOW;
+    stanleyTrackingSlowP = STANLEY_CONTROL_P_SLOW;
+  }
+  //FIXME
+  if (MAP_STANLEY_CONTROL) { //this is going to be made not an option, but a must
     //Mapping of Stanley Control Parameters in relation to actual Setpoint value of speed
     //Values need to be multiplied, because map() function does not work well with small range decimals
     // linarSpeedSet needed as absolut value for mapping
-    
-    //do not use agressive stanley if floatsittuaion
-    if (gps.solution == SOL_FLOAT || gps.solution == SOL_INVALID) {
-      stanleyTrackingNormalK = STANLEY_FLOAT_K_NORMAL; 
-      stanleyTrackingNormalP = STANLEY_FLOAT_P_NORMAL;
-      stanleyTrackingSlowK = STANLEY_FLOAT_K_SLOW;
-      stanleyTrackingSlowP = STANLEY_FLOAT_P_SLOW;
-    } 
 
     k = map(fabs(CurrSpeed) * 1000, MOTOR_MIN_SPEED * 1000, MOTOR_MAX_SPEED * 1000, stanleyTrackingSlowK * 1000, stanleyTrackingNormalK * 1000); //MOTOR_MIN_SPEED and MOTOR_MAX_SPEED from config.h
     p = map(fabs(CurrSpeed) * 1000, MOTOR_MIN_SPEED * 1000, MOTOR_MAX_SPEED * 1000, stanleyTrackingSlowP * 1000, stanleyTrackingNormalP * 1000); //MOTOR_MIN_SPEED and MOTOR_MAX_SPEED from config.h
@@ -161,15 +167,15 @@ void stanleyTracker() {
   } else {
     k = stanleyTrackingNormalK;                                     // STANLEY_CONTROL_K_NORMAL;
     p = stanleyTrackingNormalP;                                     // STANLEY_CONTROL_P_NORMAL;
-    if (maps.trackSlow && trackslow_allowed) {
-      k = stanleyTrackingSlowK;                                     //STANLEY_CONTROL_K_SLOW;
+    if (maps.trackSlow && trackslow_allowed) {     //this will create bugs, because you never now when this slowparameter in docking will be activated
+      k = stanleyTrackingSlowK;                                     //STANLEY_CONTROL_K_SLOW;         
       p = stanleyTrackingSlowP;                                     //STANLEY_CONTROL_P_SLOW;
     }
   }
                                                                                                                             //MrTree
   angular =  p * trackerDiffDelta + atan2(k * lateralError, (0.001 + fabs(CurrSpeed)));       //MrTree, use actual speed correct for path errors
   // restrict steering angle for stanley  (not required anymore after last state estimation bugfix)
-  angular = max(-PI/6, min(PI/6, angular)); //MrTree still used here because of gpsfix jumps that would lead to an extreme rotation speed
+  //angular = max(-PI/6, min(PI/6, angular)); //MrTree still used here because of gpsfix jumps that would lead to an extreme rotation speed
   //if (!maps.trackReverse && motor.linearCurrSet < 0) angular *= -1;   // it happens that mower is reversing without going to a map point (obstacle escapes) but trying to get straight to the next point angle (transition angle), for this case angular needs to be reversed
   //After all, we want to use stanley for transition angles as well, too have a smooth operation between points without coming to a complete stop
   //For that we will scale down the actual linear speed set dependent to the angle difference to the NEXT targetpoint, we need also to deactivate distance ramp for nextangletotargetfits = true
@@ -285,9 +291,6 @@ void linearSpeedState(){
   }
   
   // if there is no active slowdown from setSpeed, we will have setSpeed as goal
-  
-
-
   if (stateLocalizationMode == LOC_APRIL_TAG){
     if (!stateAprilTagFound){
       linear = 0; // wait until april-tag found 
@@ -369,10 +372,16 @@ float distanceRamp(float linear){
     if (targetDist <= lastTargetDist) {                                  //need to decide what ramp, leaving or aproaching? --> approaching
       maxDist += maxSpeed;                                               //add an speed dependent offset to target distance when approaching, because mower comes with high speed that causes a timing issue
       actDist = targetDist;
-      if (straight) minSpeed = TRANSITION_SPEED * 1000; //maxSpeed * 0.5;                           //if we don´t need to rotate, do not decellarate too much
+      if (straight) {
+        minSpeed = TRANSITION_SPEED * 1000; //maxSpeed * 0.5;                           //if we don´t need to rotate, do not decellarate too much
+        transition = true;
+      }
       wasStraight = straight;
     } else {
-      if (wasStraight) minSpeed = TRANSITION_SPEED * 1000; //maxSpeed * 0.5;
+      if (wasStraight) {
+        minSpeed = TRANSITION_SPEED * 1000; //maxSpeed * 0.5;
+        transition = true;
+      }
       actDist = lastTargetDist;
       //actDist += 0.05; //add an offset      
     }
@@ -404,11 +413,10 @@ void gpsConditions() {
     }
   }
 
-  
-
   // gps-jump/false fix check
   if (KIDNAP_DETECT) {
     float allowedPathTolerance = KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE;
+
     if ( maps.isUndocking() || maps.isDocking() ) {
       float dockX = 0;
       float dockY = 0;
@@ -421,6 +429,7 @@ void gpsConditions() {
         allowedPathTolerance = KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE_DOCK_UNDOCK;
       }
     }
+
     if ((stateLocalizationMode == LOC_GPS) && (fabs(distToPath) > allowedPathTolerance)){ // actually, this should not happen (except on false GPS fixes or robot being kidnapped...)
       if (!stateKidnapped){
         stateKidnapped = true;
@@ -429,7 +438,8 @@ void gpsConditions() {
         CONSOLE.print(" distToPath=");
         CONSOLE.println(distToPath);
         activeOp->onKidnapped(stateKidnapped);
-      }            
+      }
+
     } else {
       if (stateKidnapped) {
         stateKidnapped = false;
@@ -447,12 +457,15 @@ void noDockRotation() {
   if (DOCK_NO_ROTATION) {
     if (maps.wayMode != WAY_DOCK) return;
     if ((maps.isTargetingLastDockPoint() && !maps.isUndocking())){        //MrTree step in algorithm if allowDockRotation (computed in maps.cpp) is false and mower is not undocking
+      
       if (!dockTimer){                                                  //set helper bool to start a timer and print info once
         reachedPointBeforeDockTime = millis();                          //start a timer when going to last dockpoint
         dockTimer = true;                                               //enables following code
         CONSOLE.println("allowDockRotation = false, timer to successfully dock startet. angular = 0, turning not allowed");
       }
+
       if (dockTimer){
+
         //resetLinearMotionMeasurement();                                         //need to test if this is still neccessary
         if (lastTargetDist > DOCK_NO_ROTATION_DISTANCE){                          //testing easier approach for DOCK_NO_ROTATION setup
           angular = 0;
@@ -460,6 +473,7 @@ void noDockRotation() {
           targetReached = false;
           if (!buzzer.isPlaying()) buzzer.sound(SND_ERROR, true);                  
         }
+
         if (millis() > reachedPointBeforeDockTime+DOCK_NO_ROTATION_TIMER){      //check the time until mower has to reach the charger and triger obstacle if not reached
           CONSOLE.println("noDockRotation(): not docked in given time, triggering maps.retryDocking!");
           dockTimer = false;
@@ -477,15 +491,15 @@ void noDockRotation() {
 void noUnDockRotation(){
   if (DOCK_NO_ROTATION) {
     if (maps.wayMode != WAY_DOCK) return;
+    
     if (maps.isBetweenLastAndNextToLastDockPoint() && maps.isUndocking()){
       if (!unDockTimer){                                                  //set helper bool to start a timer and print info once
         reachedPointBeforeDockTime = millis();                          //start a timer when going to last dockpoint
         unDockTimer = true;                                               //enables following code
         CONSOLE.println("noUnDockRotation(): timer to successfully undock startet. angular = 0, turning not allowed");
       }
-      if (unDockTimer){
-        //resetLinearMotionMeasurement();                                         //need to test if this is still neccessary
-                                //testing easier approach for DOCK_NO_ROTATION setup
+
+      if (unDockTimer){                                                     
         angular = 0;
         linear = -DOCK_NO_ROTATION_SPEED;
         if (!buzzer.isPlaying()) buzzer.sound(SND_ERROR, true);                  
@@ -533,10 +547,11 @@ void trackLine(bool runControl) {
   Point lastTarget = maps.lastTargetPoint;
   CurrSpeed = motor.linearSpeedSet;           //MrTree take the real speed from motor.linearSpeedSet
   CurrRot = motor.angularSpeedSet;
+  transition = false;
   linear = 0;                                 //MrTree Changed from 1.0
   angular = 0;
   
-  targetDelta = pointsAngle(stateX, stateY, target.x(), target.y());
+  targetDelta = pointsAngle(stateX, stateY, target.x(), target.y());  //rad
   if (maps.trackReverse) targetDelta = scalePI(targetDelta + PI);
   targetDelta = scalePIangles(targetDelta, stateDelta);
   trackerDiffDelta = distancePI(stateDelta, targetDelta);
@@ -546,6 +561,7 @@ void trackLine(bool runControl) {
   lastTargetDist = maps.distanceToLastTargetPoint(stateX, stateY);
   targetReached = (targetDist < TARGET_REACHED_TOLERANCE);
   lineDist = maps.distanceToTargetPoint(lastTarget.x(), lastTarget.y());
+
   /*if ((abs(lineDist-lastLineDist ) > 0.0) || (abs(distToPath) > 0.5)) {
     CONSOLE.print("distToPath=");
     CONSOLE.print(distToPath);
@@ -612,12 +628,15 @@ void trackLine(bool runControl) {
       }
       // output tracking data permanently
       CONSOLE.println("DEBUG_LINETRACKER START -->");
-      CONSOLE.print(" angleToTargetFits: ");CONSOLE.println(angleToTargetFits);
-      CONSOLE.print("           angular: ");CONSOLE.println(angular*180.0/PI);
-      CONSOLE.print("  trackerDiffDelta: ");CONSOLE.println(trackerDiffDelta*180/PI);
-      CONSOLE.print("     distToPath --> ");CONSOLE.print(distToPath);CONSOLE.print(" | ");CONSOLE.print(targetDist);CONSOLE.println(" <-- targetDist");
+      CONSOLE.print("    angleToTargetFits: ");CONSOLE.println(angleToTargetFits);
+      CONSOLE.print("              angular: ");CONSOLE.println(angular * 180.0 / PI);
+      CONSOLE.print("     trackerDiffDelta: ");CONSOLE.println(trackerDiffDelta * 180 / PI);
+      CONSOLE.print("        distToPath --> ");CONSOLE.print(distToPath);CONSOLE.print(" | ");CONSOLE.print(targetDist);CONSOLE.println(" <-- targetDist");
+      CONSOLE.print("motor.angularSpeedSet: ");CONSOLE.println(motor.angularSpeedSet * 180 / PI);
+      CONSOLE.print("       shouldRotate(): ");CONSOLE.println(robotShouldRotate());
       CONSOLE.println("<-- DEBUG_LINETRACKER END");
     }
+  
     
     if (detectLift()){ // in any case, turn off mower motor if lifted  
       mow = false;  // also, if lifted, do not turn on mowing motor so that the robot will drive and can do obstacle avoidance 

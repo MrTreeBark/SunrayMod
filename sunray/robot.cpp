@@ -381,10 +381,12 @@ void startWIFI(){
   #if defined(ENABLE_UDP)
     udpSerial.beginUDP();  
   #endif    
+  
   if (ENABLE_SERVER){
     //server.listenOnLocalhost();
     server.begin();
   }
+
   if (ENABLE_MQTT){
     CONSOLE.println("MQTT: enabled");
     mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
@@ -759,7 +761,7 @@ bool robotShouldMoveBackward(){
 
 // should robot rotate? only applies when robot is nearly still
 bool robotShouldRotate(){
-  if (fabs(motor.angularSpeedSet)/PI*180.0 > 20.0) return true; //&& millis() > angularMotionStartTime + SHOULDROTATE_DELAY) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+  if (fabs(motor.angularSpeedSet) * 180.0 / PI > 10.0 || transition) return true; //&& millis() > angularMotionStartTime + SHOULDROTATE_DELAY) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
 }
 
@@ -771,7 +773,7 @@ bool robotShouldRotateLeft(){
 
 // should robot rotate left? only applies when robot is nearly still
 bool robotShouldRotateLeft(){
-  if (motor.angularSpeedSet/PI*180.0 < -20.0) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+  if (motor.angularSpeedSet * 180 / PI < -10.0 || transition) return true;//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
 }
 
@@ -784,7 +786,7 @@ bool robotShouldRotateRight(){
 
 // should robot rotate right? only applies when robot is nearly still
 bool robotShouldRotateRight(){
-  if (motor.angularSpeedSet/PI*180.0 > 20.0) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
+  if (motor.angularSpeedSet *180 / PI > 10.0 || transition) return true;//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
 }
 
@@ -999,13 +1001,13 @@ bool detectObstacle(){
 
   // check GPS stateGroundSpeed difference to linearSpeedSet
   if (millis() > linearMotionStartTime + GPS_SPEED_DEADTIME) {
-    if (stateGroundSpeed < fabs(motor.linearSpeedSet/4) && !robotShouldRotate) {
+    if (stateGroundSpeed < fabs(motor.linearSpeedSet/4) && !robotShouldRotate()) {
       noGPSSpeedTime += deltaTime;
       if (NO_GPS_OBSTACLE && gpsObstacleNotAllowed){
         CONSOLE.println("GPS_SPEED_DETECTION: ignoring gps no groundspeed!");
         return false;
       }
-      if ((GPS_SPEED_DETECTION && !maps.isAtDockPath()) && (noGPSSpeedTime > GPS_SPEED_DELAY)){
+      if (GPS_SPEED_DETECTION && !maps.isAtDockPath() && noGPSSpeedTime > GPS_SPEED_DELAY){
         CONSOLE.println("GPS_SPEED_DETECTION: gps no groundspeed => assume obstacle!");
         statMowGPSMotionTimeoutCounter++;
         noGPSSpeedTime = 0;
@@ -1020,7 +1022,7 @@ bool detectObstacle(){
   }
 
   // check if GPS motion (obstacle detection)  
-  if ((millis() > nextGPSMotionCheckTime) || (millis() > overallMotionTimeout) && !robotShouldRotate) {        
+  if ((millis() > nextGPSMotionCheckTime || millis() > overallMotionTimeout) && !robotShouldRotate()) {        
     updateGPSMotionCheckTime();
     resetOverallMotionTimeout(); // this resets overall motion timeout (overall motion timeout happens if e.g. 
     // motion between anuglar-only and linar-only toggles quickly, and their specific timeouts cannot apply due to the quick toggling)
@@ -1059,7 +1061,7 @@ bool detectObstacle(){
     lastGPSMotionY = stateY;      
   }
   // obstacle detection due to deflection of mower during linetracking ---> this is now changed to stateDeltaSpeedIMU, for ALfred, ODO measurement is just tooo bad for now
-  if (imuDriver.imuFound && targetDist > NEARWAYPOINTDISTANCE/2 && lastTargetDist > NEARWAYPOINTDISTANCE/2 && millis() > linearMotionStartTime + BUMPER_DEADTIME){ // function only starts when mower is going between points 
+  /* if (imuDriver.imuFound && targetDist > NEARWAYPOINTDISTANCE/2 && lastTargetDist > NEARWAYPOINTDISTANCE/2 && millis() > linearMotionStartTime + BUMPER_DEADTIME){ // function only starts when mower is going between points 
     // during mowing a line, getting deflected by obstacle while it should not rotate version 1
     if (!robotShouldRotate() && fabs(stateDeltaSpeedIMU) > IMU_YAW_THRESHOLD/180.0 * PI) {  // yaw speed difference between wheels and IMU more than 8 degree/s, e.g. due to obstacle AND imu shows not enough rotation
       CONSOLE.println("During Linetracking: IMU yaw difference between wheels and IMU while !robotShouldRotate => assuming obstacle at mower side");
@@ -1090,7 +1092,7 @@ bool detectObstacle(){
       triggerObstacle();
       return true;           
     }
-  }
+  }*/
   return false;
 }
 
@@ -1144,7 +1146,7 @@ bool detectObstacleRotation(){
       }
     }       
   }
-  if (imuDriver.imuFound){
+  /* if (imuDriver.imuFound){
     if (millis() > angularMotionStartTime + ROTATION_TIME) { 
       // less than 3 degree/s yaw speed, e.g. due to obstacle                 
       if (fabs(stateDeltaSpeedIMU) < 10.0/180.0 * PI){ 
@@ -1169,8 +1171,8 @@ bool detectObstacleRotation(){
         //maps.nextPoint(false, stateX, stateY); //take next point instead of going back to point mower wanted to reach?
         return true;            
       }
-    }    
-  }
+    }      
+  }*/
   return false;
 }
 
@@ -1268,7 +1270,7 @@ void run(){
   deltaTime = timeLast - millis();
   timeLast = millis();
 
-  if (stateOp == OP_MOW) robot_control_cycle = ROBOT_CONTROL_CYCLE;
+  if (stateOp == OP_MOW || stateOp == OP_DOCK) robot_control_cycle = ROBOT_CONTROL_CYCLE;
   else robot_control_cycle = ROBOT_IDLE_CYCLE;
 
   // LED LIGHTS
