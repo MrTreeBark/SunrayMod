@@ -11,16 +11,16 @@ LowPassFilter::LowPassFilter(float time_constant)
 float LowPassFilter::operator() (float x)
 {
     unsigned long timestamp = millis();
-    float dt = (timestamp - timestamp_prev)*1e-3f;
+    float dt = (timestamp - timestamp_prev)*1e-3f;                      //make timestamp in seconds, because Tf is in seconds...
 
     if (dt < 0.0f ) dt = 1e-3f;
-    else if(dt > 0.3f) {
+    else if(dt > 0.3f) {                                                //skipping and giving back input value
         y_prev = x;
         timestamp_prev = timestamp;
         return x;
     }
 
-    float alpha = Tf/(Tf + dt);
+    float alpha = Tf/(Tf + dt);                                         //
     float y = alpha*y_prev + (1.0f - alpha)*x;
     y_prev = y;
     timestamp_prev = timestamp;

@@ -759,7 +759,7 @@ bool robotShouldMoveBackward(){
    return (motor.linearSpeedSet <= - MOTOR_MIN_SPEED );   
 }
 
-// should robot rotate? only applies when robot is nearly still
+// should robot rotate?
 bool robotShouldRotate(){
   if (fabs(motor.angularSpeedSet) * 180.0 / PI > 10.0 || transition) return true; //&& millis() > angularMotionStartTime + SHOULDROTATE_DELAY) return (true);//MrTree changed to deg/s (returned true before if angularspeedset > 0.57deg/s), reduced linearSpeedSet condition
     else return (false);   
@@ -1178,9 +1178,6 @@ bool detectObstacleRotation(){
 
 // function to output parameters
 void tuningOutput(){
-  CONSOLE.println();
-  CONSOLE.println("DEBUG_TUNING (disable in config.h): ");
-  CONSOLE.println("---------------------------------------------------->");
   if (DEBUG_ADAPTIVESPEED) {
   CONSOLE.println("motor.cpp: adaptive_speed()");
       CONSOLE.print("      ");CONSOLE.print("   motorMowRpmSet: ");CONSOLE.print(motor.motorMowRpmSet);         CONSOLE.print(" RPM, ");CONSOLE.print("   motorMowPwmSet: ");CONSOLE.print(motor.motorMowPwmSet);   CONSOLE.println(" val ");
@@ -1211,15 +1208,43 @@ void tuningOutput(){
       CONSOLE.print("      ");CONSOLE.print("                    ax: ");CONSOLE.print(imuDriver.ax);                      CONSOLE.print(" g, ay: ");      CONSOLE.print(imuDriver.ay);   CONSOLE.print("  g, az: ");CONSOLE.print(imuDriver.az); CONSOLE.println(" g");
       CONSOLE.print("      ");CONSOLE.print("                  roll: ");CONSOLE.print(imuDriver.roll);                    CONSOLE.print(" rad, pitch: "); CONSOLE.print(imuDriver.pitch);CONSOLE.print("rad, yaw: ");CONSOLE.print(imuRawYaw_sc);CONSOLE.println(" rad");
   }
-      CONSOLE.println("Info             -- ");
+  if (DEBUG_STATE) {
+  CONSOLE.println("Info             -- ");
       CONSOLE.print("      ");CONSOLE.print("Operation: ");CONSOLE.print(stateOp);CONSOLE.println("");
       CONSOLE.println("<----------------------------------------------------");
       CONSOLE.println();
-}
+  }
+  }
 
 // robot main loop
 void run(){
+  static unsigned long aliveTime = 0; // Timer
+  if (millis() - aliveTime >= 30000) {
+    aliveTime = millis();
+    unsigned long totalSeconds = millis() / 1000;
+    unsigned long hours   = totalSeconds / 3600;
+    unsigned long minutes = (totalSeconds % 3600) / 60;
+    unsigned long seconds = totalSeconds % 60;
 
+    CONSOLE.print("I AM ALIVE! Uptime: ");
+    CONSOLE.print(hours);
+    CONSOLE.print(" h ");
+    CONSOLE.print(minutes);
+    CONSOLE.print(" m ");
+    CONSOLE.print(seconds);
+    CONSOLE.println(" s");
+}
+
+  if (imuIsCalibrating) {
+    activeOp->onImuCalibration();             
+  } else {
+    readIMU();
+    // LiDAR relocalization
+    if (gps.isRelocalizing){
+      activeOp->onRelocalization();
+    }   
+  }
+  
   #ifdef ENABLE_NTRIP
     if (millis() > nextGenerateGGATime){
       nextGenerateGGATime = millis() + 10000;
@@ -1259,7 +1284,7 @@ void run(){
   //motor.run();
 
   //NTRIP needs to be here (make a function to be called here so it´s out of the way in robot run)
-
+  //ntrip.run();
   gps.run();
   sonar.run();                      //semiimportant
   maps.run();                       //important for accurate rtk distances  
@@ -1333,15 +1358,6 @@ void run(){
     nextControlTime = millis() + robot_control_cycle; 
     controlLoops++; 
 
-    if (imuIsCalibrating) {
-      activeOp->onImuCalibration();             
-    } else {
-      readIMU(); //why is the imu not read there where its needed? in the stateestimator...
-      // LiDAR relocalization
-      if (gps.isRelocalizing){
-        activeOp->onRelocalization();
-      }   
-    }
     if (!robotShouldMove()){
           resetLinearMotionMeasurement();
           updateGPSMotionCheckTime();  
@@ -1430,6 +1446,7 @@ void run(){
     
     //motor.run();      
     // process button state
+    if (stateButton > 0) battery.resetIdle(); 
     if (stateButton == 5){
       stateButton = 0; // reset button state
       stateSensor = SENS_STOP_BUTTON;
@@ -1440,11 +1457,11 @@ void run(){
       setOperation(OP_MOW, false);
     } 
     //else if (stateButton > 0){  // stateButton 1 (or unknown button state)        
-    else if (stateButton == 1){  // stateButton 1                   
+    else if (stateButton == 1){  // stateButton                
       stateButton = 0;  // reset button state
       stateSensor = SENS_STOP_BUTTON;
       setOperation(OP_IDLE, false);                             
-    } else if (stateButton == 9){
+    } else if (stateButton == 9){ 
       stateButton = 0;  // reset button state
       stateSensor = SENS_STOP_BUTTON;
       cmdSwitchOffRobot();
@@ -1546,18 +1563,20 @@ void run(){
     }
   }
   
-  if (DEBUG_OUTPUT){
     if (millis() >= nextOutputTime){
       nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+      
       if (DEBUG_MEMORY) {
         CONSOLE.print("memory --------------> ");
-        CONSOLE.print(256 - (freeMemory()/1024));
+        CONSOLE.print(256 - (freeMemory()/MAX_MEMORY));
         CONSOLE.println("/256 kB <-------------- finish");
       }
+
       tuningOutput();
+      
       if (DEBUG_STATE_ESTIMATOR) {
         CONSOLE.print("                              deltaTime: ");CONSOLE.println(deltaTime*1000,0);
-        //CONSOLE.print("                                 imuyaw: ");CONSOLE.print(imuRawYaw_sc);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
+        CONSOLE.print("                                 imuyaw: ");CONSOLE.print(imuRawYaw_sc);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
         CONSOLE.print("                             stateDelta: ");CONSOLE.print(stateDelta/180*PI);                 CONSOLE.print("           stateDeltaGps: ");CONSOLE.println(stateDeltaGPS);
         CONSOLE.print("                         linearSpeedSet: ");CONSOLE.print(motor.linearSpeedSet);              CONSOLE.print("        stateGroundSpeed: ");CONSOLE.println(stateGroundSpeed);
         CONSOLE.print("                        angularSpeedSet: ");CONSOLE.print(motor.angularSpeedSet/PI*180.0);    CONSOLE.print("         stateDeltaSpeed: ");CONSOLE.println(stateDeltaSpeed/PI*180); 
@@ -1567,7 +1586,6 @@ void run(){
         CONSOLE.print("stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
       }
     }
-  }
 
 
 }        
@@ -1578,14 +1596,14 @@ void setOperation(OperationType op, bool allowRepeat){
   CONSOLE.print("setOperation op=");
   CONSOLE.println(op);
   stateOp = op;
-  if (stateOp == OP_IDLE || stateOp == OP_CHARGE || stateChargerConnected){
-    robot_control_cycle = ROBOT_IDLE_CYCLE;
-    //dmp_set_fifo_rate(robot_control_cycle);
-    mpu_reset_fifo();
-  } else {
+  if (stateOp == OP_MOW){
     robot_control_cycle = ROBOT_CONTROL_CYCLE;
     //dmp_set_fifo_rate(robot_control_cycle);
-    mpu_reset_fifo();
+    //mpu_reset_fifo();
+  } else {
+    robot_control_cycle = ROBOT_IDLE_CYCLE;
+    //dmp_set_fifo_rate(robot_control_cycle);
+    //mpu_reset_fifo();
   }
   activeOp->changeOperationTypeByOperator(stateOp);
   saveState();

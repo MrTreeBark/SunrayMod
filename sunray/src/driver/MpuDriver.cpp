@@ -53,7 +53,7 @@ bool MpuDriver::begin(){
     if (mpu.begin() != INV_SUCCESS){
         return false;
     }
-    unsigned short fiforate = (unsigned short) 1000/ROBOT_CONTROL_CYCLE; 
+    unsigned short fiforate = (1000/ROBOT_CONTROL_CYCLE); //Hz
     //mpu.setAccelFSR(2);	      
     mpu.dmpBegin(DMP_FEATURE_6X_LP_QUAT  // Enable 6-axis quat
                | DMP_FEATURE_GYRO_CAL // Use gyro calibration
@@ -74,21 +74,34 @@ void MpuDriver::run(){
 
 
 bool MpuDriver::isDataAvail(){
-    //selectChip();
+    if (!imuFound) return false;
+
+    const int fifoPacketSize = 22; // for 6X_LP_QUAT + RAW_ACCEL
     int bytes = mpu.fifoAvailable();
-    bool avail = (bytes > 0);
-    //CONSOLE.print("fifoBytes ");CONSOLE.println(bytes);    
-    if (!avail) return false;
-    // Use dmpUpdateFifo to update the ax, gx, mx, etc. values
-    if ( mpu.dmpUpdateFifo() != INV_SUCCESS) return false;
+
+    // continue if a full packet is avail
+    if (bytes < fifoPacketSize) return false;
+
+    // buffer is filling --> reset
+    if (bytes > fifoPacketSize * 2) {
+        mpu.resetFifo();
+        // warn flag, nothing here
+        return false;
+    }
+
+    // get packet
+    if (mpu.dmpUpdateFifo() != INV_SUCCESS) return false;
+
     // computeEulerAngles can be used -- after updating the
     // quaternion values -- to estimate roll, pitch, and yaw
-    //  toEulerianAngle(imu.calcQuat(imu.qw), imu.calcQuat(imu.qx), imu.calcQuat(imu.qy), imu.calcQuat(imu.qz), imu.roll, imu.pitch, imu.yaw);
+    // toEulerianAngle(imu.calcQuat(imu.qw), imu.calcQuat(imu.qx), imu.calcQuat(imu.qy), imu.calcQuat(imu.qz), imu.roll, imu.pitch, imu.yaw);
+    
     quatW = mpu.qw;
     quatX = mpu.qx;
     quatY = mpu.qy;
     quatZ = mpu.qz;
     mpu.computeEulerAngles(false);
+    
     /*     
     CONSOLE.print("IMU ax, ay, az = ");
     CONSOLE.print(mpu.ax);
@@ -97,13 +110,14 @@ bool MpuDriver::isDataAvail(){
     CONSOLE.print(", ");
     CONSOLE.println(mpu.az);
     */
+    
     roll = mpu.roll;
     pitch = mpu.pitch;
     yaw = mpu.yaw;
 
-    ax = mpu.ax / 16384.0 ;    //MrTree x acceleration of mpu in g
-    ay = mpu.ay / 16384.0 ;    //MrTree y acceleration of mpu in g
-    az = mpu.az / 16384.0 ;    //MrTree z acceleration of mpu in g
+    ax = mpu.ax / 16384.0 ;    //x acceleration of mpu in g
+    ay = mpu.ay / 16384.0 ;    //y acceleration of mpu in g
+    az = mpu.az / 16384.0 ;    //z acceleration of mpu in g
 
     //mpu.computeCompassHeading();
     //mpu.calcAccel(X_AXIS);
@@ -116,7 +130,6 @@ bool MpuDriver::isDataAvail(){
 }         
     
 void MpuDriver::resetData(){
-    //selectChip();
     mpu.resetFifo();
 }
 

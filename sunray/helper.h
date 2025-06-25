@@ -22,7 +22,7 @@ typedef union {
   byte binary[4];  
 } binaryInt;
 
-
+float safeMap(float x, float in_min, float in_max, float out_min, float out_max);
 float scalePI(float v);
 float scale180(float v);
 float distancePI(float x, float w);

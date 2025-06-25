@@ -20,6 +20,7 @@ float stanleyTrackingSlowP = STANLEY_CONTROL_P_SLOW;
 
 float targetDist = 0;     //MrTree
 float lastTargetDist = 0; //MrTree
+float pathLength = 0;
 
 float setSpeed = 0.5; //externally controlled (app) linear speed (m/s)
 float CurrSpeed = 0;  //actual used speed from motor.linearSpeedSet
@@ -34,6 +35,9 @@ float y_new = 0;
 Point lastPoint;
 Point target;
 Point lastTarget;
+
+//Point targetTracker;
+//Point lastTargetTracker;
 
 bool mow = false;
 bool trackslow_allowed = false;
@@ -58,6 +62,246 @@ float lineDist = 0;
 unsigned long reachedPointBeforeDockTime = 0;   //MrTree
 bool allowDockRotation = true;                //MrTree: disable rotation on last dockingpoint
 
+void purePursuitTracker() {
+  if (DEBUG_TRACKER) {
+    CONSOLE.println("---");
+    CONSOLE.println("Purepursuit tracker, data...");
+  }
+  const float lookaheadSpeedFactor = 8; //(val) for given speed, lookAhead point will be multiplied with this factor. If 1, lookAhead point will equal to speed if not constrained
+  const float maxLookahead = MOTOR_MAX_SPEED * lookaheadSpeedFactor; // 4.0; //(m) 
+  const float minLookahead = 2; //(m)
+  const float turnGain = 2.5; //this should be calculated from rotation ramp max to get maxrotation on 180° or 90° heading error
+  const float maxTurnSpeed = ROTATION_RAMP_MAX * DEG_TO_RAD;
+  const float minTurnSpeed = ROTATION_RAMP_MIN * DEG_TO_RAD;
+  const float angleStopThreshold = TARGETFITS_ANGLE * DEG_TO_RAD;
+  const float anglePrecise = ANGLEPRECISE * DEG_TO_RAD;
+  const float minSpeed = MOTOR_MIN_SPEED;
+  //const float stopDistance = 0.2;
+  const float wheelbaseVirtual = 1 ;//WHEEL_BASE_CM / 100.0;
+
+  float headingError = trackerDiffDelta;
+  float distToTarget = targetDist;
+  float lastDistToTarget = lastTargetDist;
+  float speed = linear;
+  float turn = 0;
+  float rampTurn = 0;
+
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("speed input: "); CONSOLE.println(speed);
+  }
+
+//rotation only if too far
+/*   if (fabs(headingError) > angleStopThreshold) {
+    speed = 0;
+    
+    if (DEBUG_TRACKER) {
+      CONSOLE.println("rotation mode active");
+      CONSOLE.print("abs heading error: "); CONSOLE.println(abs(headingError) * RAD_TO_DEG);
+    }
+
+    rampTurn = safeMap(fabs(headingError), anglePrecise, angleStopThreshold, minTurnSpeed, maxTurnSpeed);
+    rampTurn = constrain(rampTurn, minTurnSpeed, maxTurnSpeed);
+        
+    turn = rampTurn * ((headingError < 0) ? -1.0f : 1.0f);
+    if (DEBUG_TRACKER) {
+      CONSOLE.print("final turn: "); CONSOLE.println(turn);
+    }
+    angular = turn;
+    linear = speed;
+    return;
+  } */
+
+  // --- dynamic Lookahead 
+  float lookahead = speed * lookaheadSpeedFactor;
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("dynamic lookahead: "); CONSOLE.println(lookahead);
+  }
+  lookahead = constrain(lookahead, minLookahead, maxLookahead);
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("lookahead constrained: "); CONSOLE.println(lookahead);
+  }
+  // --- linedirection of path
+  float dx = target.x() - lastTarget.x();
+  float dy = target.y() - lastTarget.y();
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("linedirection calc ---  dx: "); CONSOLE.print(dx); CONSOLE.print(" dy: "); CONSOLE.println(dy);
+  }
+  float lineLen = sqrtf(dx * dx + dy * dy); //can use pathLength here
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("calced linelen: "); CONSOLE.println(lineLen);
+  }
+  if (!isfinite(dx) || !isfinite(dy) || !isfinite(lineLen)) {
+    if (DEBUG_TRACKER) CONSOLE.println("no valid line coordinates - tracking stopped");
+    linear = 0;
+    angular = 0;
+    return;
+  }
+
+  if (lineLen < 1.0) {
+    if (DEBUG_TRACKER) CONSOLE.println("WARNING: line too short or undefined - using angle to target for direction");
+    dx = cos(targetDelta);
+    dy = sin(targetDelta);
+    lineLen = 1.0f;
+  }
+
+  float ux = dx / lineLen;
+  float uy = dy / lineLen;
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("line direction ux/uy: "); CONSOLE.print(ux); CONSOLE.print(" / "); CONSOLE.println(uy);
+  }
+  // --- project robot on line
+  float px = stateX - lastTarget.x();
+  float py = stateY - lastTarget.y();
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("px: "); CONSOLE.print(px); CONSOLE.print(" py: "); CONSOLE.println(py);
+  }
+  float projLen = px * ux + py * uy;
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("projected length on path: "); CONSOLE.println(projLen);
+  }
+  // --- Lookahead-Punkt auf Linie ---
+  float lx = lastTarget.x() + (projLen + lookahead) * ux;
+  float ly = lastTarget.y() + (projLen + lookahead) * uy;
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("lookahead point: lx / ly = "); CONSOLE.print(lx); CONSOLE.print(" / "); CONSOLE.println(ly);
+  }
+  float angleToLookahead = pointsAngle(stateX, stateY, lx, ly);
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("angleToLookahead: "); CONSOLE.println(angleToLookahead * RAD_TO_DEG);
+  }
+  float angleDiff = scalePI(angleToLookahead - stateDelta);
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("angleDiff robotState to lookaheadPoint: "); CONSOLE.println(angleDiff * RAD_TO_DEG);
+  }
+
+
+  // --- Automatisches Rückwärtsfahren bei überschießen ---
+  //lookahead begrenzen -------- ist hier falsch und wird nicht genutzt
+  float remainingDist = max(0.0, lineLen - projLen);
+  lookahead = min(lookahead, remainingDist + 0.5); // Maximal bis kurz hinter das Ziel
+  lookahead = constrain(lookahead, minLookahead, maxLookahead);
+  bool overshoot = false;
+
+  // Ziel erreicht?
+  const float targetTolerance = 0.3; // z.B. 30cm
+  if (projLen >= (lineLen - targetTolerance)) {
+    if (DEBUG_TRACKER) {
+      CONSOLE.println("target reached / Segment finished!");
+    }
+    // Hier: Nächsten Pfadpunkt setzen oder Modus wechseln
+    //return;
+  }
+  
+  //overshoot option 1
+  if (distToTarget > lastDistToTarget + 0.1 && (fabs(angleDiff) > 90.0 * DEG_TO_RAD)) {
+    //overshoot = true;
+    if (DEBUG_TRACKER) {
+      CONSOLE.println("overshoot 1: distToTarget > lastDistToTarget!");
+    }
+  }
+
+  //overshoot option 2
+  // Richtung Vektor Ziel -> Start:
+  // 1. Richtung des Segments (Endpunkt - Startpunkt)
+  float seg_dx = target.x() - lastTarget.x();
+  float seg_dy = target.y() - lastTarget.y();
+  // 2. Vektor Endpunkt -> Roboter
+  float toRobot_dx = stateX - target.x();
+  float toRobot_dy = stateY - target.y();
+  float dot = seg_dx * toRobot_dx + seg_dy * toRobot_dy;
+  if (dot > 0 && (fabs(angleDiff) > 90.0 * DEG_TO_RAD)) {
+    //overshoot = true;
+    if (DEBUG_TRACKER) {
+      CONSOLE.println("overshoot2: vector indicates overshoot! ");
+      CONSOLE.print("dotVetor: "); CONSOLE.println(dot);
+    }
+  }
+
+  if (overshoot) {
+    speed *= -1;
+    angleDiff = scalePI(angleDiff + PI);
+    if (DEBUG_TRACKER) {
+      CONSOLE.println("Reverse Mode acitve!");
+      CONSOLE.print(" angleDiff: "); CONSOLE.println(angleDiff * RAD_TO_DEG);
+    }
+  }
+
+  //purePusrsuit steering
+  float sinDiff = sin(angleDiff);
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("sin(angleDiff): "); CONSOLE.println(sinDiff);
+  }
+  turn = turnGain * sinDiff / wheelbaseVirtual;
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("Unconstrained turn: "); CONSOLE.println(turn);
+  }
+
+  //if (abs(turn) < minTurnSpeed/2) turn = 0;         // deadzone around zero
+  turn = constrain(turn, -maxTurnSpeed, maxTurnSpeed);
+  
+
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("Turn rate: "); CONSOLE.println(turn);
+  }
+/*   //slowdown on headingError
+  if (fabs(headingError) > 5.0 * DEG_TO_RAD) {
+    float reduction = 1.0f - (fabs(headingError) / (PI / 2.0f));
+    if (DEBUG_TRACKER) {
+      CONSOLE.print("speed reduction factor: "); CONSOLE.println(reduction);
+    }
+    speed *= constrain(reduction, 0.1f, 1.0f);
+    if (DEBUG_TRACKER) {
+      CONSOLE.print("Speed reduced to: "); CONSOLE.println(speed);
+    }
+
+  } */
+
+  //slow down if error to target is too far and growing
+  if (fabs(angleDiff) > anglePrecise) {
+    float reduction = 1.0f;
+    // map speed
+    reduction = safeMap(fabs(angleDiff), anglePrecise, angleStopThreshold, 1.0f, 0.0f);
+    reduction = constrain(reduction, 0.0f, 1.0f);
+    if (DEBUG_TRACKER) {
+      CONSOLE.print("speed factor (linear): ");
+      CONSOLE.println(reduction);
+    } 
+    speed *= reduction;
+    if (DEBUG_TRACKER) {
+      CONSOLE.print("Speed mapped to: ");
+      CONSOLE.println(speed);
+    }
+  }
+
+
+/*   //ensure minspeed
+  if (fabs(speed) < minSpeed) {
+    if (DEBUG_TRACKER) {
+      CONSOLE.print("Speed too low, correcting to minSpeed: "); CONSOLE.println(minSpeed);
+    }
+    speed = minSpeed;
+  } */
+
+  //consider general maps direction
+  if (maps.trackReverse) {
+    speed *= -1.0f;
+    turn *= -1.0f;
+    if (DEBUG_TRACKER) CONSOLE.println("Reverse mode active");
+  }
+
+  //output linear, angular
+  linear = speed;
+  angular = turn;
+  if (DEBUG_TRACKER) {
+    CONSOLE.print("Final linear: "); CONSOLE.println(linear);
+    CONSOLE.print("Final angular: "); CONSOLE.println(angular);
+  }
+}
+
+void hybridTracker() {
+  
+}
+  
 
 bool AngleToTargetFits() {
   // allow rotations only near last or next waypoint or if too far away from path
@@ -327,7 +571,7 @@ void linearSpeedState(){
     if (linear < MOTOR_MIN_SPEED) linear = MOTOR_MIN_SPEED;
   }
 
-  if (maps.trackReverse) linear *= -1;   // reverse line tracking needs negative speed
+  //if (maps.trackReverse) linear *= -1;   // reverse line tracking needs negative speed
 
   if (DEBUG_SPEEDS) {
     CONSOLE.println("SPEED DEBUG START  --------------------------->");
@@ -521,19 +765,19 @@ void noUnDockRotation(){
 }
 
 void checkMowAllowed() {
-  mow = false;                                //MrTree changed to false
+  mow = false;                                //changed to false
   if (MOW_START_AT_WAYMOW &! oneTrigger) {                                                             
-    if (maps.wayMode == WAY_MOW) {            //MrTree do not activate mow until there is a first waymow 
-      mow = true;                             //MrTree this will only work directly after undocking and way free, the first time it is in waymow, mow will be true forever like before     
+    if (maps.wayMode == WAY_MOW) {            //do not activate mow until there is a first waymow 
+      mow = true;                             //this will only work directly after undocking and way free, the first time it is in waymow, mow will be true like before until finishing     
       oneTrigger = true;
     }                                              
   } else {
     if (maps.wayMode == WAY_MOW || WAY_EXCLUSION || WAY_PERIMETER){
-      mow = true;                               //MrTree --> original condition, mow will be true here and is maybe changed by a condition later in linetracker
+      mow = true;
     }
   }
 
-  if (stateOp == OP_DOCK ) {//|| maps.shouldDock == true) { //325
+  if (stateOp == OP_DOCK ) {
     mow = false;
     oneTrigger = false;
   }
@@ -545,70 +789,92 @@ void checkMowAllowed() {
 void trackLine(bool runControl) {
   Point target = maps.targetPoint;
   Point lastTarget = maps.lastTargetPoint;
-  CurrSpeed = motor.linearSpeedSet;           //MrTree take the real speed from motor.linearSpeedSet
-  CurrRot = motor.angularSpeedSet;
-  transition = false;
-  linear = 0;                                 //MrTree Changed from 1.0
-  angular = 0;
   
-  targetDelta = pointsAngle(stateX, stateY, target.x(), target.y());  //rad
-  if (maps.trackReverse) targetDelta = scalePI(targetDelta + PI);
-  targetDelta = scalePIangles(targetDelta, stateDelta);
-  trackerDiffDelta = distancePI(stateDelta, targetDelta);
-  lateralError = distanceLineInfinite(stateX, stateY, lastTarget.x(), lastTarget.y(), target.x(), target.y());
-  distToPath = distanceLine(stateX, stateY, lastTarget.x(), lastTarget.y(), target.x(), target.y());
-  targetDist = maps.distanceToTargetPoint(stateX, stateY);
-  lastTargetDist = maps.distanceToLastTargetPoint(stateX, stateY);
-  targetReached = (targetDist < TARGET_REACHED_TOLERANCE);
-  lineDist = maps.distanceToTargetPoint(lastTarget.x(), lastTarget.y());
+  // Check valid path on entrance, get next point instantly
+/*   if (target.x() == lastTarget.x() && target.y() == lastTarget.y()) {
+    CONSOLE.println("Linetracker WARNING: target equals lastTarget – no path");
+    linear = 0;
+    angular = 0;
+    targetReached = true;
+    activeOp->onTargetReached();
+    straight = maps.nextPointIsStraight();
+    if (!maps.nextPoint(false, stateX, stateY)) {
+      // finish
+      activeOp->onNoFurtherWaypoints();
+    }
+    return;
+  } */
 
-  /*if ((abs(lineDist-lastLineDist ) > 0.0) || (abs(distToPath) > 0.5)) {
-    CONSOLE.print("distToPath=");
-    CONSOLE.print(distToPath);
-    CONSOLE.print(" x=");
-    CONSOLE.print(stateX);
-    CONSOLE.print(" y=");    
-    CONSOLE.print(stateY);
-    CONSOLE.print(" lastX=");    
-    CONSOLE.print(lastTarget.x());
-    CONSOLE.print(" lastY=");    
-    CONSOLE.print(lastTarget.y());
-    CONSOLE.print(" tgX=");    
-    CONSOLE.print(target.x());
-    CONSOLE.print(" tgY=");    
-    CONSOLE.println(target.y());
-    lastLineDist = lineDist;
-  }*/
-
-  if (!AngleToTargetFits()) { 
+  CurrSpeed = motor.linearSpeedSet;           //get the speed from motor.linearSpeedSet (with ramping)
+  CurrRot = motor.angularSpeedSet;            //get the turn rate from motor.angulatSpeedSet (with ramping)
+  transition = false;
+  linear = 0;                                 //no motion
+  angular = 0;                                //no motion
+  
+  targetDelta = pointsAngle(stateX, stateY, target.x(), target.y());  //prepare HeadingError to next targetpoint
+  if (maps.trackReverse) targetDelta = scalePI(targetDelta + PI);     //flip the prepeared HeadingError if reversing
+  targetDelta = scalePIangles(targetDelta, stateDelta);               //scale the HeadingError named targetDelta
+  trackerDiffDelta = distancePI(stateDelta, targetDelta);             //sort the shortes shortest rotation direction
+  
+/*   if (!isfinite(targetDelta)) {
+    CONSOLE.println("Ungültiger targetDelta");
+    targetDelta = 0;
+  }
+  if (!isfinite(trackerDiffDelta)) {
+    CONSOLE.println("Ungültiger trackerDiffDelta");
+    trackerDiffDelta = 0;
+  }
+  if (!isfinite(targetDist)) {
+    CONSOLE.println("Ungültiger targetDist");
+    targetDist = 0;
+  } */
+  
+  lateralError = distanceLineInfinite(stateX, stateY, lastTarget.x(), lastTarget.y(), target.x(), target.y());  //orthogonal distance to line, the lateral robot position from the tracked Path, using infinite line so there will be no float exception
+  distToPath = distanceLine(stateX, stateY, lastTarget.x(), lastTarget.y(), target.x(), target.y());            //orthogonal distance to line
+  targetDist = maps.distanceToTargetPoint(stateX, stateY);                                                      //the robot target distance
+  lastTargetDist = maps.distanceToLastTargetPoint(stateX, stateY);                                              //the robot distance to the last targetpoint
+  
+  targetReached = (targetDist < TARGET_REACHED_TOLERANCE);                                                      //the switch if the target is reached, linetracker triggers new target point from map.cpp
+  pathLength = maps.distanceToTargetPoint(lastTarget.x(), lastTarget.y());                                      //the absolute distance from mower to the last target point
+ const int mode = CONTROLLER_MODE; 
+ switch (mode) {
+    case 1:
+        if (!AngleToTargetFits()) { 
+          rotateToTarget();
+        } else {
+          linearSpeedState();  //compares the linear Speed to use according to configured mower state (maybe this should be first in line)
+          stanleyTracker();    //track the path
+        }
+      break;
+    case 2:
+        linearSpeedState();
+        purePursuitTracker();
+      break;
+    case 3:
+        CONSOLE.println("NOT IMPLEMENTED");
+      break;
+    default:
+      CONSOLE.println("tracker mode unknown!");
+      break;
+  }
+  
+/*   if (!AngleToTargetFits()) { 
     rotateToTarget();
   } else {
     linearSpeedState();  //compares the linear Speed to use according to configured mower state (maybe this should be first in line)
     stanleyTracker();    //track the path
-  }
+  } */
+
   gpsConditions();      //check for gps conditions to eg. trigger obstacle or fixtimeout (shouldn´t that be in mowop???)
   noDockRotation();     //disable angular for dock/undock situations
-  noUnDockRotation();
-  checkMowAllowed();
+  noUnDockRotation();   //disable angular for dock/undock situations
+  checkMowAllowed();    //check mow switched on/off
 
-  /*CONSOLE.print("     linear: ");
-  CONSOLE.print(linear);
-  CONSOLE.print("        angleToTargetFits: ");
-  CONSOLE.println(angleToTargetFits);
-  CONSOLE.print("    angular: ");
-  CONSOLE.print(angular*180.0/PI);
-  CONSOLE.print("         trackerDiffDelta: ");
-  CONSOLE.println(trackerDiffDelta*180/PI);
-  CONSOLE.print(" distToPath: ");
-  CONSOLE.print(distToPath);
-  CONSOLE.print("             distToTarget: ");
-  CONSOLE.println(targetDist);
-  */
   if (runControl) {
 
     shouldRotate = robotShouldRotate();
 
-    if (DEBUG_LINETRACKER && DEBUG_OUTPUT) {
+    if (DEBUG_LINETRACKER) {
       // ouput target point change
       x_new = target.x();
       y_new = target.y();
@@ -637,13 +903,11 @@ void trackLine(bool runControl) {
       CONSOLE.println("<-- DEBUG_LINETRACKER END");
     }
   
-    
     if (detectLift()){ // in any case, turn off mower motor if lifted  
       mow = false;  // also, if lifted, do not turn on mowing motor so that the robot will drive and can do obstacle avoidance 
       linear = 0;
       angular = 0; 
     }
-
 
     if (mow != motor.switchedOn && motor.enableMowMotor){
       CONSOLE.print("Linetracker.cpp changes mow status: ");

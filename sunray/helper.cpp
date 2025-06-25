@@ -8,6 +8,24 @@
 #include "helper.h"
 #include "config.h"
 
+float safeMap(float x, float in_min, float in_max, float out_min, float out_max) {
+  if (!isfinite(x)) {
+    CONSOLE.println("WARNING: safeMap() input is not finit! Fallback out_min");
+    return out_min;
+  }
+  float delta_in = in_max - in_min;
+  if (fabs(delta_in) < 1e-6f) {
+    CONSOLE.println("WARNING: safeMap() input range ≈ 0! Fallback out_min");
+    return out_min;
+  }
+  float result = (x - in_min) * (out_max - out_min) / delta_in + out_min;
+  if (!isfinite(result)) {
+    CONSOLE.println("WARNING: safeMap() Result is ivalid! Fallback out_min");
+    return out_min;
+  }
+  return result;
+}
+
 
 // Spannungsteiler Gesamtspannung ermitteln (Reihenschaltung R1-R2, U2 bekannt, U_GES zu ermitteln)
 float voltageDividerUges(float R1, float R2, float U2){

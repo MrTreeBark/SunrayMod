@@ -257,7 +257,7 @@ void Battery::run(){
 
   }
 
-  if (DEBUG_BATTERY && DEBUG_OUTPUT) {
+  if (DEBUG_BATTERY) {
       if (millis() >= nextPrintTime){
         nextPrintTime = millis() + DEBUG_OUTPUT_TIME;  // 10 sec  	   	   	
         //print();			

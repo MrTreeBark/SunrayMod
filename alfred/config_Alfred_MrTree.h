@@ -52,7 +52,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 //#define DRV_ARDUMOWER     1   // keep this for Ardumower
 //#define DRV_SIM_ROBOT     1   // simulation
 #define ALFRED true             // is it Alfred with bananaPi or other Pi and RM18/21?
-#define ALFRED_DIRECT_DRIVE 1   // uncomment this for alfred direct drive without stacking pid controllers and compute pwm on questionable sensor inputs like odometrie (flight by wire)
+
 
 // if compiling for ROS, specify robot launch file (.launch) for robot-specific ROS launch (if not running in ROS, this option will not be used )
 //#define ROS_LAUNCH_FILE "alfred"
@@ -97,14 +97,16 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 
 #define ROBOT_CONTROL_CYCLE         25    // (ms) cycle time when mowing
 #define ROBOT_IDLE_CYCLE            50    // (ms) cycletime when charging
+#define DIRECT_DRIVE                1     // uncomment this for alfred direct drive without stacking pid controllers and compute pwm on questionable sensor inputs like odometrie (flight by wire)
+#define DIRECT_DRIVE_PWM_TO_RPM     3.5
 //Experimental Modfunctions/Options/Speeds/Time etc. for different stuff and movement operations. Please read the descriptions. Cheers.
 //Mower general times and speeds with their condition parameters, this section is the easiest to be tuned for one´s needs... so feel free and just tune to what you want to see on the lawn 
 #define OVERRIDE_MOW_SPEED          true  // this is a workaround for .325 not using the desired speed from start
 #define MOWSPEED                    0.6 // (m/s) Normal Mowspeed like if you would set it in App
 #define MOWSPINUPTIME               10000  // (ms) Adds time to rotate mowingdisc before starting moving, use high value if you enable ESCAPE_LAWN for good reading of idle mow motor RPM
-#define OVERLOADSPEED               0.16  // (m/s) if there is a overloadcurrent of a motordriver, mower will use OVERLOADSPEED
+#define OVERLOADSPEED               0.25  // (m/s) if there is a overloadcurrent of a motordriver, mower will use OVERLOADSPEED
 #define TRACKSLOWSPEED              0.25  // (m/s) e.g the docking speed or functions of the future
-#define NEARWAYPOINTSPEED           0.25  // (m/s) the speed of mower when reaching/leaving a waypoint
+#define NEARWAYPOINTSPEED           0.15  // (m/s) the speed of mower when reaching/leaving a waypoint
 #define NEARWAYPOINTDISTANCE        0.50  // (m) the distance of mower if approaching and leaving a waypoint and thus triggers NEARWAYPOINTSPEED of mower
 #define FLOATSPEED                  0.25  // (m/s) on GPS FLOAT SOLUTION, mower will use FLOATSPEED
 #define SONARSPEED                  0.15  // (m/s) if sonar enabled and used, on sonar trigger mower will use SONARSPEED
@@ -115,13 +117,13 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ESCAPE_FORWARD_WAY          0.6  // (m) distance in meters the mover will drive forward in escapeForwardOp if obstacle triggered by OBSTACLE_ROTATION (no rotation)
 #define GLOBALSPEEDLIMIT            true  // if true, MOTOR_MAX_SPEED and MOTOR_MIN_SPEED will limit possible code bugs or inputs directly in motor.cpp        
 #define MOTOR_MAX_SPEED             0.8  // (m/s) maximum mower speed --> has not much to to with configuration of speeds: acts as a failsafe
-#define MOTOR_MIN_SPEED             0.05  // (m/s) minimal mower speed --> has not much to to with configuration of speeds: acts as a failsafe
+#define MOTOR_MIN_SPEED             0.10  // (m/s) minimal mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define DISTANCE_RAMP               true  // is using NEARWAYPOINTDISTANCE, MOTOR_MIN_SPEED and the actual setspeed to calculate an indirect deceleration ramp to the next waypoint, if this is true, NEARWAYPOINTSPEED in linetracker.cpp is disabled
-#define DISTANCE_RAMP_MINSPEED      0.15  // (m/s) this is the ramp minspeed
+#define DISTANCE_RAMP_MINSPEED      0.05  // (m/s) this is the ramp minspeed
 //rotation speeds, also this is easy to tune for your expectations --> going to be changed to angularRamp() with less parameters
 #define ROTATION_RAMP               true  // uses a ramp for angletotargetfits (very nice), ROTATETOTARGETSPEED´s are disabled if this is true
-#define ROTATION_RAMP_MAX           100   // (deg/s) maximum rotation speed
-#define ROTATION_RAMP_MIN           20    // (deg/s) minimum rotation speed
+#define ROTATION_RAMP_MAX           85   // (deg/s) maximum rotation speed
+#define ROTATION_RAMP_MIN           10    // (deg/s) minimum rotation speed
 #define ROTATETOTARGETSPEED1        65.0  // (deg/s) if angle difference to point is more than ANGLEDIFF1 then this value will be used...   warning, a high value will result in extreme gearmotor stress (test at own risk, 65deg/s is still safe and fast)
 #define ROTATETOTARGETSPEED2        40.0  // (deg/s) if angle difference to point is between ANGLEDIFF1 and ANGLEDIFF2 then this value will be used...
 #define ROTATETOTARGETSPEED3        25.0  // (deg/s) if angle difference to point is less than ANGLEDIFF2 then this value will be used...
@@ -130,7 +132,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ANGLEPRECISE                5.0   // (deg) if Angle to point ist within 5deg, mower will continue with Linetracker.cpp Stanleycode and NEARWAYPOINT setup
 #define TRANSITION_ANGLE            25    // (deg) if next point is below this angle, mower will not stop completely but makes a transition with TRANSITION_SPEED
 #define TRANSITION_SPEED            0.10  // (m/s) speed for transition to next point angle
-#define TARGETFITS_ANGLE            45    // (deg/s) if target angle is below that, linetracker uses stanley for tracking. If over that angle, mower will stop and readjust with rotation at it´s current position
+#define TARGETFITS_ANGLE            35    // (deg/s) if target angle is below that, linetracker uses stanley for tracking. If over that angle, mower will stop and readjust with rotation at it´s current position
 //use a PID controller for mowmotor to set an RPM instead of PWM? If you use this (there will be a console output with data after 10sec when you activate the mowmotor and this is enabled)
 //CONFIG HINT: for the following options it is important if you have mow motor odometrie: USE_MOW_RPM_SET, ADAPTIVE_SPEED_MODE, ESCAPE_LAWN_MODE. If you do not have odometrie: use mode 1 on both cases and set USE_MOW_RPM_SET = false, if you have odometrie use mode 2 on both cases and set USE_MOW_RPM_SET = true (recommended)
 #define USE_MOW_RPM_SET             false  // uses RPM instead of PWM to set mowmotor (RPM_FAULT_DETECTION of orig Sunray is best to be set TRUE for all RPM based functions!!)
@@ -144,8 +146,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ADAPTIVE_SPEED_USE_MINSPEED true  // false: MOTOR_MIN_SPEED is used for slowest possible speed, true: ADAPTIVE_SPEED_MINSPEED is used for slowest possible speed
 #define ADAPTIVE_SPEED_MINSPEED     0.10  // (m/s) defines the ramp of speed between actual speedstates eg. mowing speed and ADAPTIVE_SPEED_MINSPEED
 #define MOWPOWERMAX_AUTO            false // (expirimental) uses highest actual measured mowPower during operation, if true MOWPOWERMAX is ignored
-#define MOWPOWERMIN                 45.0  // (Watt) idle Power of Mowmotor or minimum load power of mowmotor, if under this load mower will have maximum speed
-#define MOWPOWERMAX                 80.0  // (Watt) max load power of mowmotor, when hitting this load mower will be at minspeed        
+#define MOWPOWERMIN                 40.0  // (Watt) idle Power of Mowmotor or minimum load power of mowmotor, if under this load mower will have maximum speed
+#define MOWPOWERMAX                 65.0  // (Watt) max load power of mowmotor, when hitting this load mower will be at minspeed        
 #define MOW_RPM_DEADZONE             200  // (rpm) rpm deadzone before speed will be reduced, so if MOW_RPM_NORMAL is 3000, mower will start to reduce speed if rpm is below 2700 
 #define MOW_RPM_NORMAL              3200  // (3200)(rpm, only used if USE_MOW_RPM_SET = true) mow motor rpm for mowing (WARNING, you should check if your rpm output works as espected! if it does work, but the reading is wrong, you need to calculate the mowmotorticks per second according to realistic rpm!)
 #define MOW_RPM_SLOW                3600  // (3400)(rpm, only used if USE_MOW_RPM_SET = true) mow motor rpm when MOW_RPMtr_SLOW (%) of MOW_RPM_NORMAL (rpm) is met. Should be higher or the same as MOW_RPM_NORMAL
@@ -156,9 +158,9 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 //ESCAPELAWN operation, mower will backup on a mowmotor stall and retry with given values... after the first try and still stalling, it backs up and waits for mowmotor to recover
 #define ESCAPE_LAWN                 true  // mower drives reverse if true and RPM stall of mow motor is detected by more than MOW_RPMtr_STALL(percentage), only available if ENABLE_RPM_FAULT_DETECTION true (best)
 #define ESCAPE_LAWN_MODE             1    // (1, 2) escape lawn modes to trigger escape becouse of high motormow load: mode 1 - uses mowmotorpower for triggering, mode 2 - uses rpm for triggering (2: best)
-#define CHANGE_SPEED_SET            true  // if enabled and rpm or power triggers escape lawn or a keepslow state, mower will go slow with RETRYSLOWSPEED or KEEPSLOWSPEED with configured RETRYSLOWTIME or KEEPSLOWTIME. Also, in this states MOW_RPM/PWM for _SLOW/RETRY are used for the mowmotor set
-#define MOW_POWERtr_STALL           85    // (%, only used if ESCAPE_LAWN_MODE = 1) if power of mowmotor exceeds e.g 90% of MOWPOWERMAX, escapelawn is triggered 
-#define MOW_POWERtr_SLOW            70    // (%, only used if ESCAPE_LAWN_MODE = 1) if power of mowmotor exceeds e.g 70% of MOWPOWERMAX, keepslow is triggered
+#define CHANGE_SPEED_SET            false  // if enabled and rpm or power triggers escape lawn or a keepslow state, mower will go slow with RETRYSLOWSPEED or KEEPSLOWSPEED with configured RETRYSLOWTIME or KEEPSLOWTIME. Also, in this states MOW_RPM/PWM for _SLOW/RETRY are used for the mowmotor set
+#define MOW_POWERtr_STALL           95    // (%, only used if ESCAPE_LAWN_MODE = 1) if power of mowmotor exceeds e.g 90% of MOWPOWERMAX, escapelawn is triggered 
+#define MOW_POWERtr_SLOW            85    // (%, only used if ESCAPE_LAWN_MODE = 1) if power of mowmotor exceeds e.g 70% of MOWPOWERMAX, keepslow is triggered
 #define MOW_RPMtr_STALL             65    // (70)(%, only used if ESCAPE_LAWN_MODE = 2) if RPM of mowmotor stalls under % of MOW_RPM_NORMAL mower will back up with ESCAPELAWNDISTANCE and ESCAPELAWNSPEED and try again
 #define MOW_RPMtr_SLOW              80    // (85)(%, only used if ESCAPE_LAWN_MODE = 2) if RPM of mowmotor stalls under % of MOW_RPM_NORMAL mower will trigger a keepSlow state with KEEPSLOWSPEED, also this is defining the ramp for the mowerspeed.  If RPM is e.g 75% of 100%, mower will be at ADAPTIVE_SPEED_MINSPEED
 #define NO_GPS_OBSTACLE             true  // ignore gps obstacle when reversing with escapeLawn?
@@ -181,7 +183,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define RETRYSLOWTIME               25000 // (ms) mower will continue slow with RETRY_SLOW_SPEED after ESCAPELAWN operation (reversing triggered by MOW_RPMtr_RETRY (%)) for RETRYSLOWTIME, if a MOW_RPMtr_SLOW will happen again in this retryslowstate, mower resets this timer until no rpm stall occurs in set time
 #define KEEPSLOWTIME                25000 // (ms) mower will continue slow with KEEP_SLOW_SPEED for given Time if MOW_RPMtr_SLOW (%) was met... if a MOW_RPMtr_SLOW will happen again during keepslowstate, mower resets this timer until no rpm stall occurs in set time.   
 //STANLEY options for experiments
-#define MAP_STANLEY_CONTROL         false  // if true, stanley values will be mapped linear from MOTOR_MIN_SPEED-->MOTOR_MAX_SPEED with SC_P_*|SC_K_* to actual speedset of mower (recommended if you use high operation speeds)
+#define CONTROLLER_MODE                2     // Sets the general pathtracking algorithm: 1 STANLEY, 2 PUREPURSUIT, 3 STANLEY+PUREPURSUIT HYBRID
+#define MAP_STANLEY_CONTROL         true  // if true, stanley values will be mapped linear from MOTOR_MIN_SPEED-->MOTOR_MAX_SPEED with SC_P_*|SC_K_* to actual speedset of mower (recommended if you use high operation speeds)
 #define STANLEYNORMALMUL            false // if true, StanleyNormal parameters in Sunray-App will be multiplied by 10! (0,1 = 1) (for testing)
 //GPS reboot for docking/undocking/retrydocking (WARNING: you need at least 2 points before and behind the point indexes! Dockpoint indexes start with 0 (first point), last point is your dock)
 #define DOCK_GPS_REBOOT             true  // if false and DOCK_POINT_GPS_REBOOT is not 0, mower will wait at the DOCK_POINT_GPS_REBOOT point for fix without rebooting GPS, if false and DOCK_POINT_GPS_REBOOT = 0 this function is off (hopefully)
@@ -201,12 +204,12 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define GPS_RESET_WAIT_FIX          true  // reset GPS if mower is in a float timeout for GPS_RESET_WAIT_FIX_TIME?
 #define GPS_RESET_WAIT_FIX_TIME     5     // (min) time in minutes to reset gps if mower is in a float timeout without getting fix within GPS_RESET_WAIT_FIX_TIME 
 #define NO_GPS_SIGNAL_TIMEOUT       1000 // (ms) mower is allowed to run in an GPS invalid state for given time.... 
-#define GPS_JUMP_WAIT               true  // if a GPS jump is detected, should the mower wait?
+#define GPS_JUMP_WAIT               false  // if a GPS jump is detected, should the mower wait?
 #define GPS_JUMP_WAIT_TIME          30000 // (ms) waittime if there was a GPS jump
 //#define GPS_JUMP_DISTANCE         0.4   // (m) the sudden difference from last GPS position to new position, that will trigger a GPS jump positive <-- to be added 
 //OTHER
-//#define FLOAT_CALC                  1   // better float handling?
-#define MOW_START_AT_WAYMOW         true // (WARNING: IF YOU SET THIS TRUE, YOU CANNOT START MOWMOTOR WITH APP MANUALLY ANYMORE) mowmotor only starts if way state of mower is waymow for the first time, used for mowmotor not starting directly at dock, but at mow area. This is a onetime trigger that only works when mower is (---> undocking ) ---> wayfree ---> mowarea ---> start mowmotor. After this, mowmotor will behave like it used to be
+//#define FLOAT_CALC                  1  // better float handling? uncomment for pathfinder using float calculation. Warning, not suitable for Arduino Due
+#define MOW_START_AT_WAYMOW         false // (WARNING: IF YOU SET THIS TRUE, YOU CANNOT START MOWMOTOR WITH APP MANUALLY ANYMORE) mowmotor only starts if way state of mower is waymow for the first time, used for mowmotor not starting directly at dock, but at mow area. This is a onetime trigger that only works when mower is (---> undocking ) ---> wayfree ---> mowarea ---> start mowmotor. After this, mowmotor will behave like it used to be
 #define WATCHDOG_CONTINUE           false // set true if you have watchdog reset issues, mower will start mowing after rebooting
 #define WATCHDOG_TIME               16000 // (ms) resettimer for watchdog trigger
 //Hoooooodooooor!
@@ -242,11 +245,11 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define SUNRAY_OUTPUT               false // output standard Sunray_FW LOG in serial monitor and SDlog
 #define OUTPUT_LOOPTIME             false // calc and output the sunray loop time in serial monitor and SDlog
 //DEBUG
-#define DEBUG_OUTPUT                true // set true to have additional outputs and choose DEBUG´s below
+#define DEBUG_OUTPUT                false // set true to have additional outputs and choose DEBUG´s below
 #define DEBUG_OUTPUT_TIME           2000 // (ms) periodic output time of DEBUG_OUTPUT´s, change to iterationwise if needed (0)
-//#define DEBUG_TUNING                true // outputs valuable var-states of sunray for debugging tuning functions or just for observation and insights
     #define DEBUG_MEMORY            false
-    #define DEBUG_ADAPTIVESPEED     true
+    #define MAX_MEMORY              1000000
+    #define DEBUG_ADAPTIVESPEED     false
     #define DEBUG_SENSE             false
     #define DEBUG_IMU               false
     #define DEBUG_STATE_ESTIMATOR   false
@@ -254,11 +257,14 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
     #define DEBUG_SPEEDS            false
     #define DEBUG_MOTORCONTROL      false
     #define DEBUG_PID               false
-      #define DEBUG_MOTOR_CONTROL_TIME    1000
-      #define DEBUG_MOTOR_MOWSTALL false
+    #define DEBUG_MOTOR_CONTROL_TIME    1000
+    #define DEBUG_MOTOR_MOWSTALL    false
+    #define DEBUG_TRACKER           true
     #define DEBUG_BATTERY           false
     #define DEBUG_UBLOX             false // will output unparsed ublox rx messages
     #define DEBUG_HTTPSERVER        false
+    #define DEBUG_TIMING            false
+    #define DEBUG_STATE              false
 //Modsection END
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -338,6 +344,9 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOTOR_OVERLOAD_CURRENT  2.0    // gear motors overload current (amps)
 
 #define USE_LINEAR_SPEED_RAMP  true      // use a speed ramp for the linear speed //MrTree overshooting is reduced, deceleration is more agressive: keep enabled! (recommended)
+#define LINEAR_ACCEL            200      // (mm/s²)
+#define LINEAR_DECEL            300      // (mm/s²)
+
 //#define USE_LINEAR_SPEED_RAMP  false      // do not use a speed ramp 
 
 // motor speed control (PID coefficients) - these values are tuned for Ardumower motors, Alfred does not use it in the Modded Sunray software
@@ -526,7 +535,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 //#define REQUIRE_VALID_GPS  false    // mower will continue to mow if no float or no fix solution (not recommended)
 
 #define GPS_SPEED_DETECTION true  // will detect obstacles via GPS feedback (no speed)  - recommended
-#define GPS_SPEED_DEADTIME     5000  // (ms) give mower time after starting moving to look at the stategroundspeed from ublox
+#define GPS_SPEED_DEADTIME     4000  // (ms) give mower time after starting moving to look at the stategroundspeed from ublox
 #define GPS_NO_SPEED_TIME      1000  // (ms) time for GPS no speed trigger --> obstacle
 #define GPS_SPEED_DELAY        1000  // (ms) how long gps speed needs to be too low to trigger gps obstacle 
 
@@ -568,7 +577,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 
 // detect robot being kidnapped? robot will try GPS recovery if distance to tracked path is greater than a certain value
 // (false GPS fix recovery), and if that fails go into error 
-#define KIDNAP_DETECT true  // recommended
+#define KIDNAP_DETECT false  // recommended
 //#define KIDNAP_DETECT false
 #define KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE 1.5  // allowed path tolerance (m) 
 #define KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE_DOCK_UNDOCK 10.0  // allowed path tolerance (m) 
@@ -603,19 +612,19 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 // ---- path tracking -----------------------------------
 
 // below this robot-to-target distance (m) a target is considered as reached
-#define TARGET_REACHED_TOLERANCE 0.12
+#define TARGET_REACHED_TOLERANCE 0.05
 
 // stanley control for path tracking - determines gain how fast to correct for lateral path errors
-#define STANLEY_CONTROL_P_NORMAL  1.0   // 3.4 // 3.0 for path tracking control (angular gain) when mowing
-#define STANLEY_CONTROL_K_NORMAL  0.1  // 2.3 // 1.0 for path tracking control (lateral gain) when mowing
+#define STANLEY_CONTROL_P_NORMAL  3.0   // 3.4 // 3.0 for path tracking control (angular gain) when mowing
+#define STANLEY_CONTROL_K_NORMAL  1.0  // 2.3 // 1.0 for path tracking control (lateral gain) when mowing
 
 #define STANLEY_FLOAT_P_NORMAL         1.0
-#define STANLEY_FLOAT_K_NORMAL         0.1
+#define STANLEY_FLOAT_K_NORMAL         1.0
 
-#define STANLEY_CONTROL_P_SLOW    1.0   // 1 // 3.0 for path tracking control (angular gain) when docking tracking
+#define STANLEY_CONTROL_P_SLOW    0.1   // 1 // 3.0 for path tracking control (angular gain) when docking tracking
 #define STANLEY_CONTROL_K_SLOW    0.1  // 0.05 // 0.1 for path tracking control (lateral gain) when mowing or docking
 
-#define STANLEY_FLOAT_P_SLOW           1.0
+#define STANLEY_FLOAT_P_SLOW           0.1
 #define STANLEY_FLOAT_K_SLOW           0.1
 
 

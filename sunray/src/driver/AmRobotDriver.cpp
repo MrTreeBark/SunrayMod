@@ -523,10 +523,10 @@ void AmMotorDriver::getMotorEncoderTicks(int &leftTicks, int &rightTicks, int &m
   unsigned long deltaTime = now - lastCallTime;
   lastCallTime = now;
 
-  CONSOLE.print("getMotorEncoderTicks() Delta: ");
+  /* CONSOLE.print("getMotorEncoderTicks() Delta: ");
   CONSOLE.print(deltaTime);
   CONSOLE.println(" ms");
-
+ */
   leftTicks = odomTicksLeft;
   rightTicks = odomTicksRight;  
   mowTicks = odomTicksMow;

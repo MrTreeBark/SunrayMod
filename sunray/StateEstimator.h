@@ -21,7 +21,6 @@ enum LocalizationMode {
 
 extern LocalizationMode stateLocalizationMode;
 
-
 extern float stateX;  // position-east (m)
 extern float stateY;  // position-north (m)
 extern float stateDelta;  // direction (rad)

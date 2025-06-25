@@ -689,13 +689,13 @@ void SerialMotorDriver::getMotorCurrent(float &leftCurrent, float &rightCurrent,
 //WARNING, this function should be only called once where it is needed and not multiple times
 void SerialMotorDriver::getMotorEncoderTicks(int &leftTicks, int &rightTicks, int &mowTicks){
   if (serialRobot.mcuCommunicationLost) {
-    CONSOLE.println("getMotorEncoderTicks: No MCU comm -> no ticks!");    
+    //CONSOLE.println("getMotorEncoderTicks: No MCU comm -> no ticks!");    
     leftTicks = rightTicks = 0; mowTicks = 0;
     return;
   }
   if (serialRobot.resetMotorTicks){
     serialRobot.resetMotorTicks = false;
-    CONSOLE.println("getMotorEncoderTicks: resetMotorTicks");
+    //CONSOLE.println("getMotorEncoderTicks: resetMotorTicks");
     lastDeltaTicksLeft = serialRobot.deltaTicksLeft;
     lastDeltaTicksRight = serialRobot.deltaTicksRight;
     lastDeltaTicksMow = serialRobot.deltaTicksMow;

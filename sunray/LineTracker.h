@@ -29,6 +29,8 @@ extern float trackerDiffDelta;
 void trackLine(bool runControl);
 float turnInPlaceControl(float angularIn);  
 float distanceRamp(float linear); //MrTree
+void purePursuitTracker();
+void hybridTracker();
 void speedState();
 void stanleyTracker();
 void gpsConditions();

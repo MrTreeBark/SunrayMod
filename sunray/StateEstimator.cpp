@@ -47,11 +47,11 @@ float lastPosDelta = 0;
 
 float stateDeltaLast = 0;
 float stateDeltaSpeed = 0;
-//float stateDeltaSpeedLP = 0;
+float stateDeltaSpeedLP = 0;
 float stateDeltaSpeedIMU = 0;
 float stateDeltaSpeedWheels = 0;
 float diffIMUWheelYawSpeed = 0;
-//float diffIMUWheelYawSpeedLP = 0;
+float diffIMUWheelYawSpeedLP = 0;
 
 bool gpsJump = false;
 bool resetLastPos = true;
@@ -74,15 +74,15 @@ const unsigned short bufLen = ROBOT_CONTROL_CYCLE/2;  //seems to be excactly the
 float ringBuffer[bufLen] = {0};
 unsigned short bufInd = 0;
 
-LowPassFilter imuLpfRoll(0.01);
-LowPassFilter imuLpfPitch(0.01);
-LowPassFilter imuLpfYaw(0.01);
-LowPassFilter imuLpfRollChange(0.01);
-LowPassFilter imuLpfPitchChange(0.01);
-LowPassFilter imuLpfYawChange(0.01);
-LowPassFilter imuLpfStateDeltaSpeed(0.001); //this could be removed
-LowPassFilter wheelsLpfDeltaSpeed(0.005);
-LowPassFilter stateLpfDeltaSpeed(0.001);
+/* LowPassFilter imuLpfRoll(0.002);
+LowPassFilter imuLpfPitch(0.002);
+LowPassFilter imuLpfYaw(0.002);
+LowPassFilter imuLpfRollChange(0.003);
+LowPassFilter imuLpfPitchChange(0.003);
+LowPassFilter imuLpfYawChange(0.003);
+LowPassFilter imuLpfStateDeltaSpeed(0.006);
+LowPassFilter wheelsLpfDeltaSpeed(0.004);
+LowPassFilter stateLpfDeltaSpeed(0.004); */
 
 /* LowPassFilter imuLpRoll(0.9);
 LowPassFilter imuLpPitch(0.9);
@@ -90,6 +90,7 @@ LowPassFilter imuLpYaw(0.9);
 LowPassFilter imuLpRollChange(0.9);
 LowPassFilter imuLpPitchChange(0.9);
 LowPassFilter imuLpYawChange(0.9); */
+
 
 // https://learn.sparkfun.com/tutorials/9dof-razor-imu-m0-hookup-guide#using-the-mpu-9250-dmp-arduino-library
 // start IMU sensor and calibrate
@@ -250,10 +251,8 @@ void readIMU(){
   if (!imuDriver.imuFound) return;
   // Check for new data in the FIFO
   if (!imuDriver.isDataAvail()) {
-    //mpu_reset_fifo; // causes cyclic shit still
-    //CONSOLE.println("INFO: NO IMU DATA");
     return;
-  }
+} 
 
   ////////////////////////////////////////////
   //setup vals raw
@@ -295,25 +294,26 @@ void readIMU(){
   imuRawYawChange = imuRawYaw - imuRawYawLast;
   imuRawPitchChange = imuRawPitch - imuRawPitchLast;
 
-  //Filter all imuRaw values
-  imuLpRoll = imuLpfRoll(imuRawRoll);
-  imuLpYaw = imuLpfYaw(imuRawYaw);
-  imuLpPitch = imuLpfPitch(imuRawPitch);
+ /*  //Filter all imuRaw values
+  if (isfinite(imuRawRoll)) imuLpRoll = imuLpfRoll(imuRawRoll);
+  if (isfinite(imuRawYaw)) imuLpYaw = imuLpfYaw(imuRawYaw);
+  if (isfinite(imuRawPitch)) imuLpPitch = imuLpfPitch(imuRawPitch); */
   
   //do filtered calculations (extra: again with raw, so that filter can be adjusted seperately for state changes)
-  imuLpRollChange = imuLpfRollChange(imuRawRollChange);
-  imuLpYawChange = imuLpfYawChange(imuRawRollChange);
-  imuLpPitchChange = imuLpfPitchChange(imuRawPitchChange);
+  /* if (isfinite(imuRawRollChange)) imuLpRollChange = imuLpfRollChange(imuRawRollChange);
+  if (isfinite(imuRawRollChange)) imuLpYawChange = imuLpfYawChange(imuRawYawChange);
+  if (isfinite(imuRawPitchChange)) imuLpPitchChange = imuLpfPitchChange(imuRawPitchChange); */
   //imuLpRollChange = imuLpRoll - imuLpRollLast;
   //imuLpYawChange = imuLpYaw - imuLpYawLast;
   //imuLpPitchChange = imuLpPitch - imuLpPitchLast;
   
   //piscale values
   imuRawYaw_sc = scalePI(imuRawYaw);
+  imuDriver.yaw = imuRawYaw_sc; //? necessary?
   imuRawYawLast_sc = scalePI(imuRawYawLast);
   imuRawYawLast_sc = scalePIangles(imuRawYawLast_sc, imuRawYaw_sc);
   stateDeltaIMU = -scalePI(distancePI(imuRawYaw_sc, imuRawYawLast_sc));
-  imuRawYawLast = imuRawYaw;
+  imuRawYawLast = imuRawYaw_sc; //imuRawYaw
   
   //give vars to globals (FIXME)
 
@@ -428,12 +428,14 @@ void computeRobotState(){
   unsigned long deltaControlTime = (controlTime - lastControlTime);  // in Sekunden
   lastControlTime = controlTime;
 
-  if (deltaControlTime < robot_control_cycle - 10 || deltaControlTime > robot_control_cycle + 10) {
-    CONSOLE.print("WARNING stateEstimator: unmatched cycletime --> "); 
-    CONSOLE.print(deltaControlTime);
-    CONSOLE.print("  robot_control_cycle = ");
-    CONSOLE.print(robot_control_cycle);
-    CONSOLE.println(" +- 10ms");
+  if (DEBUG_TIMING) {
+    if (deltaControlTime < robot_control_cycle - 10 || deltaControlTime > robot_control_cycle + 10) {
+      CONSOLE.print("WARNING stateEstimator: unmatched cycletime --> "); 
+      CONSOLE.print(deltaControlTime);
+      CONSOLE.print("  robot_control_cycle = ");
+      CONSOLE.print(robot_control_cycle);
+      CONSOLE.println(" +- 10ms");
+    }
   }
 
   float deltaTime;  
@@ -619,10 +621,10 @@ void computeRobotState(){
       lastPosN = posN;
       lastPosE = posE;
       lastPosDelta = stateDelta;
-    } else if (distGPS > 0.1) {                                                                                         //if GPS moves
+    } else if (distGPS > 0.1) {  //0.1                                                                                         //if GPS moves
       float diffLastPosDelta = distancePI(stateDelta, lastPosDelta);                                                    //pi distance between actual and last angle
       if (fabs(diffLastPosDelta) /PI * 180.0 < 10){  // robot sensors indicate it is not turning                        //go on only if mower isnt rotating much
-        if ( (fabs(motor.linearSpeedSet) > 0) && (fabs(motor.angularSpeedSet) /PI *180.0 < 45) ) {                      //go on only if mower shall move linear and is under certain rotationcommand....??
+        if ( (fabs(motor.linearSpeedSet) > 0) && (fabs(motor.angularSpeedSet) /PI *180.0 < 45) ) {  //45                      //go on only if mower shall move linear and is under certain rotationcommand....??
           stateDeltaGPS = scalePI(atan2(posN-lastPosN, posE-lastPosE));    
           if (motor.linearSpeedSet < 0) stateDeltaGPS = scalePI(stateDeltaGPS + PI);                                    // consider if driving reverse
           //stateDeltaGPS = scalePI(2*PI-gps.heading+PI/2);
@@ -632,6 +634,7 @@ void computeRobotState(){
                 || ((gps.solution == SOL_FLOAT) && (maps.useGPSfloatForDeltaEstimation)) )
             {   // allows planner to use float solution?         
               if (fabs(diffDelta/PI*180) > 45){ // IMU-based heading too far away => use GPS heading
+                CONSOLE.println("INFO: GPS reset stateDeltaIMU");
                 stateDelta = stateDeltaGPS;
                 stateDeltaIMU = 0;
               } else {
@@ -707,15 +710,13 @@ void computeRobotState(){
 
   //angular speed of IMU
   if (imuDriver.imuFound){
-    //CONSOLE.print("stateDeltaIMU: ");CONSOLE.println(stateDeltaIMU);
+    //stateDeltaSpeedIMU = 0.8 * stateDeltaSpeedIMU + (1 - 0.8) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep) 
 
-    //stateDeltaSpeedIMU = lp1 * stateDeltaSpeedIMU + (1 - lp1) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep)  
-    stateDeltaSpeedIMU = imuLpfStateDeltaSpeed(stateDeltaIMU/deltaTime);
-    //CONSOLE.print("stateDeltaIMURaw: ");CONSOLE.println(stateDeltaIMU/deltaTime/PI*180);
-    /* CONSOLE.print("   stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedIMU/PI*180.0);
-    CONSOLE.print("motor.angularSpeedSet: ");CONSOLE.println(motor.angularSpeedSet * 180 / PI);
-    CONSOLE.println(); */
-    //CONSOLE.print("stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedIMU * 180 / PI);
+
+    if (deltaTime > 0) stateDeltaSpeedIMU = 0.8 * stateDeltaSpeedIMU + (1 - 0.8) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep)  
+    //stateDeltaSpeedIMU = imuLpfStateDeltaSpeed(stateDeltaIMU/deltaTime);
+    //stateDeltaSpeedIMU = stateDeltaIMU/deltaTime; //RAW
+    
   }
 
   /*
@@ -727,19 +728,18 @@ void computeRobotState(){
   */
   
   //angular Speed of wheels
-  stateDeltaSpeedWheels = wheelsLpfDeltaSpeed(deltaOdometry/deltaTime);
-  //stateDeltaSpeedWheels = lp2 * stateDeltaSpeedWheels + (1 - lp2) * deltaOdometry / deltaTime;
+  //if (deltaTime > 0) stateDeltaSpeedWheels = wheelsLpfDeltaSpeed(deltaOdometry/deltaTime);
+  if (deltaTime > 0) stateDeltaSpeedWheels = 0.8 * stateDeltaSpeedWheels + (1 - 0.8) * deltaOdometry / deltaTime;
 
   //CONSOLE.println(stateDelta / PI * 180.0);
   stateDeltaIMU = 0;
 
   // compute yaw rotation speed (delta speed)
   // stateDelta can be calculated from odometrie or imu
-  stateDeltaSpeed = (stateDelta - stateDeltaLast) / deltaTime;  // 20ms timestep
+  if (deltaTime > 0) stateDeltaSpeed = (stateDelta - stateDeltaLast) / deltaTime;  // 20ms timestep
+  //stateDeltaSpeed = stateLpfDeltaSpeed(stateDeltaSpeed);
   
-  //this is the wheels speed
-  stateDeltaSpeed = stateLpfDeltaSpeed(stateDeltaSpeed);
-  //stateDeltaSpeedLP = lp1 * stateDeltaSpeedLP + (1 - lp1) * fabs(stateDeltaSpeed); //stateDeltaSpeedLP * 0.95 + fabs(stateDeltaSpeed) * 0.05;     
+  stateDeltaSpeedLP = 0.7 * stateDeltaSpeedLP + (1 - 0.7) * fabs(stateDeltaSpeed); //stateDeltaSpeedLP * 0.95 + fabs(stateDeltaSpeed) * 0.05;     
   
   stateDeltaLast = stateDelta;
 
@@ -747,7 +747,7 @@ void computeRobotState(){
     // compute difference between IMU yaw rotation speed and wheels yaw rotation speed
     
     diffIMUWheelYawSpeed = stateDeltaSpeedIMU - stateDeltaSpeedWheels; //already 2 filtered values
-    //diffIMUWheelYawSpeedLP = lp1 * diffIMUWheelYawSpeedLP + (1 - lp1) * fabs(diffIMUWheelYawSpeed);  //MrTree changed from diffIMUWheelYawSpeedLP = diffIMUWheelYawSpeedLP * 0.95 + fabs(diffIMUWheelYawSpeed) * 0.05;
+    diffIMUWheelYawSpeedLP = 0.9 * diffIMUWheelYawSpeedLP + (1 - 0.1) * fabs(diffIMUWheelYawSpeed);  //MrTree changed from diffIMUWheelYawSpeedLP = diffIMUWheelYawSpeedLP * 0.95 + fabs(diffIMUWheelYawSpeed) * 0.05;
   }
 
   // invalid position => reset to zero

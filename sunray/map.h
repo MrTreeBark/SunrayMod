@@ -129,6 +129,7 @@ class Map
     // the line defined by (lastTargetPoint, targetPoint) is the current line to drive
     Point targetPoint; // target point
     Point lastTargetPoint; // last target point
+    
     //int targetPointIdx; // index of target point    
     bool trackReverse; // get to target in reverse?
     bool trackSlow;    // get to target slowly?
