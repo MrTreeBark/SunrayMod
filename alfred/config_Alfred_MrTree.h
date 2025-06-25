@@ -183,7 +183,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define RETRYSLOWTIME               25000 // (ms) mower will continue slow with RETRY_SLOW_SPEED after ESCAPELAWN operation (reversing triggered by MOW_RPMtr_RETRY (%)) for RETRYSLOWTIME, if a MOW_RPMtr_SLOW will happen again in this retryslowstate, mower resets this timer until no rpm stall occurs in set time
 #define KEEPSLOWTIME                25000 // (ms) mower will continue slow with KEEP_SLOW_SPEED for given Time if MOW_RPMtr_SLOW (%) was met... if a MOW_RPMtr_SLOW will happen again during keepslowstate, mower resets this timer until no rpm stall occurs in set time.   
 //STANLEY options for experiments
-#define CONTROLLER_MODE                2     // Sets the general pathtracking algorithm: 1 STANLEY, 2 PUREPURSUIT, 3 STANLEY+PUREPURSUIT HYBRID
+#define CONTROLLER_MODE                1     // Sets the general pathtracking algorithm: 1 STANLEY, 2 PUREPURSUIT, 3 STANLEY+PUREPURSUIT HYBRID
 #define MAP_STANLEY_CONTROL         true  // if true, stanley values will be mapped linear from MOTOR_MIN_SPEED-->MOTOR_MAX_SPEED with SC_P_*|SC_K_* to actual speedset of mower (recommended if you use high operation speeds)
 #define STANLEYNORMALMUL            false // if true, StanleyNormal parameters in Sunray-App will be multiplied by 10! (0,1 = 1) (for testing)
 //GPS reboot for docking/undocking/retrydocking (WARNING: you need at least 2 points before and behind the point indexes! Dockpoint indexes start with 0 (first point), last point is your dock)
@@ -259,7 +259,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
     #define DEBUG_PID               false
     #define DEBUG_MOTOR_CONTROL_TIME    1000
     #define DEBUG_MOTOR_MOWSTALL    false
-    #define DEBUG_TRACKER           true
+    #define DEBUG_TRACKER           false
     #define DEBUG_BATTERY           false
     #define DEBUG_UBLOX             false // will output unparsed ublox rx messages
     #define DEBUG_HTTPSERVER        false

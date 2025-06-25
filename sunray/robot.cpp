@@ -1218,6 +1218,7 @@ void tuningOutput(){
 
 // robot main loop
 void run(){
+  
   static unsigned long aliveTime = 0; // Timer
   if (millis() - aliveTime >= 30000) {
     aliveTime = millis();
@@ -1233,7 +1234,7 @@ void run(){
     CONSOLE.print(" m ");
     CONSOLE.print(seconds);
     CONSOLE.println(" s");
-}
+  }
 
   if (imuIsCalibrating) {
     activeOp->onImuCalibration();             
