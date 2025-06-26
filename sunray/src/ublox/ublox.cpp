@@ -416,10 +416,8 @@ void UBLOX::parse(int b)
       }
       unparsedMessage = "";
      } else if (unparsedMessage.length() > 100) {
-      if (DEBUG_UBLOX) {
-      CONSOLE.print("WARNING: unparsed GPS-Correction Message to be cleared. Content: ");
+      CONSOLE.print("WARNING: unparsed GPS Message to be cleared. Content: ");
       CONSOLE.println(unparsedMessage);
-      }
       unparsedMessage = "";
     }
   }

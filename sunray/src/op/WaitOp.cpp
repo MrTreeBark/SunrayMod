@@ -25,7 +25,7 @@ void WaitOp::end(){
 
 void WaitOp::run(){
     battery.resetIdle();
-    
+    motor.setLinearAngularSpeed(0,0,false);
     if (millis() > waitStartTime + waitTime){
         if (waitTime == MOWSPINUPTIME) {
             motor.waitSpinUp = false;

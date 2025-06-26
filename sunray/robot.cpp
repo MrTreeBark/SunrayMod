@@ -804,6 +804,7 @@ bool robotShouldBeInMotion(){
 
 void triggerWaitCommand(unsigned int waitTime){
   waitOp.waitTime = waitTime;
+  motor.setLinearAngularSpeed(0,0,false);
   activeOp->onWaitCommand();
 }
 

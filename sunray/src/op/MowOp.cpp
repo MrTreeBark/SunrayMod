@@ -155,6 +155,7 @@ void MowOp::onGpsJump(){
         CONSOLE.println("MowOp::onGpsJump: trigger WaitOp");
         waitOp.waitTime = GPS_JUMP_WAIT_TIME;
         motor.setMowState(false);
+        motor.setLinearAngularSpeed(0,0,false);
         if (!buzzer.isPlaying()) buzzer.sound(SND_GPSJUMP, true);
         changeOp(waitOp, true);
     } else {
@@ -165,6 +166,7 @@ void MowOp::onGpsJump(){
 void MowOp::onMotorMowStart(){
     CONSOLE.println("MowOp::onMotorMowStart: Mow motor started, trigger WaitOp");
     waitOp.waitTime = MOWSPINUPTIME;
+    motor.setLinearAngularSpeed(0,0,false);
     if (!buzzer.isPlaying()) buzzer.sound(SND_MOWSTART, true);
     changeOp(waitOp, true);
 }
