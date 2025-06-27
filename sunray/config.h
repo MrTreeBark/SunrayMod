@@ -205,7 +205,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define WATCHDOG_CONTINUE           false // set true if you have watchdog reset issues, mower will start mowing after rebooting
 #define WATCHDOG_TIME               16000 // (ms) resettimer for watchdog trigger
 #define HODOR_ENDURANCE             5000  // (ms) The Time Hodor will hold the Door if HTTP Server is over timeout and whiling around in get or send loop, HODOR_GENTLE_TIME is the time Hodor waits until holding the door and thus protecting the hobit (Mower) if not in MOW_OP. 
-#define HODOR_GENTLE_TIME           1000   // (ms) HODOR_GENTLE_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if not in MOW_OP.
+#define HODOR_GENTLE_TIME           1000  // (ms) HODOR_GENTLE_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if not in MOW_OP.
 #define HODOR_BRUTAL_TIME           10    // (ms) HODOR_BRUTAL_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if in MOW_OP.
 //OBSTACLES
 #define OBSTACLE_DETECTION_ROTATION true  // detect robot rotation stuck (requires IMU) (wheel at backside, popo situation)
@@ -531,7 +531,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define GPS_CONFIG   true     // configure GPS receiver (recommended - requires GPS wire fix above! otherwise firmware will stuck at boot!)
 //#define GPS_CONFIG   false  // do not configure GPS receiver (no GPS wire fix required)
 
-#define GPS_CONFIG_FILTER   false     // use signal strength filter? (recommended to get rid of 'FIX jumps') - adjust filter settings below
+#define GPS_CONFIG_FILTER   true     // use signal strength filter? (recommended to get rid of 'FIX jumps') - adjust filter settings below
 //#define GPS_CONFIG_FILTER   false     // use this if you have difficulties to get a FIX solution (uses ublox default filter settings)
 #define CPG_CONFIG_FILTER_MINELEV  3   // Min SV elevation degree: 14 (high elevation, less robust), 10 (low elevation, robust) 
 #define CPG_CONFIG_FILTER_NCNOTHRS 8   // C/N0 Threshold #SVs: 10 (robust), 6 (less robust)
@@ -592,9 +592,9 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define TARGET_REACHED_TOLERANCE 0.07
 
 // stanley control for path tracking - determines gain how fast to correct for lateral path errors
-#define STANLEY_CONTROL_P_NORMAL  3.6   // 3.4 // 3.0 for path tracking control (angular gain) when mowing
-#define STANLEY_CONTROL_K_NORMAL  2.1  // 2.3 // 1.0 for path tracking control (lateral gain) when mowing
-#define STANLEY_FLOAT_P_NORMAL         1.5
+#define STANLEY_CONTROL_P_NORMAL  3.4   // 3.4 // 3.0 for path tracking control (angular gain) when mowing
+#define STANLEY_CONTROL_K_NORMAL  1.5  // 2.3 // 1.0 for path tracking control (lateral gain) when mowing
+#define STANLEY_FLOAT_P_NORMAL         1.0
 #define STANLEY_FLOAT_K_NORMAL         0.5
 
 #define STANLEY_CONTROL_P_SLOW    1.0   // 1 // 3.0 for path tracking control (angular gain) when docking tracking

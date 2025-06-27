@@ -383,6 +383,7 @@ void stanleyTracker() {
   //Stanley parameters
   static float k;
   static float p;
+  const float maxRot = DEG_TO_RAD * 30;
 
   //do not use agressive stanley if floatsittuaion
   if (gps.solution == SOL_FLOAT || gps.solution == SOL_INVALID) {
@@ -419,7 +420,8 @@ void stanleyTracker() {
                                                                                                                             //MrTree
   angular =  p * trackerDiffDelta + atan2(k * lateralError, (0.001 + fabs(CurrSpeed)));       //MrTree, use actual speed correct for path errors
   // restrict steering angle for stanley  (not required anymore after last state estimation bugfix)
-  //angular = max(-PI/6, min(PI/6, angular)); //MrTree still used here because of gpsfix jumps that would lead to an extreme rotation speed
+  //angular = max(-PI/6, min(PI/6, angular)); //MrTree still used here because of gpsfix jumps that would lead to an extreme rotation speed or singulatity when reaching a point
+  angular = max(-maxRot, min(maxRot, angular)); //MrTree still used here because of gpsfix jumps that would lead to an extreme rotation speed or singulatity when reaching a point
   //if (!maps.trackReverse && motor.linearCurrSet < 0) angular *= -1;   // it happens that mower is reversing without going to a map point (obstacle escapes) but trying to get straight to the next point angle (transition angle), for this case angular needs to be reversed
   //After all, we want to use stanley for transition angles as well, too have a smooth operation between points without coming to a complete stop
   //For that we will scale down the actual linear speed set dependent to the angle difference to the NEXT targetpoint, we need also to deactivate distance ramp for nextangletotargetfits = true
@@ -571,7 +573,7 @@ void linearSpeedState(){
     if (linear < MOTOR_MIN_SPEED) linear = MOTOR_MIN_SPEED;
   }
 
-  //if (maps.trackReverse) linear *= -1;   // reverse line tracking needs negative speed
+  if (maps.trackReverse) linear *= -1;   // reverse line tracking needs negative speed  --> THIS NEEDS TO GO SOMEWHERE ELSE?
 
   if (DEBUG_SPEEDS) {
     CONSOLE.println("SPEED DEBUG START  --------------------------->");
