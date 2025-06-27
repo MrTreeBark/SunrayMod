@@ -612,19 +612,19 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 // ---- path tracking -----------------------------------
 
 // below this robot-to-target distance (m) a target is considered as reached
-#define TARGET_REACHED_TOLERANCE 0.05
+#define TARGET_REACHED_TOLERANCE 0.10
 
 // stanley control for path tracking - determines gain how fast to correct for lateral path errors
-#define STANLEY_CONTROL_P_NORMAL  3.0   // 3.4 // 3.0 for path tracking control (angular gain) when mowing
+#define STANLEY_CONTROL_P_NORMAL  3.4   // 3.4 // 3.0 for path tracking control (angular gain) when mowing
 #define STANLEY_CONTROL_K_NORMAL  1.0  // 2.3 // 1.0 for path tracking control (lateral gain) when mowing
 
 #define STANLEY_FLOAT_P_NORMAL         1.0
-#define STANLEY_FLOAT_K_NORMAL         1.0
+#define STANLEY_FLOAT_K_NORMAL         0.1
 
-#define STANLEY_CONTROL_P_SLOW    0.1   // 1 // 3.0 for path tracking control (angular gain) when docking tracking
+#define STANLEY_CONTROL_P_SLOW    1.0   // 1 // 3.0 for path tracking control (angular gain) when docking tracking
 #define STANLEY_CONTROL_K_SLOW    0.1  // 0.05 // 0.1 for path tracking control (lateral gain) when mowing or docking
 
-#define STANLEY_FLOAT_P_SLOW           0.1
+#define STANLEY_FLOAT_P_SLOW           0.5
 #define STANLEY_FLOAT_K_SLOW           0.1
 
 
