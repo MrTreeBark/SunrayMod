@@ -415,7 +415,7 @@ void UBLOX::parse(int b)
         nmeaGGAMessage.trim();
       }
       unparsedMessage = "";
-     } else if (unparsedMessage.length() > 512) {
+     } else if (unparsedMessage.length() > 250) {
       CONSOLE.print("INFO: unparsed GPS Message to be cleared. ");
       //CONSOLE.println(unparsedMessage);
       unparsedMessage = "";

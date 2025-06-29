@@ -115,7 +115,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 //rotation speeds, also this is easy to tune for your expectations --> going to be changed to angularRamp() with less parameters
 #define ROTATION_RAMP               true  // uses a ramp for angletotargetfits (very nice), ROTATETOTARGETSPEED´s are disabled if this is true
 #define ROTATION_RAMP_MAX           100   // (deg/s) maximum rotation speed
-#define ROTATION_RAMP_MIN           18    // (deg/s) minimum rotation speed
+#define ROTATION_RAMP_MIN           15    // (deg/s) minimum rotation speed
 #define ROTATETOTARGETSPEED1        65.0  // (deg/s) if angle difference to point is more than ANGLEDIFF1 then this value will be used...   warning, a high value will result in extreme gearmotor stress (test at own risk, 65deg/s is still safe and fast)
 #define ROTATETOTARGETSPEED2        40.0  // (deg/s) if angle difference to point is between ANGLEDIFF1 and ANGLEDIFF2 then this value will be used...
 #define ROTATETOTARGETSPEED3        25.0  // (deg/s) if angle difference to point is less than ANGLEDIFF2 then this value will be used...
@@ -123,7 +123,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ANGLEDIFF2                  15.0  // (deg) if angle to point is between ANGLEDIFF1 and ANGLEDIFF2 --> ROTATETOTARGETSPEED2 will be used, if it is less ROTATETOTARGETSPEED3 will be used...
 #define ANGLEPRECISE                5.0   // (deg) if Angle to point ist within 5deg, mower will continue with Linetracker.cpp Stanleycode and NEARWAYPOINT setup
 #define TRANSITION_ANGLE            25    // (deg) if next point is below this angle, mower will not stop completely but makes a transition with TRANSITION_SPEED
-#define TRANSITION_SPEED            0.10  // (m/s) speed for transition to next point angle
+#define TRANSITION_SPEED            0.15  // (m/s) speed for transition to next point angle
 #define TARGETFITS_ANGLE            45    // (deg/s) if target angle is below that, linetracker uses stanley for tracking. If over that angle, mower will stop and readjust with rotation at it´s current position
 //use a PID controller for mowmotor to set an RPM instead of PWM? If you use this (there will be a console output with data after 10sec when you activate the mowmotor and this is enabled)
 //CONFIG HINT: for the following options it is important if you have mow motor odometrie: USE_MOW_RPM_SET, ADAPTIVE_SPEED_MODE, ESCAPE_LAWN_MODE. If you do not have odometrie: use mode 1 on both cases and set USE_MOW_RPM_SET = false, if you have odometrie use mode 2 on both cases and set USE_MOW_RPM_SET = true (recommended)
@@ -220,7 +220,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define OVERLOAD_ROTATION_DEADTIME  1000  // (ms) trigger dead time for OVERLOAD_ROTATION (similar like BUMPER_DEADTIME)
 #define OBSTACLE_CHAINING           true  // if true, obstacle and obstaclerotation detection is allowed during an obstacle evasion operation (chaining) 
 #define SHOULDROTATE_DELAY          1000  // internal state bool will trigger shouldrotate with this delay after rotation command in code startet
-#define IMU_YAW_THRESHOLD           30.0  // (deg/s) threshold for OBSTACLE_DEFLECTION, if imu yaw is over the threshold --> assume Obstacle 
+#define IMU_YAW_THRESHOLD           25.0  // (deg/s) threshold for OBSTACLE_DEFLECTION, if imu yaw is over the threshold --> assume Obstacle 
 //DRIVER (try to fix 8308 driver with pwm (keep FALSE if you have no issues or no DRV8308, this is for experiments only)) ---> to be removed
 #define DRV8308_FIX                 false // only for testing, if true and charger is connected, drivers pwm will be 1 for DRVFIXITERATIONS iteration of code everytime DRVFIXTIMER is met
 #define DRVFIXITERATIONS            5     // iterations of code for pwm of drivers to be PWM_GEAR and PWM_MOW (below)
@@ -332,8 +332,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOTOR_OVERLOAD_CURRENT  0.8    // gear motors overload current (amps)
 
 #define USE_LINEAR_SPEED_RAMP  true      // use a speed ramp for the linear speed //MrTree overshooting is reduced, deceleration is more agressive: keep enabled! (recommended)
-#define LINEAR_ACCEL            500      // (mm/s²)
-#define LINEAR_DECEL            500      // (mm/s²)
+#define LINEAR_ACCEL            300      // (mm/s²)
+#define LINEAR_DECEL            600      // (mm/s²)
 
 //#define USE_LINEAR_SPEED_RAMP  false      // do not use a speed ramp 
 
