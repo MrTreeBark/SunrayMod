@@ -37,7 +37,7 @@ void EscapeRotationOp::run(){
 	}  																                                   																					
     if (millis() > driveReverseStopTime){
         CONSOLE.println("driveReverseStopTime");
-        motor.setLinearAngularSpeed(0,0,false);
+        //motor.setLinearAngularSpeed(0,0,false);
         //motor.stopImmediately(false); 
         driveReverseStopTime = 0;
         if (detectLift()) {

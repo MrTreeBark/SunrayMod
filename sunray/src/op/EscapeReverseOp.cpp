@@ -17,7 +17,7 @@ String EscapeReverseOp::name(){
 
 void EscapeReverseOp::begin(){
     // obstacle avoidance
-    driveReverseStopTime = millis() + (ESCAPE_REVERSE_WAY/OBSTACLEAVOIDANCESPEED*1000);
+    driveReverseStopTime = millis() + (ESCAPE_REVERSE_WAY/OBSTACLEAVOIDANCESPEED*1000) + 3000; //safety trigger
     resetMotion();
     //Save the position
     
@@ -42,7 +42,7 @@ void EscapeReverseOp::run(){
 	  motor.setMowState(false);  																	  	
 	}  																                                   																					
     //if (millis() > driveReverseStopTime){
-    if (distGPS > ESCAPE_REVERSE_WAY) {
+    if (distGPS > ESCAPE_REVERSE_WAY || millis() > driveReverseStopTime) {
         CONSOLE.println("EscapeReverseOp:: distGPS reached");
         motor.setLinearAngularSpeed(0,0,false);
         //motor.stopImmediately(false); 

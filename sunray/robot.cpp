@@ -1062,7 +1062,7 @@ bool detectObstacle(){
     lastGPSMotionY = stateY;      
   }
   // obstacle detection due to deflection of mower during linetracking ---> this is now changed to stateDeltaSpeedIMU, for ALfred, ODO measurement is just tooo bad for now
-  /* if (imuDriver.imuFound && targetDist > NEARWAYPOINTDISTANCE/2 && lastTargetDist > NEARWAYPOINTDISTANCE/2 && millis() > linearMotionStartTime + BUMPER_DEADTIME){ // function only starts when mower is going between points 
+   if (imuDriver.imuFound && targetDist > NEARWAYPOINTDISTANCE/2 && lastTargetDist > NEARWAYPOINTDISTANCE/2 && millis() > linearMotionStartTime + BUMPER_DEADTIME){ // function only starts when mower is going between points 
     // during mowing a line, getting deflected by obstacle while it should not rotate version 1
     if (!robotShouldRotate() && fabs(stateDeltaSpeedIMU) > IMU_YAW_THRESHOLD/180.0 * PI) {  // yaw speed difference between wheels and IMU more than 8 degree/s, e.g. due to obstacle AND imu shows not enough rotation
       CONSOLE.println("During Linetracking: IMU yaw difference between wheels and IMU while !robotShouldRotate => assuming obstacle at mower side");
@@ -1093,7 +1093,7 @@ bool detectObstacle(){
       triggerObstacle();
       return true;           
     }
-  }*/
+  }
   return false;
 }
 
@@ -1147,7 +1147,7 @@ bool detectObstacleRotation(){
       }
     }       
   }
-  /* if (imuDriver.imuFound){
+   if (imuDriver.imuFound){
     if (millis() > angularMotionStartTime + ROTATION_TIME) { 
       // less than 3 degree/s yaw speed, e.g. due to obstacle                 
       if (fabs(stateDeltaSpeedIMU) < 10.0/180.0 * PI){ 
@@ -1173,7 +1173,7 @@ bool detectObstacleRotation(){
         return true;            
       }
     }      
-  }*/
+  }
   return false;
 }
 

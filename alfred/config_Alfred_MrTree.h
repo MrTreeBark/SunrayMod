@@ -130,9 +130,9 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ANGLEDIFF1                  30.0  // (deg) if angle to point is more than ANGLEDIFF1              --> ROTATETOTARGETSPEED1 will be used 
 #define ANGLEDIFF2                  15.0  // (deg) if angle to point is between ANGLEDIFF1 and ANGLEDIFF2 --> ROTATETOTARGETSPEED2 will be used, if it is less ROTATETOTARGETSPEED3 will be used...
 #define ANGLEPRECISE                5.0   // (deg) if Angle to point ist within 5deg, mower will continue with Linetracker.cpp Stanleycode and NEARWAYPOINT setup
-#define TRANSITION_ANGLE            25    // (deg) if next point is below this angle, mower will not stop completely but makes a transition with TRANSITION_SPEED
+#define TRANSITION_ANGLE            15    // (deg) if next point is below this angle, mower will not stop completely but makes a transition with TRANSITION_SPEED
 #define TRANSITION_SPEED            0.15  // (m/s) speed for transition to next point angle
-#define TARGETFITS_ANGLE            35    // (deg/s) if target angle is below that, linetracker uses stanley for tracking. If over that angle, mower will stop and readjust with rotation at it´s current position
+#define TARGETFITS_ANGLE            45    // (deg/s) if target angle is below that, linetracker uses stanley for tracking. If over that angle, mower will stop and readjust with rotation at it´s current position
 //use a PID controller for mowmotor to set an RPM instead of PWM? If you use this (there will be a console output with data after 10sec when you activate the mowmotor and this is enabled)
 //CONFIG HINT: for the following options it is important if you have mow motor odometrie: USE_MOW_RPM_SET, ADAPTIVE_SPEED_MODE, ESCAPE_LAWN_MODE. If you do not have odometrie: use mode 1 on both cases and set USE_MOW_RPM_SET = false, if you have odometrie use mode 2 on both cases and set USE_MOW_RPM_SET = true (recommended)
 #define USE_MOW_RPM_SET             false  // uses RPM instead of PWM to set mowmotor (RPM_FAULT_DETECTION of orig Sunray is best to be set TRUE for all RPM based functions!!)
@@ -345,7 +345,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 
 #define USE_LINEAR_SPEED_RAMP  true      // use a speed ramp for the linear speed //MrTree overshooting is reduced, deceleration is more agressive: keep enabled! (recommended)
 #define LINEAR_ACCEL            200      // (mm/s²)
-#define LINEAR_DECEL            300      // (mm/s²)
+#define LINEAR_DECEL            500      // (mm/s²)
 
 //#define USE_LINEAR_SPEED_RAMP  false      // do not use a speed ramp 
 
