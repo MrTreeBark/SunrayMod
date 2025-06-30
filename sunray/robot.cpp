@@ -730,14 +730,14 @@ bool robotShouldWait(){
     //motor.waitSpinUp = false;
     //CONSOLE.println("waitSpinUp triggered");
     //activeOp->onMotorMowStart();
-    //triggerMotorMowWait();
+    triggerMotorMowWait();
     return true;
   }
   if (GPS_JUMP_WAIT && gpsJump){
     gpsJump = false;
     //motor.stopImmediately(true);
     //activeOp->onGpsJump();
-    //triggerGpsJump();
+    triggerGpsJump();
     return true;
   }
 
@@ -815,7 +815,7 @@ void triggerMotorMowWait(){
   //resetAngularMotionMeasurement();
   //resetOverallMotionTimeout();
   CONSOLE.println("triggerMotorMowWait()");
-  //activeOp->onMotorMowStart();
+  activeOp->onMotorMowStart();
 }
 
 // drive reverse on high lawn and retry

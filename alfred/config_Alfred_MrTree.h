@@ -101,7 +101,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define DIRECT_DRIVE_PWM_TO_RPM     3.5
 //Experimental Modfunctions/Options/Speeds/Time etc. for different stuff and movement operations. Please read the descriptions. Cheers.
 //Mower general times and speeds with their condition parameters, this section is the easiest to be tuned for one´s needs... so feel free and just tune to what you want to see on the lawn 
-#define OVERRIDE_MOW_SPEED          true  // this is a workaround for .325 not using the desired speed from start
+#define OVERRIDE_MOW_SPEED          false  // this is a workaround for .325 not using the desired speed from start
 #define MOWSPEED                    0.6 // (m/s) Normal Mowspeed like if you would set it in App
 #define MOWSPINUPTIME               10000  // (ms) Adds time to rotate mowingdisc before starting moving, use high value if you enable ESCAPE_LAWN for good reading of idle mow motor RPM
 #define OVERLOADSPEED               0.25  // (m/s) if there is a overloadcurrent of a motordriver, mower will use OVERLOADSPEED
@@ -116,7 +116,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ESCAPE_REVERSE_WAY          0.80  // (m) distance in meters the mover will drive reverse in escapeReverseOp if obstacle triggered eg. by bumper org gps no speed
 #define ESCAPE_FORWARD_WAY          0.6  // (m) distance in meters the mover will drive forward in escapeForwardOp if obstacle triggered by OBSTACLE_ROTATION (no rotation)
 #define GLOBALSPEEDLIMIT            true  // if true, MOTOR_MAX_SPEED and MOTOR_MIN_SPEED will limit possible code bugs or inputs directly in motor.cpp        
-#define MOTOR_MAX_SPEED             0.8  // (m/s) maximum mower speed --> has not much to to with configuration of speeds: acts as a failsafe
+#define MOTOR_MAX_SPEED             1.0  // (m/s) maximum mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define MOTOR_MIN_SPEED             0.10  // (m/s) minimal mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define DISTANCE_RAMP               true  // is using NEARWAYPOINTDISTANCE, MOTOR_MIN_SPEED and the actual setspeed to calculate an indirect deceleration ramp to the next waypoint, if this is true, NEARWAYPOINTSPEED in linetracker.cpp is disabled
 #define DISTANCE_RAMP_MINSPEED      0.05  // (m/s) this is the ramp minspeed
@@ -209,7 +209,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 //#define GPS_JUMP_DISTANCE         0.4   // (m) the sudden difference from last GPS position to new position, that will trigger a GPS jump positive <-- to be added 
 //OTHER
 //#define FLOAT_CALC                  1  // better float handling? uncomment for pathfinder using float calculation. Warning, not suitable for Arduino Due
-#define MOW_START_AT_WAYMOW         false // (WARNING: IF YOU SET THIS TRUE, YOU CANNOT START MOWMOTOR WITH APP MANUALLY ANYMORE) mowmotor only starts if way state of mower is waymow for the first time, used for mowmotor not starting directly at dock, but at mow area. This is a onetime trigger that only works when mower is (---> undocking ) ---> wayfree ---> mowarea ---> start mowmotor. After this, mowmotor will behave like it used to be
+#define MOW_START_AT_WAYMOW         true // (WARNING: IF YOU SET THIS TRUE, YOU CANNOT START MOWMOTOR WITH APP MANUALLY ANYMORE) mowmotor only starts if way state of mower is waymow for the first time, used for mowmotor not starting directly at dock, but at mow area. This is a onetime trigger that only works when mower is (---> undocking ) ---> wayfree ---> mowarea ---> start mowmotor. After this, mowmotor will behave like it used to be
 #define WATCHDOG_CONTINUE           false // set true if you have watchdog reset issues, mower will start mowing after rebooting
 #define WATCHDOG_TIME               16000 // (ms) resettimer for watchdog trigger
 //Hoooooodooooor!
