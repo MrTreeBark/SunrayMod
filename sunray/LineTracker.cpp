@@ -672,7 +672,7 @@ float distanceRamp(float linear){
       actDist = lastTargetDist;     
     }
 
-    rampSpeed = safemap(actDist, minDist, maxDist, minSpeed, maxSpeed);
+    rampSpeed = safeMap(actDist, minDist, maxDist, minSpeed, maxSpeed);
     rampSpeed = constrain(rampSpeed, minSpeed, maxSpeed);
     
     //CONSOLE.print(straight); CONSOLE.print(" "); CONSOLE.println(rampSpeed);
