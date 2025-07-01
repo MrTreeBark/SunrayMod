@@ -416,7 +416,7 @@ void UBLOX::parse(int b)
       }
       unparsedMessage = "";
      } else if (unparsedMessage.length() > 250) {
-      CONSOLE.print("INFO: unparsed GPS Message to be cleared. ");
+      CONSOLE.println("INFO: unparsed GPS Message to be cleared. ");
       //CONSOLE.println(unparsedMessage);
       unparsedMessage = "";
     }

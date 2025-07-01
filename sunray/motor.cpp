@@ -80,7 +80,7 @@ void Motor::begin() {
   lpfMotorLeftRpm.Tf = 2;
   lpfMotorRightRpm.Tf = 2;
   lpfMotorMowRpm.Tf = 3; 
-  lpfMotorMowRpmFast.Tf = 0.2;       //fast for adaptive speed
+  lpfMotorMowRpmFast.Tf = 0.05;       //fast for adaptive speed
   lpfMotorLeftRpm.reset();
   lpfMotorRightRpm.reset();
   lpfMotorMowRpm.reset();
@@ -89,7 +89,7 @@ void Motor::begin() {
   lpfMotorLeftSense.Tf = 1;
   lpfMotorRightSense.Tf = 1;
   lpfMotorMowSense.Tf = 1; 
-  lpfMotorMowSenseFast.Tf = 0.1;   //fast for adaptive speed
+  lpfMotorMowSenseFast.Tf = 0.05;   //fast for adaptive speed
   lpfMotorLeftSense.reset();
   lpfMotorRightSense.reset();
   lpfMotorMowSense.reset();
@@ -317,11 +317,11 @@ void Motor::setLinearAngularSpeed(float linear, float angular, bool useLinearRam
     setLinearAngularSpeedTimeout = millis() + 1500;         // Changed to 2500 from 1000, this possibly causes the stop and go if mower is controlled manually over WiFi 
     setLinearAngularSpeedTimeoutActive = true;
   }
-
-  float linearDelta = linear - linearSpeedSet;              // need a delta for triggering ramp
-  if (linear > 0) linear = linear * adaptiveSpeed();        // adaptive speed for mowing operation only interferes when in forward drive
+  
   linearCurrSet = linear;                                   // safe linear in a global before messing around with it, this is the "new" value, linearSpeedSet is the "old" value
-
+  float linearDelta = linear - linearSpeedSet;              // need a delta for triggering ramp
+  if (linear > 0) linear = linear * adaptiveSpeed();        // adaptive speed for mowing operation only when in forward drive
+  
   if (activateLinearSpeedRamp && useLinearRamp) {                             //this is a speed ramp for changes in speed during operation, to smooth transitions a little bit. needs to be quick
     float maxAcc = LINEAR_ACCEL;   // max Acceleration [mm/s²]
     float maxDec = LINEAR_DECEL;   // max Deceleration [mm/s²]          
@@ -613,12 +613,11 @@ void Motor::run() {
     motorRightRpm = 60.0 * ( (float)ticksRight / (float)ticksPerRevolution ) * (1000 / (float)deltaControlTime);
     motorMowRpm = 60.0 * ( (float)ticksMow / (float)mowticksPerRevolution ) * (1000 / (float)deltaControlTime);
   
-    if (isfinite(motorLeftRpm)) motorLeftRpmLP = lpfMotorLeftRpm(motorLeftRpm);
-    if (isfinite(motorRightRpm)) motorRightRpmLP = lpfMotorRightRpm(motorRightRpm);
-    if (isfinite(motorMowRpm)) {
-      motorMowRpmLP = lpfMotorMowRpm(motorMowRpm); 
-      motorMowRpmLPFast = lpfMotorMowRpmFast(motorMowRpm);
-    } 
+    motorLeftRpmLP = lpfMotorLeftRpm(motorLeftRpm);
+    motorRightRpmLP = lpfMotorRightRpm(motorRightRpm);
+    motorMowRpmLP = lpfMotorMowRpm(motorMowRpm); 
+    motorMowRpmLPFast = lpfMotorMowRpmFast(motorMowRpm);
+
   }
   
   //CONSOLE.print("   mowRpm: ");CONSOLE.print(motorMowRpm);CONSOLE.print("   mowRpmLP: ");CONSOLE.print(motorMowRpmLP);CONSOLE.print("   mowRpmLPFast: ");CONSOLE.println(motorMowRpmLPFast);
@@ -1269,11 +1268,9 @@ void Motor::control(){
 
     //Calculate PWM for left driving motor
     motorLeftPID.TaMax = 0.10; //100ms 
+
     //motorLeftPID.x = motorLeftLpf(motorLeftRpm);
-    /* if (ALFRED) {
-      if (ticksLeft == 0 || ticksLeft > 10) motorLeftPID.x = motorLeftRpmLP;
-      else motorLeftPID.x = motorLeftRpmLP;
-    } else motorLeftPID.x = motorLeftRpm; */
+    //motorLeftPID.x = motorLeftRpmLP;
     motorLeftPID.x = motorLeftRpm;
     motorLeftPID.w = motorLeftRpmSet;
     motorLeftPID.y_min = -pwmMax;
@@ -1288,11 +1285,9 @@ void Motor::control(){
 
     //Calculate PWM for right driving motor
     motorRightPID.TaMax = 0.15;
+
     //motorRightPID.x = motorRightLpf(motorRightRpm);
-    /* if (ALFRED) {
-      if (ticksRight == 0 || ticksRight > 10) motorRightPID.x = motorRightRpmLP; 
-      else motorRightPID.x = motorRightRpmLP;
-    } else motorRightPID.x = motorRightRpm; */
+    //motorRightPID.x = motorRightRpmLP;
     motorRightPID.x = motorRightRpm; 
     motorRightPID.w = motorRightRpmSet;
     motorRightPID.y_min = -pwmMax;
@@ -1315,10 +1310,7 @@ void Motor::control(){
       
       motorMowPID.TaMax = 0.15;
       //motorMowPID.x = motorMowLpf(motorMowRpm - comp) ;
-      /* if (ALFRED) {
-        if (ticksMow == 0 || ticksMow > 10) motorMowPID.x = motorMowRpmLP - comp;
-        else motorMowPID.x = motorMowRpm - comp;
-      } else motorMowPID.x = motorMowRpm - comp; */
+      
       motorMowPID.x = motorMowRpmLPFast - comp;
       motorMowPID.w = motorMowRpmSet;
       motorMowPID.y_min = -pwmMax;
