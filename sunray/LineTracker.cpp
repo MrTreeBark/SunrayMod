@@ -528,7 +528,7 @@ void linearSpeedState(){
 
   //consider the distance ramp wih the chosen speed if we are approaching or leaving a waypoint
   if (DISTANCE_RAMP) {
-    if (targetDist < 2 * NEARWAYPOINTDISTANCE || lastTargetDist < 2 * NEARWAYPOINTDISTANCE) { //start computing before reaching point distance (maybe not neccessary)
+    if (targetDist < 2 * NEARWAYPOINTDISTANCE || lastTargetDist < 2 * NEARWAYPOINTDISTANCE) { //start computing before reaching point distance (not neccessary)
       linear = distanceRamp(linear);
       distRampActive = true;
     } else {
@@ -606,7 +606,7 @@ void linearSpeedState(){
   chosenIndexl = chosenIndex;
 }
 
-float distanceRamp(float linear){
+/* float distanceRamp(float linear){
     float maxSpeed = linear*1000;
     float minSpeed = DISTANCE_RAMP_MINSPEED * 1000;
     float maxDist = (linear * NEARWAYPOINTDISTANCE /setSpeed) * 1000;     //if we are going slow for example because of float, the ramp will kick in when mower is nearer to point
@@ -641,6 +641,40 @@ float distanceRamp(float linear){
     rampSpeed = map(actDist, minDist, maxDist, minSpeed, maxSpeed);
     rampSpeed = constrain(rampSpeed, minSpeed, maxSpeed);
     rampSpeed /= 1000;
+    //CONSOLE.print(straight); CONSOLE.print(" "); CONSOLE.println(rampSpeed);
+    return rampSpeed;
+} */
+
+float distanceRamp(float linear){
+    if (lastTargetDist > NEARWAYPOINTDISTANCE && targetDist > NEARWAYPOINTDISTANCE) return linear;  //leave, nothing to do
+
+    float maxSpeed = linear;                                        //maxSpeed is the actual linetracker linear set 
+    float minSpeed = DISTANCE_RAMP_MINSPEED;
+    float maxDist = NEARWAYPOINTDISTANCE;                           //if we are going slow for example because of float, the ramp will kick in when mower is nearer to point
+    float minDist = TARGET_REACHED_TOLERANCE;                      
+    float actDist = 0;
+    float rampSpeed = 0;
+    static bool wasStraight;
+
+    if (targetDist <= lastTargetDist) {                             //need to decide what ramp, leaving or aproaching? --> approaching
+      //maxDist += maxSpeed;                                        //add an speed dependent offset to target distance when approaching, because mower comes with high speed that causes a timing issue
+      actDist = targetDist;
+      if (straight) {
+        minSpeed = TRANSITION_SPEED;                                //if we don´t need to rotate and want todo a point transition, do not decellarate too much and use TRANSITION_SPEED
+        transition = true;
+      }
+      wasStraight = straight;
+    } else {                                                        // --> leaving
+      if (wasStraight) {
+        minSpeed = TRANSITION_SPEED;
+        transition = true;
+      }
+      actDist = lastTargetDist;     
+    }
+
+    rampSpeed = safemap(actDist, minDist, maxDist, minSpeed, maxSpeed);
+    rampSpeed = constrain(rampSpeed, minSpeed, maxSpeed);
+    
     //CONSOLE.print(straight); CONSOLE.print(" "); CONSOLE.println(rampSpeed);
     return rampSpeed;
 }
