@@ -214,7 +214,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define WATCHDOG_TIME               16000 // (ms) resettimer for watchdog trigger
 //Hoooooodooooor!
 #define HODOR_ENDURANCE             5000  // (ms) The Time Hodor will hold the Door if HTTP Server is over timeout and whiling around in get or send loop, HODOR_GENTLE_TIME is the time Hodor waits until holding the door and thus protecting the hobit (Mower) if not in MOW_OP. (HTTP Server is blocked and will Timeout Client if Hodor is protecting...)
-#define HODOR_GENTLE_TIME           100   // (ms) HODOR_GENTLE_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if not in MOW_OP (HTTP SERVER FIX COUGHT IN A WHILE LOOP FOR UP TO 1 Sec, this is the idle situation... so its ok)
+#define HODOR_GENTLE_TIME           1000   // (ms) HODOR_GENTLE_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if not in MOW_OP (HTTP SERVER FIX COUGHT IN A WHILE LOOP FOR UP TO 1 Sec, this is the idle situation... so its ok)
 #define HODOR_BRUTAL_TIME           10    // (ms) HODOR_BRUTAL_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if in MOW_OP.    (HTTP SERVER FIX COUGHT IN A WHILE LOOP FOR UP TO 1 Sec, this is the Operation situation.. and we should not get distracted..)
 //Obstacle
 #define OBSTACLE_DETECTION_ROTATION true  // detect robot rotation stuck (requires IMU) (wheel at backside, popo situation)
