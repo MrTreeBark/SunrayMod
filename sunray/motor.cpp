@@ -323,15 +323,16 @@ void Motor::setLinearAngularSpeed(float linear, float angular, bool useLinearRam
   if (linear > 0) linear = linear * adaptiveSpeed();        // adaptive speed for mowing operation only when in forward drive
   
   if (activateLinearSpeedRamp && useLinearRamp) {                             //this is a speed ramp for changes in speed during operation, to smooth transitions a little bit. needs to be quick
-    float maxAcc = LINEAR_ACCEL;   // max Acceleration [mm/s²]
-    float maxDec = LINEAR_DECEL;   // max Deceleration [mm/s²]          
-    float dt = deltaControlTime / 1000.0; // deltaControlTime in seconds for accel ramp
-    float maxStep = (linearDelta > 0) ? maxAcc * dt : maxDec * dt; // direction, accel or decel? compute maxStep
+    float maxAcc = LINEAR_ACCEL;                                    // max Acceleration [mm/s²]
+    float maxDec = LINEAR_DECEL;                                    // max Deceleration [mm/s²]          
+    float dt = deltaControlTime / 1000.0;                           // deltaControlTime in seconds for accel ramp
+    float maxStep = (linearDelta > 0) ? maxAcc * dt : maxDec * dt;  // direction, accel or decel? integrate maxStep
+    maxStep /= 1000;                                                // steps in m/s
 
   if (fabs(linearDelta) > maxStep) {
-    linear += (linearDelta > 0 ? 1 : -1) * maxStep; // use acc/dec ramp
+    linear += (linearDelta > 0 ? 1 : -1) * maxStep;                 // use acc/dec ramp
   } else {
-    linear = linearCurrSet; // no ramp needed
+    linear = linearCurrSet;                                         // finished
   }
     //we want to cut the ramp if linear is zero to improve pointprecision, this is a trick and it works!
     if (linearCurrSet == 0 && fabs(linear) < 2 * MOTOR_MIN_SPEED) linear = 0;

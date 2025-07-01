@@ -657,7 +657,7 @@ float distanceRamp(float linear){
     static bool wasStraight;
 
     if (targetDist <= lastTargetDist) {                             //need to decide what ramp, leaving or aproaching? --> approaching
-      //maxDist += maxSpeed;                                        //add an speed dependent offset to target distance when approaching, because mower comes with high speed that causes a timing issue
+      maxDist += maxSpeed;                                        //add an speed dependent offset to target distance when approaching, because mower comes with high speed that causes a timing issue
       actDist = targetDist;
       if (straight) {
         minSpeed = TRANSITION_SPEED;                                //if we don´t need to rotate and want todo a point transition, do not decellarate too much and use TRANSITION_SPEED

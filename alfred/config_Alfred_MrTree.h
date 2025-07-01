@@ -106,7 +106,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOWSPINUPTIME               10000  // (ms) Adds time to rotate mowingdisc before starting moving, use high value if you enable ESCAPE_LAWN for good reading of idle mow motor RPM
 #define OVERLOADSPEED               0.25  // (m/s) if there is a overloadcurrent of a motordriver, mower will use OVERLOADSPEED
 #define TRACKSLOWSPEED              0.25  // (m/s) e.g the docking speed or functions of the future
-#define NEARWAYPOINTSPEED           0.15  // (m/s) the speed of mower when reaching/leaving a waypoint
+#define NEARWAYPOINTSPEED           0.35  // (m/s) the speed of mower when reaching/leaving a waypoint
 #define NEARWAYPOINTDISTANCE        0.50  // (m) the distance of mower if approaching and leaving a waypoint and thus triggers NEARWAYPOINTSPEED of mower
 #define FLOATSPEED                  0.25  // (m/s) on GPS FLOAT SOLUTION, mower will use FLOATSPEED
 #define SONARSPEED                  0.15  // (m/s) if sonar enabled and used, on sonar trigger mower will use SONARSPEED
@@ -119,7 +119,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOTOR_MAX_SPEED             1.0  // (m/s) maximum mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define MOTOR_MIN_SPEED             0.10  // (m/s) minimal mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define DISTANCE_RAMP               true  // is using NEARWAYPOINTDISTANCE, MOTOR_MIN_SPEED and the actual setspeed to calculate an indirect deceleration ramp to the next waypoint, if this is true, NEARWAYPOINTSPEED in linetracker.cpp is disabled
-#define DISTANCE_RAMP_MINSPEED      0.05  // (m/s) this is the ramp minspeed
+#define DISTANCE_RAMP_MINSPEED      0.15  // (m/s) this is the ramp minspeed
 //rotation speeds, also this is easy to tune for your expectations --> going to be changed to angularRamp() with less parameters
 #define ROTATION_RAMP               true  // uses a ramp for angletotargetfits (very nice), ROTATETOTARGETSPEED´s are disabled if this is true
 #define ROTATION_RAMP_MAX           85   // (deg/s) maximum rotation speed
@@ -131,7 +131,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ANGLEDIFF2                  15.0  // (deg) if angle to point is between ANGLEDIFF1 and ANGLEDIFF2 --> ROTATETOTARGETSPEED2 will be used, if it is less ROTATETOTARGETSPEED3 will be used...
 #define ANGLEPRECISE                5.0   // (deg) if Angle to point ist within 5deg, mower will continue with Linetracker.cpp Stanleycode and NEARWAYPOINT setup
 #define TRANSITION_ANGLE            15    // (deg) if next point is below this angle, mower will not stop completely but makes a transition with TRANSITION_SPEED
-#define TRANSITION_SPEED            0.15  // (m/s) speed for transition to next point angle
+#define TRANSITION_SPEED            0.25  // (m/s) speed for transition to next point angle
 #define TARGETFITS_ANGLE            45    // (deg/s) if target angle is below that, linetracker uses stanley for tracking. If over that angle, mower will stop and readjust with rotation at it´s current position
 //use a PID controller for mowmotor to set an RPM instead of PWM? If you use this (there will be a console output with data after 10sec when you activate the mowmotor and this is enabled)
 //CONFIG HINT: for the following options it is important if you have mow motor odometrie: USE_MOW_RPM_SET, ADAPTIVE_SPEED_MODE, ESCAPE_LAWN_MODE. If you do not have odometrie: use mode 1 on both cases and set USE_MOW_RPM_SET = false, if you have odometrie use mode 2 on both cases and set USE_MOW_RPM_SET = true (recommended)
@@ -242,7 +242,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOVING_TIME                 400   // time (ms) for moving back
 #define SWITCH_OFF_TRACTION_MOTORS  false  // should tractionmotors be disabled in dock?
 //LOG
-#define SUNRAY_OUTPUT               false // output standard Sunray_FW LOG in serial monitor and SDlog
+#define SUNRAY_OUTPUT               true // output standard Sunray_FW LOG in serial monitor and SDlog
 #define OUTPUT_LOOPTIME             false // calc and output the sunray loop time in serial monitor and SDlog
 //DEBUG
 #define DEBUG_OUTPUT                false // set true to have additional outputs and choose DEBUG´s below
