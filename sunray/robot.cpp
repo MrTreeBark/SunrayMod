@@ -1012,14 +1012,12 @@ bool detectObstacle(){
         CONSOLE.println("GPS_SPEED_DETECTION: gps no groundspeed => assume obstacle!");
         statMowGPSMotionTimeoutCounter++;
         noGPSSpeedTime = 0;
-        //resetLinearMotionMeasurement();
-        //resetAngularMotionMeasurement();
-        //resetStateEstimation();
+        //add forward/backward... better: let trigger obstacle handle all states
         maps.setObstaclePosition(stateX, stateY, 0, MOWER_RADIUS_FRONT, OBSTACLE_DIAMETER);
         triggerObstacle();
         return true;
       }
-    }     
+    } else noGPSSpeedTime = 0;    //reset delay timer 
   }
 
   // check if GPS motion (obstacle detection)  
