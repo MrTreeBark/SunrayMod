@@ -98,7 +98,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define OVERLOADSPEED               0.16  // (m/s) if there is a overloadcurrent of a motordriver, mower will use OVERLOADSPEED
 #define TRACKSLOWSPEED              0.25  // (m/s) e.g the docking speed or functions of the future
 #define NEARWAYPOINTSPEED           0.25  // (m/s) the speed of mower when reaching/leaving a waypoint
-#define NEARWAYPOINTDISTANCE        0.50  // (m) the distance of mower if approaching and leaving a waypoint and thus triggers NEARWAYPOINTSPEED of mower
+#define NEARWAYPOINTDISTANCE        0.85  // (m) the distance of mower if approaching and leaving a waypoint and thus triggers NEARWAYPOINTSPEED of mower
 #define FLOATSPEED                  0.25  // (m/s) on GPS FLOAT SOLUTION, mower will use FLOATSPEED
 #define SONARSPEED                  0.15  // (m/s) if sonar enabled and used, on sonar trigger mower will use SONARSPEED
 #define OBSTACLEAVOIDANCESPEED      0.35  // (m/s) on obstacle evade operations, mower will use OBSTACLEAVOIDANCESPEED
@@ -110,7 +110,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOTOR_MAX_SPEED             0.60  // (m/s) maximum mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define MOTOR_MIN_SPEED             0.05  // (m/s) minimal mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define DISTANCE_RAMP               true  // is using NEARWAYPOINTDISTANCE, MOTOR_MIN_SPEED and the actual setspeed to calculate an indirect deceleration ramp to the next waypoint, if this is true, NEARWAYPOINTSPEED in linetracker.cpp is disabled
-#define DISTANCE_RAMP_MINSPEED      0.15  // (m/s) this is the ramp minspeed
+#define DISTANCE_RAMP_MINSPEED      0.10  // (m/s) this is the ramp minspeed
 //rotation speeds, also this is easy to tune for your expectations --> going to be changed to angularRamp() with less parameters
 #define ROTATION_RAMP               true  // uses a ramp for angletotargetfits (very nice), ROTATETOTARGETSPEED´s are disabled if this is true
 #define ROTATION_RAMP_MAX           100   // (deg/s) maximum rotation speed
@@ -121,8 +121,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ANGLEDIFF1                  30.0  // (deg) if angle to point is more than ANGLEDIFF1              --> ROTATETOTARGETSPEED1 will be used 
 #define ANGLEDIFF2                  15.0  // (deg) if angle to point is between ANGLEDIFF1 and ANGLEDIFF2 --> ROTATETOTARGETSPEED2 will be used, if it is less ROTATETOTARGETSPEED3 will be used...
 #define ANGLEPRECISE                5.0   // (deg) if Angle to point ist within 5deg, mower will continue with Linetracker.cpp Stanleycode and NEARWAYPOINT setup
-#define TRANSITION_ANGLE            25    // (deg) if next point is below this angle, mower will not stop completely but makes a transition with TRANSITION_SPEED
-#define TRANSITION_SPEED            0.15  // (m/s) speed for transition to next point angle
+#define TRANSITION_ANGLE            35    // (deg) if next point is below this angle, mower will not stop completely but makes a transition with TRANSITION_SPEED
+#define TRANSITION_SPEED            0.25  // (m/s) speed for transition to next point angle
 #define TARGETFITS_ANGLE            45    // (deg/s) if target angle is below that, linetracker uses stanley for tracking. If over that angle, mower will stop and readjust with rotation at it´s current position
 //use a PID controller for mowmotor to set an RPM instead of PWM? If you use this (there will be a console output with data after 10sec when you activate the mowmotor and this is enabled)
 //CONFIG HINT: for the following options it is important if you have mow motor odometrie: USE_MOW_RPM_SET, ADAPTIVE_SPEED_MODE, ESCAPE_LAWN_MODE. If you do not have odometrie: use mode 1 on both cases and set USE_MOW_RPM_SET = false, if you have odometrie use mode 2 on both cases and set USE_MOW_RPM_SET = true (recommended)
@@ -203,9 +203,12 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOW_START_AT_WAYMOW         true // (WARNING: IF YOU SET THIS TRUE, YOU CANNOT START MOWMOTOR WITH APP MANUALLY ANYMORE) mowmotor only starts if way state of mower is waymow for the first time, used for mowmotor not starting directly at dock, but at mow area. This is a onetime trigger that only works when mower is (---> undocking ) ---> wayfree ---> mowarea ---> start mowmotor. After this, mowmotor will behave like it used to be
 #define WATCHDOG_CONTINUE           false // set true if you have watchdog reset issues, mower will start mowing after rebooting
 #define WATCHDOG_TIME               16000 // (ms) resettimer for watchdog trigger
-#define HODOR_ENDURANCE             5000  // (ms) The Time Hodor will hold the Door if HTTP Server is over timeout and whiling around in get or send loop, HODOR_GENTLE_TIME is the time Hodor waits until holding the door and thus protecting the hobit (Mower) if not in MOW_OP. 
-#define HODOR_GENTLE_TIME           1000  // (ms) HODOR_GENTLE_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if not in MOW_OP.
-#define HODOR_BRUTAL_TIME           10    // (ms) HODOR_BRUTAL_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if in MOW_OP.
+#define WIFI_DATA_TIMEOUT           50 // (ms) timeout for wifi app server, if data transmit is not done within this time, code iteration will continue and the next data will be sent, this is to prevent a hang of the code if wifi is not responding (e.g. if you have a bad connection or no connection at all)             
+//#define HODOR_ENDURANCE             5000  // (ms) The Time Hodor will hold the Door if HTTP Server is over timeout and whiling around in get or send loop, HODOR_GENTLE_TIME is the time Hodor waits until holding the door and thus protecting the hobit (Mower) if not in MOW_OP. 
+//#define HODOR_GENTLE_TIME           1000  // (ms) HODOR_GENTLE_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if not in MOW_OP.
+//#define HODOR_BRUTAL_TIME           20    // (ms) HODOR_BRUTAL_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if in MOW_OP.
+//#define WIFI_RECOVERY_INTERVAL      20000
+
 //OBSTACLES
 #define OBSTACLE_DETECTION_ROTATION true  // detect robot rotation stuck (requires IMU) (wheel at backside, popo situation)
 #define ROTATION_TIMEOUT            5000  // Timeout of rotation movement that triggers an obstacle with escapeReverse (goal for shorter trigger times)
@@ -588,7 +591,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 // ---- path tracking -----------------------------------
 
 // below this robot-to-target distance (m) a target is considered as reached
-#define TARGET_REACHED_TOLERANCE 0.07
+#define TARGET_REACHED_TOLERANCE 0.08
 
 // stanley control for path tracking - determines gain how fast to correct for lateral path errors
 #define STANLEY_CONTROL_P_NORMAL  3.4   // 3.4 // 3.0 for path tracking control (angular gain) when mowing
@@ -596,10 +599,10 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define STANLEY_FLOAT_P_NORMAL         1.0
 #define STANLEY_FLOAT_K_NORMAL         0.5
 
-#define STANLEY_CONTROL_P_SLOW    1.0   // 1 // 3.0 for path tracking control (angular gain) when docking tracking
-#define STANLEY_CONTROL_K_SLOW    0.5  // 0.05 // 0.1 for path tracking control (lateral gain) when mowing or docking
-#define STANLEY_FLOAT_P_SLOW           0.5
-#define STANLEY_FLOAT_K_SLOW           0.1
+#define STANLEY_CONTROL_P_SLOW    0.5   // 1 // 3.0 for path tracking control (angular gain) when docking tracking
+#define STANLEY_CONTROL_K_SLOW    0.2  // 0.05 // 0.1 for path tracking control (lateral gain) when mowing or docking
+#define STANLEY_FLOAT_P_SLOW           0.3
+#define STANLEY_FLOAT_K_SLOW           0.05
 
 
 

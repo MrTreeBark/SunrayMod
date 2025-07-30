@@ -1002,7 +1002,7 @@ bool detectObstacle(){
 
   // check GPS stateGroundSpeed difference to linearSpeedSet
   if (millis() > linearMotionStartTime + GPS_SPEED_DEADTIME) {
-    if (stateGroundSpeed < fabs(motor.linearSpeedSet/4) && !robotShouldRotate()) {
+    if (stateGroundSpeed < 0.05 && !robotShouldRotate()) {
       noGPSSpeedTime += deltaTime;
       if (NO_GPS_OBSTACLE && gpsObstacleNotAllowed){
         CONSOLE.println("GPS_SPEED_DETECTION: ignoring gps no groundspeed!");

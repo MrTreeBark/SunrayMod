@@ -175,6 +175,7 @@ void DockOp::onObstacle(){
 
 void DockOp::onWaitCommand(){
   CONSOLE.println("DockOp::onWaitCommand trigger waitOp");
+  motor.setLinearAngularSpeed(0,0,false);
   changeOp(waitOp, true);
 }
 

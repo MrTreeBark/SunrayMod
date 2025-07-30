@@ -25,23 +25,24 @@ along with The Arduino WiFiEsp library.  If not, see
 #define vsnprintf_P vsnprintf
 
 #define NUMESPTAGS 5
+#define IN_PROGRESS -100
 
 const char* ESPTAGS[] =
 {
     "\r\nOK\r\n",
-	"\r\nERROR\r\n",
-	"\r\nFAIL\r\n",
+    "\r\nERROR\r\n",
+    "\r\nFAIL\r\n",
     "\r\nSEND OK\r\n",
     " CONNECT\r\n"
 };
 
 typedef enum
 {
-	TAG_OK,
-	TAG_ERROR,
-	TAG_FAIL,
-	TAG_SENDOK,
-	TAG_CONNECT
+    TAG_OK,
+    TAG_ERROR,
+    TAG_FAIL,
+    TAG_SENDOK,
+    TAG_CONNECT
 } TagsEnum;
 
 
@@ -50,7 +51,7 @@ Stream *EspDrv::espSerial;
 ERingBuffer EspDrv::ringBuf(32);
 
 // Array of data to cache the information related to the networks discovered
-char 	EspDrv::_networkSsid[][WL_SSID_MAX_LENGTH] = {{"1"},{"2"},{"3"},{"4"},{"5"}};
+char     EspDrv::_networkSsid[][WL_SSID_MAX_LENGTH] = {{"1"},{"2"},{"3"},{"4"},{"5"}};
 int32_t EspDrv::_networkRssi[WL_NETWORKS_LIST_MAXNUM] = { 0 };
 uint8_t EspDrv::_networkEncr[WL_NETWORKS_LIST_MAXNUM] = { 0 };
 
@@ -70,104 +71,188 @@ uint8_t EspDrv::_remoteIp[] = {0};
 
 void EspDrv::wifiDriverInit(Stream *espSerial)
 {
-	LOGDEBUG(F("> wifiDriverInit"));
+    LOGDEBUG(F("> wifiDriverInit"));
 
-	EspDrv::espSerial = espSerial;
+    EspDrv::espSerial = espSerial;
 
-	bool initOK = false;
-	
-	for(int i=0; i<5; i++)
-	{
-		if (sendCmd(F("AT")) == TAG_OK)
-		{
-			initOK=true;
-			break;
-		}
-		delay(1000);
-	}
+    bool initOK = false;
+    
+    for(int i=0; i<5; i++)
+    {
+        if (sendCmd(F("AT")) == TAG_OK)
+        {
+            initOK=true;
+            break;
+        }
+        delay(1000);
+    }
 
-	if (!initOK)
-	{
-		LOGERROR(F("Cannot initialize ESP module"));
-		delay(5000);
-		return;
-	}
+    if (!initOK)
+    {
+        LOGERROR(F("Cannot initialize ESP module"));
+        delay(5000);
+        return;
+    }
 
-	reset();
+    reset();
 
-	// check firmware version
-	getFwVersion();
+    // check firmware version
+    getFwVersion();
 
-	// prints a warning message if the firmware is not 1.X or 2.X
-	if ((fwVersion[0] != '1' and fwVersion[0] != '2') or
-		fwVersion[1] != '.')
-	{
-		LOGWARN1(F("Warning: Unsupported firmware"), fwVersion);
-		delay(4000);
-	}
-	else
-	{
-		LOGINFO1(F("Initilization successful -"), fwVersion);
-	}
+    // prints a warning message if the firmware is not 1.X or 2.X
+    if ((fwVersion[0] != '1' and fwVersion[0] != '2') or
+        fwVersion[1] != '.')
+    {
+        LOGWARN1(F("Warning: Unsupported firmware"), fwVersion);
+        delay(4000);
+    }
+    else
+    {
+        LOGINFO1(F("Initilization successful -"), fwVersion);
+    }
 }
 
 
 void EspDrv::reset()
 {
-	LOGDEBUG(F("> reset"));
+    static enum {
+        RST_IDLE, RST_SEND_RST, RST_WAIT_RST, RST_EMPTY_BUF,
+        RST_SEND_ATE0, RST_SEND_CWMODE, RST_WAIT_CWMODE,
+        RST_SEND_CIPMUX, RST_SEND_CIPDINFO, RST_SEND_CWAUTOCONN,
+        RST_SEND_CWDHCP, RST_DONE
+    } state = RST_IDLE;
+    static unsigned long startTime = 0;
 
-	sendCmd(F("AT+RST"));
-	delay(3000);
-	espEmptyBuf(false);  // empty dirty characters from the buffer
+    switch (state) {
+        case RST_IDLE:
+            LOGDEBUG(F("> reset"));
+            sendCmd(F("AT+RST"));
+            startTime = millis();
+            state = RST_WAIT_RST;
+            return;
 
-	// disable echo of commands
-	sendCmd(F("ATE0"));
+        case RST_WAIT_RST:
+            if (millis() - startTime > 3000) {
+                state = RST_EMPTY_BUF;
+            }
+            return;
 
-	// set station mode
-	sendCmd(F("AT+CWMODE=1"));
-	delay(200);
+        case RST_EMPTY_BUF:
+            espEmptyBuf(false);  // empty dirty characters from the buffer
+            state = RST_SEND_ATE0;
+            return;
 
-	// set multiple connections mode
-	sendCmd(F("AT+CIPMUX=1"));
+        case RST_SEND_ATE0:
+            sendCmd(F("ATE0"));
+            state = RST_SEND_CWMODE;
+            return;
 
-	// Show remote IP and port with "+IPD"
-	sendCmd(F("AT+CIPDINFO=1"));
-	
-	// Disable autoconnect
-	// Automatic connection can create problems during initialization phase at next boot
-	sendCmd(F("AT+CWAUTOCONN=0"));
+        case RST_SEND_CWMODE:
+            sendCmd(F("AT+CWMODE=1"));
+            startTime = millis();
+            state = RST_WAIT_CWMODE;
+            return;
 
-	// enable DHCP
-	sendCmd(F("AT+CWDHCP=1,1"));
-	delay(200);
+        case RST_WAIT_CWMODE:
+            if (millis() - startTime > 200) {
+                state = RST_SEND_CIPMUX;
+            }
+            return;
+
+        case RST_SEND_CIPMUX:
+            sendCmd(F("AT+CIPMUX=1"));
+            state = RST_SEND_CIPDINFO;
+            return;
+
+        case RST_SEND_CIPDINFO:
+            sendCmd(F("AT+CIPDINFO=1"));
+            state = RST_SEND_CWAUTOCONN;
+            return;
+
+        case RST_SEND_CWAUTOCONN:
+            sendCmd(F("AT+CWAUTOCONN=0"));
+            state = RST_SEND_CWDHCP;
+            return;
+
+        case RST_SEND_CWDHCP:
+            sendCmd(F("AT+CWDHCP=1,1"));
+            startTime = millis();
+            state = RST_DONE;
+            return;
+
+        case RST_DONE:
+            if (millis() - startTime > 200) {
+                state = RST_IDLE;
+            }
+            return;
+    }
 }
-
 
 
 bool EspDrv::wifiConnect(const char* ssid, const char* passphrase)
 {
-	LOGDEBUG(F("> wifiConnect"));
+    // Static state variables to persist between calls
+    static enum { WIFI_IDLE, WIFI_SEND_CMD, WIFI_WAIT_RESP, WIFI_DONE, WIFI_FAIL } state = WIFI_IDLE;
+    static unsigned long startTime = 0;
+    static char lastSsid[WL_SSID_MAX_LENGTH] = {0};
+    static char lastPass[WL_SSID_MAX_LENGTH] = {0};
+    static ERingBuffer respBuf(64);
 
-	// TODO
-	// Escape character syntax is needed if "SSID" or "password" contains
-	// any special characters (',', '"' and '/')
+    switch (state) {
+        case WIFI_IDLE:
+            strncpy(lastSsid, ssid, WL_SSID_MAX_LENGTH-1);
+            strncpy(lastPass, passphrase, WL_SSID_MAX_LENGTH-1);
+            lastSsid[WL_SSID_MAX_LENGTH-1] = 0;
+            lastPass[WL_SSID_MAX_LENGTH-1] = 0;
+            espSerial->flush();
+            espEmptyBuf(false);
+            espSerial->print(F("AT+CWJAP_CUR=\""));
+            espSerial->print(lastSsid);
+            espSerial->print(F("\",\""));
+            espSerial->print(lastPass);
+            espSerial->println(F("\""));
+            startTime = millis();
+            respBuf.init();
+            state = WIFI_WAIT_RESP;
+            return false;
 
-    // connect to access point, use CUR mode to avoid connection at boot
-	int ret = sendCmd(F("AT+CWJAP_CUR=\"%s\",\"%s\""), 20000, ssid, passphrase);
+        case WIFI_WAIT_RESP:
+            while (espSerial->available()) {
+                char c = espSerial->read();
+                respBuf.push(c);
+                if (respBuf.endsWith("\r\nOK\r\n")) {
+                    LOGINFO1(F("Connected to"), lastSsid);
+                    state = WIFI_DONE;
+                    break;
+                }
+                if (respBuf.endsWith("\r\nFAIL\r\n") || respBuf.endsWith("\r\nERROR\r\n")) {
+                    LOGWARN1(F("Failed connecting to"), lastSsid);
+                    state = WIFI_FAIL;
+                    break;
+                }
+            }
+            if (state == WIFI_DONE) {
+                state = WIFI_IDLE;
+                return true;
+            }
+            if (state == WIFI_FAIL) {
+                espEmptyBuf(false);
+                state = WIFI_IDLE;
+                return false;
+            }
+            // Timeout after 20 seconds
+            if (millis() - startTime > 20000) {
+                LOGWARN1(F("Timeout connecting to"), lastSsid);
+                espEmptyBuf(false);
+                state = WIFI_IDLE;
+                return false;
+            }
+            return false;
 
-	if (ret==TAG_OK)
-	{
-		LOGINFO1(F("Connected to"), ssid);
-		return true;
-	}
-
-	LOGWARN1(F("Failed connecting to"), ssid);
-
-	// clean additional messages logged after the FAIL tag
-	delay(1000);
-	espEmptyBuf(false);
-
-	return false;
+        default:
+            state = WIFI_IDLE;
+            return false;
+    }
 }
 
 
@@ -459,51 +544,72 @@ int32_t EspDrv::getCurrentRSSI()
 
 uint8_t EspDrv::getScanNetworks()
 {
-    uint8_t ssidListNum = 0;
-    int idx;	
+    // Non-blocking state machine
+    static enum { GS_IDLE, GS_SEND_CMD, GS_WAIT_RESP, GS_PARSE_ENTRY, GS_DONE, GS_FAIL } state = GS_IDLE;
+    static unsigned long startTime = 0;
+    static uint8_t ssidListNum = 0;
+    static int idx = -1;
 
-	espEmptyBuf();
+    switch (state) {
+        case GS_IDLE:
+            espEmptyBuf();
+            LOGDEBUG(F("----------------------------------------------"));
+            LOGDEBUG(F(">> AT+CWLAP"));
+            espSerial->println(F("AT+CWLAP"));
+            startTime = millis();
+            ssidListNum = 0;
+            state = GS_WAIT_RESP;
+            return 0;
 
-	LOGDEBUG(F("----------------------------------------------"));
-	LOGDEBUG(F(">> AT+CWLAP"));
-	
-	espSerial->println(F("AT+CWLAP"));
-	
-	idx = readUntil(10000, "+CWLAP:(");
-	
-	while (idx == NUMESPTAGS)
-	{
-		_networkEncr[ssidListNum] = espSerial->parseInt();
-		
-		// discard , and " characters
-		readUntil(1000, "\"");
+        case GS_WAIT_RESP:
+            if (espSerial->available()) {
+                idx = readUntil(0, "+CWLAP:(", false); // 0 timeout: just check buffer
+                if (idx == NUMESPTAGS) {
+                    state = GS_PARSE_ENTRY;
+                } else if (millis() - startTime > 10000) {
+                    LOGERROR(F("Scan networks: timeout waiting for response"));
+                    state = GS_FAIL;
+                }
+            } else if (millis() - startTime > 10000) {
+                LOGERROR(F("Scan networks: timeout waiting for response"));
+                state = GS_FAIL;
+            }
+            return 0;
 
-		idx = readUntil(1000, "\"", false);
-		if(idx==NUMESPTAGS)
-		{
-			memset(_networkSsid[ssidListNum], 0, WL_SSID_MAX_LENGTH );
-			ringBuf.getStrN(_networkSsid[ssidListNum], 1, WL_SSID_MAX_LENGTH-1);
-		}
-		
-		// discard , character
-		readUntil(1000, ",");
-		
-		_networkRssi[ssidListNum] = espSerial->parseInt();
-		
-		idx = readUntil(1000, "+CWLAP:(");
+        case GS_PARSE_ENTRY:
+            if (ssidListNum >= WL_NETWORKS_LIST_MAXNUM) {
+                state = GS_DONE;
+                return 0;
+            }
+            _networkEncr[ssidListNum] = espSerial->parseInt();
+            readUntil(0, "\""); // discard , and " characters
+            idx = readUntil(0, "\"", false);
+            if (idx == NUMESPTAGS) {
+                memset(_networkSsid[ssidListNum], 0, WL_SSID_MAX_LENGTH );
+                ringBuf.getStrN(_networkSsid[ssidListNum], 1, WL_SSID_MAX_LENGTH-1);
+            }
+            readUntil(0, ","); // discard , character
+            _networkRssi[ssidListNum] = espSerial->parseInt();
+            idx = readUntil(0, "+CWLAP:(");
+            if (idx == NUMESPTAGS) {
+                ssidListNum++;
+                state = GS_PARSE_ENTRY; // Parse next entry
+            } else if (idx == -1) {
+                state = GS_DONE;
+            }
+            return 0;
 
-		if(ssidListNum==WL_NETWORKS_LIST_MAXNUM-1)
-			break;
+        case GS_DONE:
+            LOGDEBUG1(F("---------------------------------------------- >"), ssidListNum);
+            LOGDEBUG();
+            state = GS_IDLE;
+            return ssidListNum;
 
-		ssidListNum++;
-	}
-	
-	if (idx==-1)
-		return -1;
-
-	LOGDEBUG1(F("---------------------------------------------- >"), ssidListNum);
-	LOGDEBUG();
-    return ssidListNum;
+        case GS_FAIL:
+            state = GS_IDLE;
+            return (uint8_t)-1;
+    }
+    return 0;
 }
 
 bool EspDrv::getNetmask(IPAddress& mask) {
@@ -680,9 +786,8 @@ uint16_t EspDrv::availData(uint8_t connId)
 			_remoteIp[1] = espSerial->parseInt();
 			espSerial->read();                  // .
 			_remoteIp[2] = espSerial->parseInt();
-			espSerial->read();                  // .
+            espSerial->read();                  // .
 			_remoteIp[3] = espSerial->parseInt();
-			espSerial->read();                  // "
 			espSerial->read();                  // ,
 			_remotePort = espSerial->parseInt();     // <remote port>
 			
@@ -701,69 +806,63 @@ uint16_t EspDrv::availData(uint8_t connId)
 
 bool EspDrv::getData(uint8_t connId, uint8_t *data, bool peek, bool* connClose)
 {
-	if (connId!=_connId)
-		return false;
+    // Static state variables to persist between calls
+    static enum { GD_IDLE, GD_WAIT, GD_DONE, GD_FAIL } state = GD_IDLE;
+    static long startMillis = 0;
+    static uint8_t lastConnId = 0;
 
+    if (state == GD_IDLE) {
+        if (connId != _connId) return false;
+        lastConnId = connId;
+        startMillis = millis();
+        *connClose = false;
+        state = GD_WAIT;
+    }
 
-	// see Serial.timedRead
+    if (state == GD_WAIT) {
+        if (espSerial->available()) {
+            if (peek) {
+                *data = (char)espSerial->peek();
+            } else {
+                *data = (char)espSerial->read();
+                _bufPos--;
+            }
 
-	long _startMillis = millis();
-	do
-	{
-		if (espSerial->available())
-		{
-			if (peek)
-			{
-				*data = (char)espSerial->peek();
-			}
-			else
-			{
-				*data = (char)espSerial->read();
-				_bufPos--;
-			}
-			//Serial.print((char)*data);
+            if (_bufPos == 0) {
+                // after the data packet a ",CLOSED" string may be received
+                delay(5); // optional, can be removed for more responsiveness
 
-			if (_bufPos == 0)
-			{
-				// after the data packet a ",CLOSED" string may be received
-				// this means that the socket is now closed
+                if (espSerial->available()) {
+                    if (espSerial->peek() == 48 + lastConnId) { // '0' + connId
+                        int idx = readUntil(500, ",CLOSED\r\n", false);
+                        if (idx != NUMESPTAGS) {
+                            LOGERROR(F("Tag CLOSED not found"));
+                        }
+                        LOGDEBUG();
+                        LOGDEBUG(F("Connection closed"));
+                        *connClose = true;
+                    }
+                }
+            }
+            state = GD_DONE;
+        } else if (millis() - startMillis > 2000) {
+            LOGERROR1(F("TIMEOUT:"), _bufPos);
+            _bufPos = 0;
+            _connId = 0;
+            *data = 0;
+            state = GD_FAIL;
+        }
+    }
 
-				delay(5);
-
-				if (espSerial->available())
-				{
-					//LOGDEBUG(".2");
-					//LOGDEBUG(espSerial->peek());
-
-					// 48 = '0'
-					if (espSerial->peek()==48+connId)
-					{
-						int idx = readUntil(500, ",CLOSED\r\n", false);
-						if(idx!=NUMESPTAGS)
-						{
-							LOGERROR(F("Tag CLOSED not found"));
-						}
-
-						LOGDEBUG();
-						LOGDEBUG(F("Connection closed"));
-
-						*connClose=true;
-					}
-				}
-			}
-
-			return true;
-		}
-	} while(millis() - _startMillis < 2000);
-
-    // timed out, reset the buffer
-	LOGERROR1(F("TIMEOUT:"), _bufPos);
-
-    _bufPos = 0;
-	_connId = 0;
-	*data = 0;
-	
-	return false;
+    if (state == GD_DONE) {
+        state = GD_IDLE;
+        return true;
+    }
+    if (state == GD_FAIL) {
+        state = GD_IDLE;
+        return false;
+    }
+    return false;
 }
 
 /**
@@ -773,121 +872,335 @@ bool EspDrv::getData(uint8_t connId, uint8_t *data, bool peek, bool* connClose)
  */
 int EspDrv::getDataBuf(uint8_t connId, uint8_t *buf, uint16_t bufSize)
 {
-	if (connId!=_connId)
-		return false;
+    // Static state variables to persist between calls
+    static enum { GDBUF_IDLE, GDBUF_READING, GDBUF_DONE, GDBUF_FAIL, GDBUF_CONN_MISMATCH } state = GDBUF_IDLE;
+    static uint16_t bytesRead = 0;
+    static unsigned long startMillis = 0;
+    //static uint8_t lastConnId = 0;
+    static uint16_t lastBufSize = 0;
+    static uint8_t* lastBuf = nullptr;
 
-	if(_bufPos<bufSize)
-		bufSize = _bufPos;
-	
-	for(uint16_t i=0; i<bufSize; i++)
-	{
-		int c = timedRead();
-		//LOGDEBUG(c);
-		if(c==-1)
-			return -1;
-		
-		buf[i] = (char)c;
-		_bufPos--;
-	}
+    switch (state) {
+        case GDBUF_IDLE:
+            if (connId != _connId) {
+                LOGERROR(F("getDataBuf: connection ID mismatch"));
+                state = GDBUF_CONN_MISMATCH;
+                break;
+            }
+            lastBufSize = (_bufPos < bufSize) ? _bufPos : bufSize;
+            bytesRead = 0;
+            //lastConnId = connId;
+            lastBuf = buf;
+            startMillis = millis();
+            state = GDBUF_READING;
+            // fall through
 
-	return bufSize;
+        case GDBUF_READING:
+            while (bytesRead < lastBufSize && espSerial->available()) {
+                int c = espSerial->read();
+                if (c == -1) {
+                    LOGERROR(F("getDataBuf: serial read error"));
+                    state = GDBUF_FAIL;
+                    break;
+                }
+                lastBuf[bytesRead++] = (char)c;
+                _bufPos--;
+            }
+            if (bytesRead == lastBufSize) {
+                //CONSOLE.println("getDataBuf: success");
+                state = GDBUF_DONE;
+            } else if (millis() - startMillis > 1000) { // 1s timeout
+                LOGERROR(F("getDataBuf: timeout"));
+                state = GDBUF_FAIL;
+            }
+            break;
+
+        case GDBUF_DONE: {
+            int result = bytesRead;
+            state = GDBUF_IDLE;
+            return result;
+        }
+
+        case GDBUF_FAIL:
+            state = GDBUF_IDLE;
+            return -1;
+
+        case GDBUF_CONN_MISMATCH:
+            state = GDBUF_IDLE;
+            return -1;
+    }
+    return 0; // Still in progress
 }
 
 
 bool EspDrv::sendData(uint8_t sock, const uint8_t *data, uint16_t len)
 {
-	LOGDEBUG2(F("> sendData:"), sock, len);
+    static enum { SD_IDLE, SD_WAIT_PROMPT, SD_WRITE_DATA, SD_WAIT_SENDOK, SD_DONE, SD_FAIL } state = SD_IDLE;
+    static unsigned long startTime = 0;
+    static uint16_t bytesWritten = 0;
+    static const uint8_t* lastData = nullptr;
+    static uint16_t lastLen = 0;
+    //static uint8_t lastSock = 0;
 
-	char cmdBuf[20];
-	sprintf_P(cmdBuf, PSTR("AT+CIPSEND=%d,%u"), sock, len);
-	espSerial->println(cmdBuf);
+    switch (state) {
+        case SD_IDLE:
+            //lastSock = sock;
+            lastData = data;
+            lastLen = len;
+            bytesWritten = 0;
+            char cmdBuf[24];
+            sprintf_P(cmdBuf, PSTR("AT+CIPSEND=%d,%u"), sock, len);
+            espSerial->println(cmdBuf);
+            startTime = millis();
+            state = SD_WAIT_PROMPT;
+            return false;
 
-	int idx = readUntil(1000, (char *)">", false);
-	if(idx!=NUMESPTAGS)
-	{
-		LOGERROR(F("Data packet send error (1)"));
-		return false;
-	}
+        case SD_WAIT_PROMPT: {
+            int idx = -1;
+            // Non-blocking: check for prompt '>''
+            if (espSerial->available()) {
+                idx = readUntil(0, (char *)">", false); // 0 timeout: just check buffer
+                if (idx == NUMESPTAGS) {
+                    state = SD_WRITE_DATA;
+                } else if (millis() - startTime > 1000) {
+                    LOGERROR(F("Data packet send error (1): prompt timeout"));
+                    state = SD_FAIL;
+                }
+            } else if (millis() - startTime > 1000) {
+                LOGERROR(F("Data packet send error (1): prompt timeout"));
+                state = SD_FAIL;
+            }
+            return false;
+        }
 
-	espSerial->write(data, len);
+        case SD_WRITE_DATA:
+            // Write as much as possible this call
+            while (bytesWritten < lastLen && espSerial->availableForWrite()) {
+                espSerial->write(lastData[bytesWritten++]);
+            }
+            if (bytesWritten == lastLen) {
+                startTime = millis();
+                state = SD_WAIT_SENDOK;
+            }
+            return false;
 
-	idx = readUntil(2000);
-	if(idx!=TAG_SENDOK)
-	{
-		LOGERROR(F("Data packet send error (2)"));
-		return false;
-	}
+        case SD_WAIT_SENDOK: {
+            int idx = -1;
+            if (espSerial->available()) {
+                idx = readUntil(0, nullptr, true); // 0 timeout: just check buffer for tags
+                if (idx == TAG_SENDOK) {
+                    state = SD_DONE;
+                } else if (idx >= 0 && idx != TAG_SENDOK) {
+                    LOGERROR(F("Data packet send error (2): wrong tag"));
+                    state = SD_FAIL;
+                } else if (millis() - startTime > 2000) {
+                    LOGERROR(F("Data packet send error (2): sendok timeout"));
+                    state = SD_FAIL;
+                }
+            } else if (millis() - startTime > 2000) {
+                LOGERROR(F("Data packet send error (2): sendok timeout"));
+                state = SD_FAIL;
+            }
+            return false;
+        }
 
-    return true;
+        case SD_DONE:
+            state = SD_IDLE;
+            return true;
+
+        case SD_FAIL:
+            state = SD_IDLE;
+            return false;
+    }
+    return false;
 }
 
 // Overrided sendData method for __FlashStringHelper strings
 bool EspDrv::sendData(uint8_t sock, const __FlashStringHelper *data, uint16_t len, bool appendCrLf)
 {
-	LOGDEBUG2(F("> sendData:"), sock, len);
+    static enum { SDF_IDLE, SDF_WAIT_PROMPT, SDF_WRITE_DATA, SDF_WRITE_CRLF, SDF_WAIT_SENDOK, SDF_DONE, SDF_FAIL } state = SDF_IDLE;
+    static unsigned long startTime = 0;
+    static uint16_t bytesWritten = 0;
+    static uint16_t lastLen = 0;
+    static uint8_t lastSock = 0;
+    static bool lastAppendCrLf = false;
+    static PGM_P lastData = nullptr;
 
-	char cmdBuf[20];
-	uint16_t len2 = len + 2*appendCrLf;
-	sprintf_P(cmdBuf, PSTR("AT+CIPSEND=%d,%u"), sock, len2);
-	espSerial->println(cmdBuf);
+    switch (state) {
+        case SDF_IDLE:
+            lastSock = sock;
+            lastData = reinterpret_cast<PGM_P>(data);
+            lastLen = len;
+            lastAppendCrLf = appendCrLf;
+            bytesWritten = 0;
+            {
+                char cmdBuf[20];
+                uint16_t len2 = len + 2 * appendCrLf;
+                sprintf_P(cmdBuf, PSTR("AT+CIPSEND=%d,%u"), sock, len2);
+                espSerial->println(cmdBuf);
+            }
+            startTime = millis();
+            state = SDF_WAIT_PROMPT;
+            return false;
 
-	int idx = readUntil(1000, (char *)">", false);
-	if(idx!=NUMESPTAGS)
-	{
-		LOGERROR(F("Data packet send error (1)"));
-		return false;
-	}
+        case SDF_WAIT_PROMPT: {
+            int idx = -1;
+            if (espSerial->available()) {
+                idx = readUntil(0, (char *)">", false); // 0 timeout: just check buffer
+                if (idx == NUMESPTAGS) {
+                    state = SDF_WRITE_DATA;
+                } else if (millis() - startTime > 1000) {
+                    LOGERROR(F("FlashString send error (1): prompt timeout"));
+                    state = SDF_FAIL;
+                }
+            } else if (millis() - startTime > 1000) {
+                LOGERROR(F("FlashString send error (1): prompt timeout"));
+                state = SDF_FAIL;
+            }
+            return false;
+        }
 
-	//espSerial->write(data, len);
-	PGM_P p = reinterpret_cast<PGM_P>(data);
-	for (uint16_t i=0; i<len; i++)
-	{
-		unsigned char c = pgm_read_byte(p++);
-		espSerial->write(c);
-	}
-	if (appendCrLf)
-	{
-		espSerial->write('\r');
-		espSerial->write('\n');
-	}
+        case SDF_WRITE_DATA:
+            // Write as much as possible this call
+            while (bytesWritten < lastLen && espSerial->availableForWrite()) {
+                unsigned char c = pgm_read_byte(lastData + bytesWritten);
+                espSerial->write(c);
+                bytesWritten++;
+            }
+            if (bytesWritten == lastLen) {
+                if (lastAppendCrLf) {
+                    state = SDF_WRITE_CRLF;
+                } else {
+                    startTime = millis();
+                    state = SDF_WAIT_SENDOK;
+                }
+            }
+            return false;
 
-	idx = readUntil(2000);
-	if(idx!=TAG_SENDOK)
-	{
-		LOGERROR(F("Data packet send error (2)"));
-		return false;
-	}
+        case SDF_WRITE_CRLF:
+            if (espSerial->availableForWrite() >= 2) {
+                espSerial->write('\r');
+                espSerial->write('\n');
+                startTime = millis();
+                state = SDF_WAIT_SENDOK;
+            }
+            return false;
 
-    return true;
+        case SDF_WAIT_SENDOK: {
+            int idx = -1;
+            if (espSerial->available()) {
+                idx = readUntil(0, nullptr, true); // 0 timeout: just check buffer for tags
+                if (idx == TAG_SENDOK) {
+                    state = SDF_DONE;
+                } else if (idx >= 0 && idx != TAG_SENDOK) {
+                    LOGERROR(F("FlashString send error (2): wrong tag"));
+                    state = SDF_FAIL;
+                } else if (millis() - startTime > 2000) {
+                    LOGERROR(F("FlashString send error (2): sendok timeout"));
+                    state = SDF_FAIL;
+                }
+            } else if (millis() - startTime > 2000) {
+                LOGERROR(F("FlashString send error (2): sendok timeout"));
+                state = SDF_FAIL;
+            }
+            return false;
+        }
+
+        case SDF_DONE:
+            state = SDF_IDLE;
+            return true;
+
+        case SDF_FAIL:
+            state = SDF_IDLE;
+            return false;
+    }
+    return false;
 }
 
 bool EspDrv::sendDataUdp(uint8_t sock, const char* host, uint16_t port, const uint8_t *data, uint16_t len)
 {
-	LOGDEBUG2(F("> sendDataUdp:"), sock, len);
-	LOGDEBUG2(F("> sendDataUdp:"), host, port);
+    static enum { SDU_IDLE, SDU_WAIT_PROMPT, SDU_WRITE_DATA, SDU_WAIT_SENDOK, SDU_DONE, SDU_FAIL } state = SDU_IDLE;
+    static unsigned long startTime = 0;
+    static uint16_t bytesWritten = 0;
+    static const uint8_t* lastData = nullptr;
+    static uint16_t lastLen = 0;
+    //static uint8_t lastSock = 0;
+    static char lastHost[64];
+    static uint16_t lastPort = 0;
 
-	char cmdBuf[40];
-	sprintf_P(cmdBuf, PSTR("AT+CIPSEND=%d,%u,\"%s\",%u"), sock, len, host, port);
-	//LOGDEBUG1(F("> sendDataUdp:"), cmdBuf);
-	espSerial->println(cmdBuf);
+    switch (state) {
+        case SDU_IDLE:
+            //lastSock = sock;
+            strncpy(lastHost, host, sizeof(lastHost) - 1);
+            lastHost[sizeof(lastHost) - 1] = 0;
+            lastPort = port;
+            lastData = data;
+            lastLen = len;
+            bytesWritten = 0;
+            {
+                char cmdBuf[80];
+                snprintf(cmdBuf, sizeof(cmdBuf), "AT+CIPSEND=%d,%u,\"%s\",%u", sock, len, lastHost, lastPort);
+                espSerial->println(cmdBuf);
+            }
+            startTime = millis();
+            state = SDU_WAIT_PROMPT;
+            return false;
 
-	int idx = readUntil(1000, (char *)">", false);
-	if(idx!=NUMESPTAGS)
-	{
-		LOGERROR(F("Data packet send error (1)"));
-		return false;
-	}
+        case SDU_WAIT_PROMPT: {
+            int idx = -1;
+            if (espSerial->available()) {
+                idx = readUntil(0, (char *)">", false); // 0 timeout: just check buffer
+                if (idx == NUMESPTAGS) {
+                    state = SDU_WRITE_DATA;
+                } else if (millis() - startTime > 1000) {
+                    LOGERROR(F("UDP send error (1): prompt timeout"));
+                    state = SDU_FAIL;
+                }
+            } else if (millis() - startTime > 1000) {
+                LOGERROR(F("UDP send error (1): prompt timeout"));
+                state = SDU_FAIL;
+            }
+            return false;
+        }
 
-	espSerial->write(data, len);
+        case SDU_WRITE_DATA:
+            while (bytesWritten < lastLen && espSerial->availableForWrite()) {
+                espSerial->write(lastData[bytesWritten++]);
+            }
+            if (bytesWritten == lastLen) {
+                startTime = millis();
+                state = SDU_WAIT_SENDOK;
+            }
+            return false;
 
-	idx = readUntil(2000);
-	if(idx!=TAG_SENDOK)
-	{
-		LOGERROR(F("Data packet send error (2)"));
-		return false;
-	}
+        case SDU_WAIT_SENDOK: {
+            int idx = -1;
+            if (espSerial->available()) {
+                idx = readUntil(0, nullptr, true); // 0 timeout: just check buffer for tags
+                if (idx == TAG_SENDOK) {
+                    state = SDU_DONE;
+                } else if (idx >= 0 && idx != TAG_SENDOK) {
+                    LOGERROR(F("UDP send error (2): wrong tag"));
+                    state = SDU_FAIL;
+                } else if (millis() - startTime > 2000) {
+                    LOGERROR(F("UDP send error (2): sendok timeout"));
+                    state = SDU_FAIL;
+                }
+            } else if (millis() - startTime > 2000) {
+                LOGERROR(F("UDP send error (2): sendok timeout"));
+                state = SDU_FAIL;
+            }
+            return false;
+        }
 
-    return true;
+        case SDU_DONE:
+            state = SDU_IDLE;
+            return true;
+
+        case SDU_FAIL:
+            state = SDU_IDLE;
+            return false;
+    }
 }
 
 
@@ -916,74 +1229,78 @@ uint16_t EspDrv::getRemotePort()
 */
 bool EspDrv::sendCmdGet(const __FlashStringHelper* cmd, const char* startTag, const char* endTag, char* outStr, int outStrLen)
 {
-    int idx;
-	bool ret = false;
+    static enum { SCG_IDLE, SCG_SEND, SCG_WAIT_START, SCG_WAIT_END, SCG_DONE, SCG_FAIL } state = SCG_IDLE;
+    static int idx = IN_PROGRESS;
+    static char* lastOutStr = nullptr;
+    static int lastOutStrLen = 0;
+    static const char* lastStartTag = nullptr;
+    static const char* lastEndTag = nullptr;
+    static const __FlashStringHelper* lastCmd = nullptr;
 
-	outStr[0] = 0;
+    switch (state) {
+        case SCG_IDLE:
+            espEmptyBuf();
+            LOGDEBUG(F("----------------------------------------------"));
+            LOGDEBUG1(F(">>"), cmd);
+            espSerial->println(cmd);
+            lastCmd = cmd;
+            lastStartTag = startTag;
+            lastEndTag = endTag;
+            lastOutStr = outStr;
+            lastOutStrLen = outStrLen;
+            outStr[0] = 0;
+            state = SCG_WAIT_START;
+            return false;
 
-	espEmptyBuf();
+        case SCG_WAIT_START:
+            idx = readUntil(1000, lastStartTag);
+            if (idx == NUMESPTAGS) {
+                ringBuf.init();
+                state = SCG_WAIT_END;
+            } else if (idx >= 0 && idx < NUMESPTAGS) {
+                LOGDEBUG1(F("No start tag found:"), idx);
+                state = SCG_FAIL;
+            } else if (idx == -1) {
+                LOGWARN(F("No tag found"));
+                state = SCG_FAIL;
+            }
+            return false;
 
-	LOGDEBUG(F("----------------------------------------------"));
-	LOGDEBUG1(F(">>"), cmd);
+        case SCG_WAIT_END:
+            idx = readUntil(500, lastEndTag);
+            if (idx == NUMESPTAGS) {
+                ringBuf.getStrN(lastOutStr, strlen(lastEndTag), lastOutStrLen-1);
+                readUntil(2000);
+                state = SCG_DONE;
+            } else if (idx == -1) {
+                LOGWARN(F("End tag not found"));
+                state = SCG_FAIL;
+            }
+            return false;
 
-	// send AT command to ESP
-	espSerial->println(cmd);
+        case SCG_DONE:
+            LOGDEBUG1(F("---------------------------------------------- >"), lastOutStr);
+            LOGDEBUG();
+            state = SCG_IDLE;
+            return true;
 
-	// read result until the startTag is found
-	idx = readUntil(1000, startTag);
-
-	if(idx==NUMESPTAGS)
-	{
-		// clean the buffer to get a clean string
-		ringBuf.init();
-
-		// start tag found, search the endTag
-		idx = readUntil(500, endTag);
-
-		if(idx==NUMESPTAGS)
-		{
-			// end tag found
-			// copy result to output buffer avoiding overflow
-			ringBuf.getStrN(outStr, strlen(endTag), outStrLen-1);
-
-			// read the remaining part of the response
-			readUntil(2000);
-
-			ret = true;
-		}
-		else
-		{
-			LOGWARN(F("End tag not found"));
-		}
-	}
-	else if(idx>=0 and idx<NUMESPTAGS)
-	{
-		// the command has returned but no start tag is found
-		LOGDEBUG1(F("No start tag found:"), idx);
-	}
-	else
-	{
-		// the command has returned but no tag is found
-		LOGWARN(F("No tag found"));
-	}
-
-	LOGDEBUG1(F("---------------------------------------------- >"), outStr);
-	LOGDEBUG();
-
-	return ret;
+        case SCG_FAIL:
+            state = SCG_IDLE;
+            return false;
+    }
+    return false;
 }
 
 bool EspDrv::sendCmdGet(const __FlashStringHelper* cmd, const __FlashStringHelper* startTag, const __FlashStringHelper* endTag, char* outStr, int outStrLen)
 {
-	char _startTag[strlen_P((char*)startTag)+1];
-	strcpy_P(_startTag,  (char*)startTag);
+    char _startTag[strlen_P((char*)startTag)+1];
+    strcpy_P(_startTag,  (char*)startTag);
 
-	char _endTag[strlen_P((char*)endTag)+1];
-	strcpy_P(_endTag,  (char*)endTag);
+    char _endTag[strlen_P((char*)endTag)+1];
+    strcpy_P(_endTag,  (char*)endTag);
 
-	return sendCmdGet(cmd, _startTag, _endTag, outStr, outStrLen);
+    return sendCmdGet(cmd, _startTag, _endTag, outStr, outStrLen);
 }
-
 
 /*
 * Sends the AT command and returns the id of the TAG.
@@ -991,21 +1308,34 @@ bool EspDrv::sendCmdGet(const __FlashStringHelper* cmd, const __FlashStringHelpe
 */
 int EspDrv::sendCmd(const __FlashStringHelper* cmd, int timeout)
 {
-    espEmptyBuf();
+    static enum { CMD_IDLE, CMD_SENT, CMD_WAIT } state = CMD_IDLE;
+    static int result = IN_PROGRESS;
+    static int lastTimeout = 0;
+    static const __FlashStringHelper* lastCmd = nullptr;
 
-	LOGDEBUG(F("----------------------------------------------"));
-	LOGDEBUG1(F(">>"), cmd);
-
-	espSerial->println(cmd);
-
-	int idx = readUntil(timeout);
-
-	LOGDEBUG1(F("---------------------------------------------- >"), idx);
-	LOGDEBUG();
-
-    return idx;
+    switch (state) {
+        case CMD_IDLE:
+            espEmptyBuf();
+            LOGDEBUG(F("----------------------------------------------"));
+            LOGDEBUG1(F(">>"), cmd);
+            espSerial->println(cmd);
+            lastCmd = cmd;
+            lastTimeout = timeout;
+            state = CMD_WAIT;
+            result = IN_PROGRESS;
+            return IN_PROGRESS;
+        case CMD_WAIT:
+            result = readUntil(lastTimeout);
+            if (result != IN_PROGRESS) {
+                LOGDEBUG1(F("---------------------------------------------- >"), result);
+                LOGDEBUG();
+                state = CMD_IDLE;
+                return result;
+            }
+            return IN_PROGRESS;
+    }
+    return IN_PROGRESS;
 }
-
 
 /*
 * Sends the AT command and returns the id of the TAG.
@@ -1014,28 +1344,27 @@ int EspDrv::sendCmd(const __FlashStringHelper* cmd, int timeout)
 */
 int EspDrv::sendCmd(const __FlashStringHelper* cmd, int timeout, ...)
 {
-	char cmdBuf[CMD_BUFFER_SIZE];
+    char cmdBuf[CMD_BUFFER_SIZE];
 
-	va_list args;
-	va_start (args, timeout);
-	vsnprintf_P (cmdBuf, CMD_BUFFER_SIZE, (char*)cmd, args);
-	va_end (args);
+    va_list args;
+    va_start (args, timeout);
+    vsnprintf_P (cmdBuf, CMD_BUFFER_SIZE, (char*)cmd, args);
+    va_end (args);
 
-	espEmptyBuf();
+    espEmptyBuf();
 
-	LOGDEBUG(F("----------------------------------------------"));
-	LOGDEBUG1(F(">>"), cmdBuf);
+    LOGDEBUG(F("----------------------------------------------"));
+    LOGDEBUG1(F(">>"), cmdBuf);
 
-	espSerial->println(cmdBuf);
+    espSerial->println(cmdBuf);
 
-	int idx = readUntil(timeout);
+    int idx = readUntil(timeout);
 
-	LOGDEBUG1(F("---------------------------------------------- >"), idx);
-	LOGDEBUG();
+    LOGDEBUG1(F("---------------------------------------------- >"), idx);
+    LOGDEBUG();
 
-	return idx;
+    return idx;
 }
-
 
 // Read from serial until one of the tags is found
 // Returns:
@@ -1043,69 +1372,66 @@ int EspDrv::sendCmd(const __FlashStringHelper* cmd, int timeout, ...)
 //   -1 if no tag was found (timeout)
 int EspDrv::readUntil(unsigned int timeout, const char* tag, bool findTags)
 {
-	ringBuf.reset();
+    static unsigned long start = 0;
+    static int ret = -1;
+    static bool initialized = false;
 
-	char c;
-    unsigned long start = millis();
-	int ret = -1;
-
-	while ((millis() - start < timeout) and ret<0)
-	{
-        if(espSerial->available())
-		{
-            c = (char)espSerial->read();
-			LOGDEBUG0(c);
-			ringBuf.push(c);
-
-			if (tag!=NULL)
-			{
-				if (ringBuf.endsWith(tag))
-				{
-					ret = NUMESPTAGS;
-					//LOGDEBUG1("xxx");
-				}
-			}
-			if(findTags)
-			{
-				for(int i=0; i<NUMESPTAGS; i++)
-				{
-					if (ringBuf.endsWith(ESPTAGS[i]))
-					{
-						ret = i;
-						break;
-					}
-				}
-			}
-		}
+    if (!initialized) {
+        ringBuf.reset();
+        start = millis();
+        ret = -1;
+        initialized = true;
     }
 
-	if (millis() - start >= timeout)
-	{
-		LOGWARN(F(">>> TIMEOUT >>>"));
-	}
+    while (espSerial->available()) {
+        char c = (char)espSerial->read();
+        LOGDEBUG0(c);
+        ringBuf.push(c);
 
-    return ret;
+        if (tag != NULL) {
+            if (ringBuf.endsWith(tag)) {
+                ret = NUMESPTAGS;
+                initialized = false;
+                return ret;
+            }
+        }
+        if (findTags) {
+            for (int i = 0; i < NUMESPTAGS; i++) {
+                if (ringBuf.endsWith(ESPTAGS[i])) {
+                    ret = i;
+                    initialized = false;
+                    return ret;
+                }
+            }
+        }
+    }
+
+    if (millis() - start >= timeout) {
+        LOGWARN(F(">>> TIMEOUT >>>"));
+        initialized = false;
+        return -1;
+    }
+
+    return IN_PROGRESS; // IN_PROGRESS
 }
-
 
 void EspDrv::espEmptyBuf(bool warn)
 {
     char c;
-	int i=0;
-	while(espSerial->available() > 0)
+    int i=0;
+    while(espSerial->available() > 0)
     {
-		c = espSerial->read();
-		if (i>0 and warn==true)
-			LOGDEBUG0(c);
-		i++;
-	}
-	if (i>0 and warn==true)
+        c = espSerial->read();
+        if (i>0 and warn==true)
+            LOGDEBUG0(c);
+        i++;
+    }
+    if (i>0 and warn==true)
     {
-		LOGDEBUG(F(""));
-		LOGDEBUG1(F("Dirty characters in the serial buffer! >"), i);
-	}
+        LOGDEBUG(F(""));
+        LOGDEBUG1(F("Dirty characters in the serial buffer! >"), i);
+    }
 }
-
 
 // copied from Serial::timedRead
 int EspDrv::timedRead()
@@ -1121,7 +1447,5 @@ int EspDrv::timedRead()
 
   return -1; // -1 indicates timeout
 }
-
-
 
 EspDrv espDrv;

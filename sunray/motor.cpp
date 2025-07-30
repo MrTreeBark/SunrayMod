@@ -237,7 +237,7 @@ bool Motor::waitMowMotor() {
     // wait until mowing motor is running or stopping
     if (!waitSpinUp) CONSOLE.println("Motor::waitMowMotor() wait for mowmotor....");  //one time message
     if (!buzzer.isPlaying()) buzzer.sound(SND_MOWSTART, true);
-    
+    //setLinearAngularSpeed(0,0,false);
     waitSpinUp = true;
     motorMowSpunUp = false;
     return true;
@@ -304,6 +304,10 @@ void Motor::speedPWM ( int pwmLeft, int pwmRight, int pwmMow )
 //      V     = (VR + VL) / 2       =>  VR = V + omega * L/2
 //      omega = (VR - VL) / L       =>  VL = V - omega * L/2
 void Motor::setLinearAngularSpeed(float linear, float angular, bool useLinearRamp){  
+  if (waitMowMotor()){
+    linear = 0;
+    angular = 0;
+  }
 
   if (abs(linear) < MOTOR_MIN_SPEED * 0.5 && abs(linear) != 0) {
     linear = 0;     //illegal creeeping input, reset to zero

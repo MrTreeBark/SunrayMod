@@ -21,6 +21,8 @@ float stanleyTrackingSlowP = STANLEY_CONTROL_P_SLOW;
 float targetDist = 0;     //MrTree
 float lastTargetDist = 0; //MrTree
 float pathLength = 0;
+float lastStateX = 0;
+float lastStateY = 0;
 
 float setSpeed = 0.5; //externally controlled (app) linear speed (m/s)
 float CurrSpeed = 0;  //actual used speed from motor.linearSpeedSet
@@ -28,10 +30,10 @@ float CurrRot = 0;  //actualk rotation from mow.motor
 float linear = 0;
 float angular = 0;
 
-float x_old = 0;
-float y_old = 0;
-float x_new = 0;
-float y_new = 0;
+float x_old = 0;  //targetX old 
+float y_old = 0;  //targetY old
+float x_new = 0;  //targetX new
+float y_new = 0;  //targetY new
 Point lastPoint;
 Point target;
 Point lastTarget;
@@ -645,39 +647,211 @@ void linearSpeedState(){
     return rampSpeed;
 } */
 
-float distanceRamp(float linear){
-    if (lastTargetDist > NEARWAYPOINTDISTANCE && targetDist > NEARWAYPOINTDISTANCE) return linear;  //leave, nothing to do
+/*//tested
+float distanceRamp(float linear) {
+    static float rampSpeed = 0;
+    static bool wasStraight = false;
+    static unsigned long lastUpdateTime = 0;
+    static float accel = 0;
+    static float lastGPSDist = 0;
 
-    float maxSpeed = linear;                                        //maxSpeed is the actual linetracker linear set 
-    float minSpeed = DISTANCE_RAMP_MINSPEED;
-    float maxDist = NEARWAYPOINTDISTANCE;                           //if we are going slow for example because of float, the ramp will kick in when mower is nearer to point
-    float minDist = TARGET_REACHED_TOLERANCE;                      
-    float actDist = 0;
-    float rampSpeed = 0;
-    static bool wasStraight;
+    unsigned long now = millis();
+    float dt = (now - lastUpdateTime) / 1000.0f;
+    lastUpdateTime = now;
 
-    if (targetDist <= lastTargetDist) {                             //need to decide what ramp, leaving or aproaching? --> approaching
-      maxDist += maxSpeed;                                        //add an speed dependent offset to target distance when approaching, because mower comes with high speed that causes a timing issue
-      actDist = targetDist;
-      if (straight) {
-        minSpeed = TRANSITION_SPEED;                                //if we don´t need to rotate and want todo a point transition, do not decellarate too much and use TRANSITION_SPEED
-        transition = true;
-      }
-      wasStraight = straight;
-    } else {                                                        // --> leaving
-      if (wasStraight) {
-        minSpeed = TRANSITION_SPEED;
-        transition = true;
-      }
-      actDist = lastTargetDist;     
+    float maxSpeed = linear;
+    float minSpeed = (straight || wasStraight) ? TRANSITION_SPEED : DISTANCE_RAMP_MINSPEED;
+    float maxDist = NEARWAYPOINTDISTANCE;
+    float minDist = TARGET_REACHED_TOLERANCE;
+
+    float targetSpeed = (targetDist <= lastTargetDist) ? minSpeed : maxSpeed;
+    if (targetDist <= lastTargetDist) wasStraight = straight;           //used for transition speed
+
+
+
+    // check if GPS position has changed (5Hz)
+    bool gpsUpdated = (targetDist != lastGPSDist);
+    lastGPSDist = targetDist;
+
+    // update acceleration if GPS was updated
+    float deltaV = targetSpeed - rampSpeed;
+    if (gpsUpdated && targetDist > 0.01f && fabs(deltaV) > 0.01f) {
+        accel = (deltaV * deltaV) / (2.0f * targetDist);
+    }
+    
+    // perform ramping
+    if (rampSpeed < targetSpeed) {
+        rampSpeed += accel * dt;
+        if (rampSpeed > targetSpeed) rampSpeed = targetSpeed;
+    } else {
+        rampSpeed -= accel * dt;
+        if (rampSpeed < targetSpeed) rampSpeed = targetSpeed;
     }
 
-    rampSpeed = safeMap(actDist, minDist, maxDist, minSpeed, maxSpeed);
     rampSpeed = constrain(rampSpeed, minSpeed, maxSpeed);
-    
-    //CONSOLE.print(straight); CONSOLE.print(" "); CONSOLE.println(rampSpeed);
+    return rampSpeed;
+} */
+
+// this distanceRamp is a hybrid between linear acceleration and snapshot position information of mower for recalculation of accel ramp
+float distanceRamp(float linear) {
+    static float rampSpeed = 0;
+    static bool wasStraight = false;
+    static unsigned long lastUpdateTime = 0;
+    static float accel = 0;
+
+    unsigned long now = millis();
+    float dt = (now - lastUpdateTime) / 1000.0f;  // (seconds)
+    lastUpdateTime = now;
+
+    float maxSpeed = linear;
+    float minSpeed = (straight || wasStraight) ? TRANSITION_SPEED : DISTANCE_RAMP_MINSPEED;
+    float maxDist = NEARWAYPOINTDISTANCE;
+    float minDist = TARGET_REACHED_TOLERANCE;
+    float actDist = 0;
+    float targetSpeed = 0;
+    static bool approaching = true; //(targetDist <= lastTargetDist); // switching approaching and leaving
+
+    /* // check if there is a new target Point (fires once on change, might not work)
+    if (x_new != x_old && y_new != y_old) {
+      approaching = false;
+    } else {
+      approaching = (targetDist < lastTargetDist);
+    } */
+
+    // check if GPS update occurred (targetDist changed)
+    bool gpsUpdated = (stateX != lastStateX && stateY != lastStateY);
+
+    if (gpsUpdated) {
+      approaching = (targetDist < lastTargetDist);
+    // set up the base ramp on condition approaching and leaving
+      if (approaching) {
+          actDist = max(targetDist, minDist);  // (m)
+          //actDist = constrain(targetDist, minDist, maxDist);
+          targetSpeed = minSpeed;
+          wasStraight = straight;
+      } else {
+          actDist = max(NEARWAYPOINTDISTANCE - lastTargetDist, minDist);
+          //actDist = constrain(NEARWAYPOINTDISTANCE - lastTargetDist, minDist, maxDist);
+          targetSpeed = maxSpeed;
+      }
+
+      // update acceleration only on new GPS measurement
+      float deltaV = targetSpeed - rampSpeed;  // (m/s)
+      if (actDist <= NEARWAYPOINTDISTANCE && gpsUpdated) {
+          accel = (deltaV * deltaV) / (2.0f * actDist);
+      }
+    }
+
+    // acceleration or deceleration
+    if (rampSpeed > targetSpeed) {  // approaching
+        rampSpeed -= accel * dt;
+        if (rampSpeed < targetSpeed) rampSpeed = targetSpeed;
+    } else {  // leaving
+        rampSpeed += accel * dt;
+        if (rampSpeed > targetSpeed) rampSpeed = targetSpeed;
+    }
+
+    //workaround if targetReached in current iteration (might not work)
+    if (targetReached) rampSpeed = minSpeed;
+
+    rampSpeed = constrain(rampSpeed, minSpeed, maxSpeed);
     return rampSpeed;
 }
+
+/* float distanceRamp(float linear) {
+    static float rampSpeed = 0;           //output of ramp in m/s
+    static float targetSpeed = 0;         //is this necessary?
+    static float lastGPSDist = 0;         //lastGPSDist is basically not the lastGpsDist but the actual gpsdist which should be actDist (updated with 5hz)
+    static bool wasStraight = false;      //this is an angle and its needed for a transition if next point heading is under a certain degree
+
+    static unsigned long lastUpdateTime = 0;
+    unsigned long now = millis();
+    float dt = (now - lastUpdateTime) / 1000.0f;  //iteration in seconds of ramp
+    lastUpdateTime = now;
+
+    float maxSpeed = linear;  //this is the function input, it would be mowspeed like eg. 0.6 m/s
+    float minSpeed = (straight || wasStraight) ? TRANSITION_SPEED : DISTANCE_RAMP_MINSPEED; //the minSpeed of ramp. if in transition speed will be higher (m/s)
+    float maxDist = NEARWAYPOINTDISTANCE;   //this is the distance the distanceramp will start manipulate the setSpeed which is linear input of function (m)
+    float minDist = TARGET_REACHED_TOLERANCE; //this is the distance to target point or lastTargetpoint where ramp will end/start deccelerating/accelerating (m)
+
+    // GPS-Update erkannt?
+    bool gpsUpdated = (targetDist != lastGPSDist);  //bool to see when a gps position update is true
+    if (gpsUpdated) {
+        float dist = constrain(targetDist, minDist, maxDist);  // update bei neuem GPS
+        targetSpeed = map(dist, maxDist, minDist, maxSpeed, minSpeed);
+        targetSpeed = constrain(targetSpeed, minSpeed, maxSpeed);
+        lastGPSDist = targetDist;
+    }
+
+    // Rampenregelung unabhängig vom GPS
+    float deltaV = targetSpeed - rampSpeed;
+    static float accel = 0;
+    if (gpsUpdated) {
+        float actDist = max(lastGPSDist, 0.01f);  // Näherung für "verbleibende" Distanz
+        accel = (deltaV * deltaV) / (2.0f * actDist);
+    }
+
+    if (deltaV > 0) {
+        rampSpeed += accel * dt;
+        if (rampSpeed > targetSpeed) rampSpeed = targetSpeed;
+    } else if (deltaV < 0) {
+        rampSpeed -= accel * dt;
+        if (rampSpeed < targetSpeed) rampSpeed = targetSpeed;
+    }
+
+    rampSpeed = constrain(rampSpeed, minSpeed, maxSpeed);
+    wasStraight = straight;
+
+    return rampSpeed;
+} */
+
+/* float distanceRamp(float linear) {
+    static float rampSpeed = 0;           // output of ramp in m/s
+    static float targetSpeed = 0;         // dynamically updated when GPS updates
+    static float lastGPSDist = 0;         // current GPS-reported distance to target
+    static float accel = 0;
+    static bool wasStraight = false;
+
+    static unsigned long lastUpdateTime = 0;
+    unsigned long now = millis();
+    float dt = (now - lastUpdateTime) / 1000.0f;
+    lastUpdateTime = now;
+
+    float maxSpeed = linear;
+    float minSpeed = (straight || wasStraight) ? TRANSITION_SPEED : DISTANCE_RAMP_MINSPEED;
+    float maxDist = NEARWAYPOINTDISTANCE;
+    float minDist = TARGET_REACHED_TOLERANCE;
+
+    // Check for GPS update
+    bool gpsUpdated = (targetDist != lastGPSDist);
+    if (gpsUpdated) {
+        float dist = constrain(targetDist, minDist, maxDist);  // Clamp distance
+        targetSpeed = map(dist, maxDist, minDist, maxSpeed, minSpeed);
+        targetSpeed = constrain(targetSpeed, minSpeed, maxSpeed);
+        lastGPSDist = targetDist;
+    }
+
+    // Always update acceleration dynamically
+    float deltaV = targetSpeed - rampSpeed;
+    float distForAccel = constrain(lastGPSDist, 0.01f, maxDist); // use last valid GPS position as ramp base
+    if (fabs(deltaV) > 0.01f) {
+        accel = (deltaV * deltaV) / (2.0f * distForAccel);
+    }
+
+    // Perform ramping
+    if (deltaV > 0) {
+        rampSpeed += accel * dt;
+        if (rampSpeed > targetSpeed) rampSpeed = targetSpeed;
+    } else if (deltaV < 0) {
+        rampSpeed -= accel * dt;
+        if (rampSpeed < targetSpeed) rampSpeed = targetSpeed;
+    }
+
+    rampSpeed = constrain(rampSpeed, minSpeed, maxSpeed);
+    wasStraight = straight;
+
+    return rampSpeed;
+} */
 
 void gpsConditions() {
   // check some pre-conditions that can make linear+angular speed zero
@@ -825,21 +999,6 @@ void checkMowAllowed() {
 void trackLine(bool runControl) {
   Point target = maps.targetPoint;
   Point lastTarget = maps.lastTargetPoint;
-  
-  // Check valid path on entrance, get next point instantly
-/*   if (target.x() == lastTarget.x() && target.y() == lastTarget.y()) {
-    CONSOLE.println("Linetracker WARNING: target equals lastTarget – no path");
-    linear = 0;
-    angular = 0;
-    targetReached = true;
-    activeOp->onTargetReached();
-    straight = maps.nextPointIsStraight();
-    if (!maps.nextPoint(false, stateX, stateY)) {
-      // finish
-      activeOp->onNoFurtherWaypoints();
-    }
-    return;
-  } */
 
   CurrSpeed = motor.linearSpeedSet;           //get the speed from motor.linearSpeedSet (with ramping)
   CurrRot = motor.angularSpeedSet;            //get the turn rate from motor.angulatSpeedSet (with ramping)
@@ -852,19 +1011,6 @@ void trackLine(bool runControl) {
   targetDelta = scalePIangles(targetDelta, stateDelta);               //scale the HeadingError named targetDelta
   trackerDiffDelta = distancePI(stateDelta, targetDelta);             //sort the shortes shortest rotation direction
   
-/*   if (!isfinite(targetDelta)) {
-    CONSOLE.println("Ungültiger targetDelta");
-    targetDelta = 0;
-  }
-  if (!isfinite(trackerDiffDelta)) {
-    CONSOLE.println("Ungültiger trackerDiffDelta");
-    trackerDiffDelta = 0;
-  }
-  if (!isfinite(targetDist)) {
-    CONSOLE.println("Ungültiger targetDist");
-    targetDist = 0;
-  } */
-  
   lateralError = distanceLineInfinite(stateX, stateY, lastTarget.x(), lastTarget.y(), target.x(), target.y());  //orthogonal distance to line, the lateral robot position from the tracked Path, using infinite line so there will be no float exception
   distToPath = distanceLine(stateX, stateY, lastTarget.x(), lastTarget.y(), target.x(), target.y());            //orthogonal distance to line
   targetDist = maps.distanceToTargetPoint(stateX, stateY);                                                      //the robot target distance
@@ -872,8 +1018,9 @@ void trackLine(bool runControl) {
   
   targetReached = (targetDist < TARGET_REACHED_TOLERANCE);                                                      //the switch if the target is reached, linetracker triggers new target point from map.cpp
   pathLength = maps.distanceToTargetPoint(lastTarget.x(), lastTarget.y());                                      //the absolute distance from mower to the last target point
- const int mode = CONTROLLER_MODE; 
- switch (mode) {
+ 
+  const int mode = CONTROLLER_MODE; 
+  switch (mode) {
     case 1:
         if (!AngleToTargetFits()) { 
           rotateToTarget();
@@ -893,13 +1040,6 @@ void trackLine(bool runControl) {
       CONSOLE.println("tracker mode unknown!");
       break;
   }
-  
-/*   if (!AngleToTargetFits()) { 
-    rotateToTarget();
-  } else {
-    linearSpeedState();  //compares the linear Speed to use according to configured mower state (maybe this should be first in line)
-    stanleyTracker();    //track the path
-  } */
 
   gpsConditions();      //check for gps conditions to eg. trigger obstacle or fixtimeout (shouldn´t that be in mowop???)
   noDockRotation();     //disable angular for dock/undock situations
@@ -919,8 +1059,7 @@ void trackLine(bool runControl) {
         CONSOLE.print(x_new);
         CONSOLE.print(" y = ");
         CONSOLE.println(y_new);
-        x_old = x_new;
-        y_old = y_new;
+
       }
       // output rotate state change
       if (shouldRotate != shouldRotatel) {
@@ -956,9 +1095,13 @@ void trackLine(bool runControl) {
   if (targetReached) {
     activeOp->onTargetReached();
     straight = maps.nextPointIsStraight();
-    if (!maps.nextPoint(false, stateX, stateY)) {
+    if (!maps.nextPoint(false, stateX, stateY)) { //trigger next map point
       // finish
       activeOp->onNoFurtherWaypoints();
     }
   }
+  x_old = x_new;
+  y_old = y_new;
+  lastStateX = stateX;
+  lastStateY = stateY;
 }

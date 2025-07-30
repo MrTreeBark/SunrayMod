@@ -106,8 +106,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOWSPINUPTIME               10000  // (ms) Adds time to rotate mowingdisc before starting moving, use high value if you enable ESCAPE_LAWN for good reading of idle mow motor RPM
 #define OVERLOADSPEED               0.25  // (m/s) if there is a overloadcurrent of a motordriver, mower will use OVERLOADSPEED
 #define TRACKSLOWSPEED              0.25  // (m/s) e.g the docking speed or functions of the future
-#define NEARWAYPOINTSPEED           0.35  // (m/s) the speed of mower when reaching/leaving a waypoint
-#define NEARWAYPOINTDISTANCE        0.50  // (m) the distance of mower if approaching and leaving a waypoint and thus triggers NEARWAYPOINTSPEED of mower
+#define NEARWAYPOINTSPEED           0.25  // (m/s) the speed of mower when reaching/leaving a waypoint
+#define NEARWAYPOINTDISTANCE        0.75  // (m) the distance of mower if approaching and leaving a waypoint and thus triggers NEARWAYPOINTSPEED of mower
 #define FLOATSPEED                  0.25  // (m/s) on GPS FLOAT SOLUTION, mower will use FLOATSPEED
 #define SONARSPEED                  0.15  // (m/s) if sonar enabled and used, on sonar trigger mower will use SONARSPEED
 #define OBSTACLEAVOIDANCESPEED      0.35  // (m/s) on obstacle evade operations, mower will use OBSTACLEAVOIDANCESPEED
@@ -119,7 +119,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOTOR_MAX_SPEED             1.0  // (m/s) maximum mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define MOTOR_MIN_SPEED             0.10  // (m/s) minimal mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define DISTANCE_RAMP               true  // is using NEARWAYPOINTDISTANCE, MOTOR_MIN_SPEED and the actual setspeed to calculate an indirect deceleration ramp to the next waypoint, if this is true, NEARWAYPOINTSPEED in linetracker.cpp is disabled
-#define DISTANCE_RAMP_MINSPEED      0.15  // (m/s) this is the ramp minspeed
+#define DISTANCE_RAMP_MINSPEED      0.10  // (m/s) this is the ramp minspeed
 //rotation speeds, also this is easy to tune for your expectations --> going to be changed to angularRamp() with less parameters
 #define ROTATION_RAMP               true  // uses a ramp for angletotargetfits (very nice), ROTATETOTARGETSPEED´s are disabled if this is true
 #define ROTATION_RAMP_MAX           85   // (deg/s) maximum rotation speed

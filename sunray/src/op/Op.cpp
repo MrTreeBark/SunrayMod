@@ -283,6 +283,7 @@ void Op::onTimetableStopMowing(){
 }
 
 void Op::onWaitCommand(){
+    motor.setLinearAngularSpeed(0,0,false);
 }
 
 void Op::onImuTilt(){

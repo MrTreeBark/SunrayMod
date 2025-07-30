@@ -611,7 +611,7 @@ void computeRobotState(){
     
     float distGPS = sqrt( sq(posN-lastPosN)+sq(posE-lastPosE) );
     if ((distGPS > 0.3) || (resetLastPos)){
-      if ((distGPS > 0.3) && (solutionTimeDelta < 350)) {  //consider the last available soulution time, pathfinder will raise solutionTimeDelta up to 1000ms
+      if ((distGPS > 0.3) && (solutionTimeDelta < 400)) {  //consider the last available soulution time, pathfinder will raise solutionTimeDelta up to 1000ms
         gpsJump = true;
         statGPSJumps++;
         CONSOLE.print("GPS jump: ");
@@ -713,7 +713,7 @@ void computeRobotState(){
     //stateDeltaSpeedIMU = 0.8 * stateDeltaSpeedIMU + (1 - 0.8) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep) 
 
 
-    if (deltaTime > 0) stateDeltaSpeedIMU = 0.8 * stateDeltaSpeedIMU + (1 - 0.8) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep)  
+    if (deltaTime > 0) stateDeltaSpeedIMU = 0.5 * stateDeltaSpeedIMU + (1 - 0.5) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep)  
     //stateDeltaSpeedIMU = imuLpfStateDeltaSpeed(stateDeltaIMU/deltaTime);
     //stateDeltaSpeedIMU = stateDeltaIMU/deltaTime; //RAW
     
