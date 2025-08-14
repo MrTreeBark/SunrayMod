@@ -116,8 +116,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ESCAPE_REVERSE_WAY          0.80  // (m) distance in meters the mover will drive reverse in escapeReverseOp if obstacle triggered eg. by bumper org gps no speed
 #define ESCAPE_FORWARD_WAY          0.6  // (m) distance in meters the mover will drive forward in escapeForwardOp if obstacle triggered by OBSTACLE_ROTATION (no rotation)
 #define GLOBALSPEEDLIMIT            true  // if true, MOTOR_MAX_SPEED and MOTOR_MIN_SPEED will limit possible code bugs or inputs directly in motor.cpp        
-#define MOTOR_MAX_SPEED             1.0  // (m/s) maximum mower speed --> has not much to to with configuration of speeds: acts as a failsafe
-#define MOTOR_MIN_SPEED             0.10  // (m/s) minimal mower speed --> has not much to to with configuration of speeds: acts as a failsafe
+#define MOTOR_MAX_SPEED             0.6  // (m/s) maximum mower speed --> has not much to to with configuration of speeds: acts as a failsafe
+#define MOTOR_MIN_SPEED             0.05  // (m/s) minimal mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define DISTANCE_RAMP               true  // is using NEARWAYPOINTDISTANCE, MOTOR_MIN_SPEED and the actual setspeed to calculate an indirect deceleration ramp to the next waypoint, if this is true, NEARWAYPOINTSPEED in linetracker.cpp is disabled
 #define DISTANCE_RAMP_MINSPEED      0.10  // (m/s) this is the ramp minspeed
 //rotation speeds, also this is easy to tune for your expectations --> going to be changed to angularRamp() with less parameters

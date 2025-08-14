@@ -21,6 +21,7 @@
 // watch dog timeout (WDT) in seconds
 #define WDT_TIMEOUT 60
 
+// configure below IPs if using static IP
 IPAddress av_local_IP(WIFI_STATIC_IP_LOCAL);
 IPAddress av_gateway(WIFI_STATIC_IP_GW);
 IPAddress av_subnet(WIFI_STATIC_IP_SUBNET);
@@ -34,12 +35,9 @@ String pass = WIFI_STA_PSK;
 //#include <ESPmDNS.h>
 #include <WiFiUdp.h>
 
-// --- UDP logging config ---
-#ifdef ENABLE_UDP
 WiFiUDP udpLogger;
-const char* udpLogTargetIP = UDP_REMOTE_IP; // Change to your PC's IP or broadcast
-const unsigned int udpLogTargetPort = UDP_REMOTE_PORT;    // Change to your preferred port
-#endif
+IPAddress udpRemoteIP(UDP_REMOTE_IP);
+const unsigned int udpRemotePort = UDP_REMOTE_PORT;
 
 #ifdef USE_HTTPS
   // Include certificate data 
@@ -136,9 +134,9 @@ ResourceNode * nodeRoot      = new ResourceNode("/", "POST", &handleRoot);
 
 void uartSend(String s) {
   //if (!bleConnected) return;
-  //CONSOLE.print(millis());
-  //CONSOLE.print(" UART tx:");
-  //CONSOLE.println(s);
+  CONSOLE.print(millis());
+  CONSOLE.print(" UART tx:");
+  CONSOLE.println(s);
   UART.print(s);
   UART.print("\r\n");
   
@@ -412,41 +410,23 @@ void handleRoot(HTTPRequest * req, HTTPResponse * res) {
   byte buffer[256];
   // HTTPReqeust::requestComplete can be used to check whether the
   // body has been parsed completely.
-  // Debug: clearly label HTTP RX
-  //Serial.println("http rx:");
+  CONSOLE.print("HTTP rx:");
   String wifiCmd = "";
   while(!(req->requestComplete())) {
+    // HTTPRequest::readBytes provides access to the request body.
+    // It requires a buffer, the max buffer length and it will return
+    // the amount of bytes that have been written to the buffer.
     size_t s = req->readBytes(buffer, 255);
     buffer[s] = '\0';
-    Serial.write(buffer, s); // USB serial for debug
-    UART.write(buffer, s);   // Forward to UART
+    CONSOLE.write(buffer, s);
+    UART.write(buffer, s);
     wifiCmd += String((char*)buffer);     
   }
   #ifdef USE_MQTT
     mower.tx(wifiCmd);
   #endif
-  //Serial.println();  
-  String cmdResponse = "";
-  #ifdef ENABLE_UDP
-  // Wait for protocol data to arrive in cmd
-  unsigned long timeout = millis() + 5000; // WIFI_TIMEOUT_FIRST_RESPONSE;
-  extern String uartParseBuffer;
-  extern String protocolBuffer;
-  while (millis() < timeout) {
-    // Actively parse UART data during wait
-    parseUartData(uartParseBuffer, protocolBuffer);
-    if (protocolBuffer.length() > 0) {
-      cmd += protocolBuffer;
-      protocolBuffer = "";
-    }
-    if (cmd.length() > 0) {
-      cmdResponse = cmd;
-      cmd = "";
-      break;
-    }
-    delay(1);
-  }
-  #else
+  CONSOLE.println();  
+  String cmdResponse;
   unsigned long timeout = millis() + WIFI_TIMEOUT_FIRST_RESPONSE;
   while ( millis() < timeout) {
     if (UART.available()) {
@@ -459,12 +439,12 @@ void handleRoot(HTTPRequest * req, HTTPResponse * res) {
     }
     delay(1);
   }
-  #endif
   //simulateArdumowerAnswer(wifiCmd, cmdResponse);  
-  // Debug: clearly label HTTP TX
-  //Serial.printf("[%lu] http tx: %s\n", millis(), cmdResponse.c_str());
+  CONSOLE.print("UART tx:");
+  CONSOLE.println(cmdResponse);
   // Write the response 
   res->print(cmdResponse);
+  //res->write(buffer, s);
 }
 
 
@@ -515,10 +495,16 @@ void processCmd() {
     if (byte(cmd[0]) > 0) break;
     cmd.remove(0, 1);
   }
-/*CONSOLE.print(millis());
+  CONSOLE.print(millis());
   CONSOLE.print(" UART rx:");
   CONSOLE.println(cmd);
-    } */
+  /*for (int i=0; i < cmd.length(); i++){
+    CONSOLE.print(i);
+    CONSOLE.print("=");
+    CONSOLE.print(byte(cmd[i]));
+    CONSOLE.print("=");
+    CONSOLE.println(cmd[i]);
+    }*/
   if (cmd.length() < 2) return;
   if (cmd[0] != 'A') return;
   if (cmd[1] != 'T') return;
@@ -551,66 +537,6 @@ void processCmd() {
   if (params[0] == "RESET") cmdReset();
   if (params[0] == "TEST") cmdTestPacket();
   if (params[0].substring(0, 4) == "WIFI") cmdWifi(params[0].substring(4), params[1], params[2]);
-}
-
-// Global UART parsing buffers for use in loop() and handleRoot
-String uartParseBuffer = "";
-String protocolBuffer = "";
-
-// Centralized UART parsing function
-void parseUartData(String &uartParseBuffer, String &protocolBuffer) {
-  const String LOG_START = "/ULs:";
-  const String LOG_END = "/ULe\n";
-  const size_t UART_BUFFER_LIMIT = BLE_BUF_SZ;
-  while (UART.available()) {
-    char c = UART.read();
-    uartParseBuffer += c;
-    // Prevent runaway buffer growth
-    if (uartParseBuffer.length() > UART_BUFFER_LIMIT) {
-      uartParseBuffer = uartParseBuffer.substring(uartParseBuffer.length() - UART_BUFFER_LIMIT);
-    }
-    // Process all complete log/proto blocks in buffer
-    while (true) {
-      int startIdx = uartParseBuffer.indexOf(LOG_START);
-      if (startIdx < 0) break;
-      int endIdx = uartParseBuffer.indexOf(LOG_END, startIdx);
-      if (endIdx < 0) break;
-      int channelSep = uartParseBuffer.indexOf(":", startIdx + LOG_START.length());
-      if (channelSep < 0 || channelSep > endIdx) {
-        // Malformed, skip
-        uartParseBuffer.remove(0, endIdx + LOG_END.length());
-        continue;
-      }
-      String channel = uartParseBuffer.substring(startIdx + LOG_START.length(), channelSep);
-      int lenEnd = uartParseBuffer.indexOf("\n", channelSep + 1);
-      if (lenEnd < 0 || lenEnd > endIdx) {
-        uartParseBuffer.remove(0, endIdx + LOG_END.length());
-        continue;
-      }
-      int dataLen = uartParseBuffer.substring(channelSep + 1, lenEnd).toInt();
-      int dataStart = lenEnd + 1;
-      int dataEnd = dataStart + dataLen;
-      if (dataEnd > endIdx) {
-        // Not enough data yet
-        break;
-      }
-      String payload = uartParseBuffer.substring(dataStart, dataEnd);
-      if (channel == "log") {
-        // Handle log data (e.g., forward to UDP, print, etc.)
-        #ifdef ENABLE_UDP
-        udpLogger.beginPacket(udpLogTargetIP, udpLogTargetPort);
-        udpLogger.write((const uint8_t*)payload.c_str(), payload.length());
-        udpLogger.endPacket();
-        #endif
-      } else if (channel == "proto") {
-        // Handle protocol data (append to protocolBuffer)
-        protocolBuffer += payload;
-      } else {
-        // Unknown channel, ignore
-      }
-      uartParseBuffer.remove(0, endIdx + LOG_END.length());
-    }
-  }
 }
 
 
@@ -662,8 +588,8 @@ void loop() {
 #ifdef USE_MQTT
   mower.loop(millis());
 #endif
+// -------- BLE -----------------------------
 #ifdef USE_BLE
-  // -------- BLE -----------------------------
   // disconnecting
   if (!bleConnected && oldBleConnected) {
     CONSOLE.println("waiting for bluetooth stack to get things ready...");
@@ -680,21 +606,70 @@ void loop() {
     UART.println(); // clear any remaining characters in Ardumower FIFO 
   }
 #endif
-
-  // USB receive
-  while (CONSOLE.available()) {
-    char ch = CONSOLE.read();
-    cmd = cmd + ch;
+// --- Robust UART parser: separate UDP log messages from HTTP/protocol data ---
+static String uartBuffer = "";
+static bool inLogBlock = false;
+static String logMsg = "";
+while (UART.available()) {
+  char ch = UART.read();
+  uartBuffer += ch;
+  // Look for start marker
+  if (!inLogBlock) {
+    int startIdx = uartBuffer.indexOf("/Us");
+    if (startIdx != -1) {
+      inLogBlock = true;
+      uartBuffer = uartBuffer.substring(startIdx + 3); // Remove up to marker
+      logMsg = "";
+    }
   }
+  // If inside log block, accumulate until end marker
+  if (inLogBlock) {
+    int endIdx = uartBuffer.indexOf("/Ue\n");
+    if (endIdx != -1) {
+      logMsg += uartBuffer.substring(0, endIdx);
+      // UDP Logging direkt hier
+      if (WiFi.status() == WL_CONNECTED) {
+        udpLogger.beginPacket(udpRemoteIP, udpRemotePort);
+        udpLogger.write((const uint8_t*)logMsg.c_str(), logMsg.length());
+        udpLogger.endPacket();
+      }
+      uartBuffer = uartBuffer.substring(endIdx + 4); // Remove processed part
+      inLogBlock = false;
+      logMsg = "";
+    } else {
+      logMsg += uartBuffer;
+      uartBuffer = "";
+    }
+  } else {
+    // Not a log block: treat as protocol/HTTP data
+    #ifdef USE_MQTT
+      mower.rx(ch);
+    #endif
+    if (bleConnected) {
+      bleAnswerTimeout = millis() + 100;
+      bleAnswer += ch;
+    } else {
+      bleAnswer = "";
+      cmd += ch;
+    }
+  }
+}
 
-  // General parsing buffer for UART data: separates UDP logs and protocol
-  static unsigned long lastProtocolParseTime = 0;
-  // Use centralized parsing function
-  parseUartData(uartParseBuffer, protocolBuffer);
-  // Move protocolBuffer to cmd for HTTP and AT command processing
-  if (protocolBuffer.length() > 0) {
-    cmd += protocolBuffer;
-    protocolBuffer = "";
+  // UART receive
+  while (UART.available()) {
+    char ch = UART.read();
+    #ifdef USE_MQTT
+      mower.rx(ch);
+    #endif    
+    if (bleConnected) {
+      // BLE client connected
+      bleAnswerTimeout = millis() + 100;
+      bleAnswer = bleAnswer + ch;
+    } else {
+      // no BLE client connected
+      bleAnswer = "";
+      cmd = cmd + ch;
+    }
   }
 
   // LED
@@ -726,9 +701,9 @@ void loop() {
     num++;
   }
   if (num != 0) {
-    //CONSOLE.print(millis());
-    //CONSOLE.print(" BLE rx: ");
-    //CONSOLE.println(bleReceivedCmd);
+    CONSOLE.print(millis());
+    CONSOLE.print(" BLE rx: ");
+    CONSOLE.println(bleReceivedCmd);
   }
 
 // UART->BLE bridge

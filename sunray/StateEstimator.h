@@ -54,6 +54,7 @@ extern float stateDeltaSpeedWheels;
 extern float diffIMUWheelYawSpeed;
 //extern float diffIMUWheelYawSpeedLP;
 
+extern float gpsJumpDistance;
 extern bool gpsJump;
 
 extern bool imuIsCalibrating;

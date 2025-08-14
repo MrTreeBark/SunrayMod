@@ -53,6 +53,7 @@ float stateDeltaSpeedWheels = 0;
 float diffIMUWheelYawSpeed = 0;
 float diffIMUWheelYawSpeedLP = 0;
 
+float gpsJumpDistance = 0;
 bool gpsJump = false;
 bool resetLastPos = true;
 
@@ -351,7 +352,8 @@ void readIMU(){
       (fabs(imuRawPitchChange) > 20.0 / 180.0 * PI)) 
   {
       // dumpImuTilt();  // optional aktivieren
-      CONSOLE.println("Statestimator change activeOP -> onImuTilt");
+      //THIS TRIGGERS OVER AND OVER
+      /* CONSOLE.println("Statestimator change activeOP -> onImuTilt");
 
       // >>>> Aktualisierte Statusanzeige <<<<
       CONSOLE.print("     imuRawRoll:       ");
@@ -390,7 +392,7 @@ void readIMU(){
           CONSOLE.print("TRIGGERED: imuRawPitchChange > 20° (");
           CONSOLE.print(fabs(imuRawPitchChange) * 180.0 / PI);
           CONSOLE.println("°)");
-      }
+      } */
 
       activeOp->onImuTilt();
   }
@@ -616,6 +618,7 @@ void computeRobotState(){
         statGPSJumps++;
         CONSOLE.print("GPS jump: ");
         CONSOLE.println(distGPS);
+        gpsJumpDistance = distGPS;
       }
       resetLastPos = false;
       lastPosN = posN;
@@ -634,7 +637,7 @@ void computeRobotState(){
                 || ((gps.solution == SOL_FLOAT) && (maps.useGPSfloatForDeltaEstimation)) )
             {   // allows planner to use float solution?         
               if (fabs(diffDelta/PI*180) > 45){ // IMU-based heading too far away => use GPS heading
-                CONSOLE.println("INFO: GPS reset stateDeltaIMU");
+                CONSOLE.println("INFO: stateEstimator --> calibrating stateDeltaIMU based on GPS heading");
                 stateDelta = stateDeltaGPS;
                 stateDeltaIMU = 0;
               } else {

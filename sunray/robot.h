@@ -101,7 +101,8 @@ extern unsigned long lastFixTime;
 extern unsigned long gpsObstacleNotAllowedTime; //MrTree
 extern bool gpsObstacleNotAllowed; //MrTree
 extern float escapeLawnDistance;       //MrTree
-extern bool escapeFinished;            //MrTree               
+extern bool escapeFinished;            //MrTree
+extern bool isMotorMowWaiting; //MrTree               
 extern bool RC_Mode;                   //MrTree
 
 extern WiFiEspClient client;

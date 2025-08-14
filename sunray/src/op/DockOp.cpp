@@ -141,6 +141,14 @@ void DockOp::onKidnapped(bool state){
 }
 
 void DockOp::onObstacleRotation(){
+    if (battery.chargerConnected()) {
+      CONSOLE.println("triggerObstacleRotation: ignoring, because charger connected");      
+      return;
+    }
+    if ((!DOCK_DETECT_OBSTACLE_IN_DOCK) && (maps.isBetweenLastAndNextToLastDockPoint())) {
+      CONSOLE.println("triggerObstacleRotation: ignoring, because in dock (DOCK_DETECT_OBSTACLE_IN_DOCK == FALSE)");      
+      return;
+    }
     CONSOLE.println("DockOp::onObstacleRotation() --> changeOp(escapeForwardOp)");    
     statMowObstacles++;   
     //stateSensor = SENS_OBSTACLE;

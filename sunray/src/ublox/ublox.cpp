@@ -409,15 +409,13 @@ void UBLOX::parse(int b)
     if (ch == '$') unparsedMessage = "";
     unparsedMessage += ch;
     if ((ch == '\r') || (ch == '\n')) {
-      //CONSOLE.println(unparsedMessage);
       if (unparsedMessage.startsWith("$GNGGA")) {
         nmeaGGAMessage = unparsedMessage;
         nmeaGGAMessage.trim();
       }
       unparsedMessage = "";
-     } else if (unparsedMessage.length() > 250) {
-      CONSOLE.println("INFO: unparsed GPS Message to be cleared. ");
-      //CONSOLE.println(unparsedMessage);
+     } else if (unparsedMessage.length() > 500) {
+      //CONSOLE.println("INFO: unparsed GPS Message to be cleared. ");
       unparsedMessage = "";
     }
   }

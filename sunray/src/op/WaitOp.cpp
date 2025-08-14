@@ -28,7 +28,8 @@ void WaitOp::run(){
     motor.setLinearAngularSpeed(0,0,false);
     if (millis() > waitStartTime + waitTime){
         if (waitTime == MOWSPINUPTIME) {
-            motor.waitSpinUp = false;
+            motor.waitSpinUp = false;   // maybe not needed?
+            isMotorMowWaiting = false; // reset waiting state
             CONSOLE.println("WaitOp::run - INFO: waiting for mowmotor done!");
         }
         buzzer.sound(SND_READY, true);

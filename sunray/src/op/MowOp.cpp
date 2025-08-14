@@ -131,32 +131,32 @@ void MowOp::onRainTriggered(){
     }
 }
 
-void MowOp::onTempOutOfRangeTriggered(){
+void MowOp::onTempOutOfRangeTriggered(){ //FIXME to be temperature restart
     if (DOCKING_STATION){
         CONSOLE.println("TEMP OUT-OF-RANGE TRIGGERED");
         Logger.event(EVT_TEMPERATURE_OUT_OF_RANGE_DOCK);
         stateSensor = SENS_TEMP_OUT_OF_RANGE;
         dockOp.dockReasonRainTriggered = true;
-        dockOp.dockReasonRainAutoStartTime = millis() + 60000 * 60; // try again after one hour      
+        dockOp.dockReasonRainAutoStartTime = millis() + RAIN_RESTART * 60 * 1000; // try again after RAIN_RESTART minutes
         dockOp.setInitiatedByOperator(false);
         changeOp(dockOp);              
     }
 }
 
 void MowOp::onBatteryLowShouldDock(){    
-    CONSOLE.println("BATTERY LOW TRIGGERED - DOCKING");
+    CONSOLE.println("BATTERY LOW - DOCKING");
     Logger.event(EVT_BATTERY_LOW_DOCK);
     dockOp.setInitiatedByOperator(false);
     changeOp(dockOp);
 }
 
-void MowOp::onGpsJump(){
+void MowOp::onGpsJump(){ //needs attention
     if (maps.wayMode != WAY_DOCK) {
-        CONSOLE.println("MowOp::onGpsJump: trigger WaitOp");
-        waitOp.waitTime = GPS_JUMP_WAIT_TIME;
-        motor.setMowState(false);
-        motor.setLinearAngularSpeed(0,0,false);
-        if (!buzzer.isPlaying()) buzzer.sound(SND_GPSJUMP, true);
+        waitOp.waitTime = GPS_JUMP_WAIT_TIME;  
+        CONSOLE.println("MowOp::onGpsJump --> WaitOp ("+ String(GPS_JUMP_WAIT_TIME) +")ms");
+        motor.setMowState(false); //remove
+        motor.setLinearAngularSpeed(0,0,false); //remove
+        if (!buzzer.isPlaying()) buzzer.sound(SND_GPSJUMP, true); //remove
         changeOp(waitOp, true);
     } else {
         CONSOLE.println("MowOp::onGpsJump: ignoring gpsJump... docking");
@@ -164,22 +164,19 @@ void MowOp::onGpsJump(){
 }
 
 void MowOp::onMotorMowStart(){
-    CONSOLE.println("MowOp::onMotorMowStart: Mow motor started, trigger WaitOp");
     waitOp.waitTime = MOWSPINUPTIME;
-    motor.setLinearAngularSpeed(0,0,false);
-    if (!buzzer.isPlaying()) buzzer.sound(SND_MOWSTART, true);
+    CONSOLE.println("MowOp::onMotorMowStart: Mow motor started, trigger WaitOp");
+    if (!buzzer.isPlaying()) buzzer.sound(SND_MOWSTART, true); //remove
     changeOp(waitOp, true);
 }
 
-void MowOp::onMotorMowStall(){											//MrTree
-	CONSOLE.println("MowOp::onMotorMowStall: Mow motor RPM stall detected");	//**   
-    
+void MowOp::onMotorMowStall(){
     if (ESCAPE_LAWN) {
-		CONSOLE.println("triggerEscapeLawn");
-		statEscapeLawnCounter++;
+        statEscapeLawnCounter++;
+        CONSOLE.println("MowOp::onMotorMowStall --> escapeLawnOp (counter: " + String(statEscapeLawnCounter) + ")");
 		changeOp(escapeLawnOp, true);		     											
     }                   
-}																	//**
+}
 
 void MowOp::onTimetableStopMowing(){        
 }
@@ -192,44 +189,49 @@ void MowOp::onObstacle(){
       CONSOLE.println("triggerObstacle: ignoring, because in dock (DOCK_DETECT_OBSTACLE_IN_DOCK == FALSE)");      
       return;
     }
-    CONSOLE.println("triggerObstacle");      
-    statMowObstacles++;      
-    if (maps.isDocking()) {    
+    
+    statMowObstacles++;
+    if (maps.isDocking()) {
         if (maps.retryDocking(stateX, stateY)) {
+            CONSOLE.println("MowOp::onObstacle while Docking --> escapeReverseOp");
             changeOp(escapeReverseOp, true);                      
             return;
         }
     } 
-    /*if (OBSTACLE_AVOIDANCE && maps.wayMode != WAY_DOCK){    
-        changeOp(escapeReverseOp, true);      
-    } else {     
-        stateSensor = SENS_OBSTACLE;
-        CONSOLE.println("error: obstacle!");            
-        changeOp(errorOp);                
-    }*/
+
     if (OBSTACLE_AVOIDANCE){
-        if (robotShouldRotate()) changeOp(escapeRotationOp, true); 
-        if (robotShouldMoveForward()) changeOp(escapeReverseOp, true);
-        if (robotShouldMoveBackward()) changeOp(escapeForwardOp, true);      
-    } else {     
+        if (robotShouldRotate()) {
+            CONSOLE.println("MowOp::onObstacle --> escapeRotationOp");
+            changeOp(escapeRotationOp, true);
+        }
+        if (robotShouldMoveForward()) {
+            CONSOLE.println("MowOp::onObstacle --> escapeReverseOp");
+            changeOp(escapeReverseOp, true);
+        }
+        if (robotShouldMoveBackward()) {
+            CONSOLE.println("MowOp::onObstacle --> escapeForwardOp");
+            changeOp(escapeForwardOp, true);
+        }
+    } else {    
         stateSensor = SENS_OBSTACLE;
-        CONSOLE.println("error: obstacle!");            
+        CONSOLE.println("MowOp::onObstacle --> errorOp (OBSTACLE_AVOIDANCE == FALSE)");            
         changeOp(errorOp);                
     }
 }
     
-void MowOp::onObstacleRotation(){
-    CONSOLE.println("triggerObstacleRotation");    
+void MowOp::onObstacleRotation(){    
     statMowObstacles++;   
-    if ((OBSTACLE_AVOIDANCE) && (maps.wayMode != WAY_DOCK)){    
-        if (FREEWHEEL_IS_AT_BACKSIDE){    
+    if (OBSTACLE_AVOIDANCE && maps.wayMode != WAY_DOCK){    
+        if (FREEWHEEL_IS_AT_BACKSIDE){
+            CONSOLE.println("MowOp::OnObstacleRotation --> escapeForwardOp");
             changeOp(escapeForwardOp, true);      
         } else {
             changeOp(escapeReverseOp, true);
+            CONSOLE.println("MowOp::OnObstacleRotation --> escapeReverseOp");
         }
     } else { 
         stateSensor = SENS_OBSTACLE;
-        CONSOLE.println("error: obstacle!");            
+        CONSOLE.println("MowOp::OnObstacleRotation --> errorOp (OBSTACLE_AVOIDANCE == FALSE)");            
         changeOp(errorOp);
     }
 }
@@ -237,7 +239,7 @@ void MowOp::onObstacleRotation(){
 
 void MowOp::onOdometryError(){
     if (ENABLE_ODOMETRY_ERROR_DETECTION){
-        CONSOLE.println("error: odometry error!");    
+        CONSOLE.println("MowOp::onOdometryError --> errorOp");    
         stateSensor = SENS_ODOMETRY_ERROR;
         Logger.event(EVT_ERROR_ODOMETRY);
         changeOp(errorOp);
@@ -246,8 +248,8 @@ void MowOp::onOdometryError(){
     
 void MowOp::onMotorOverload(){
   if (ENABLE_OVERLOAD_DETECTION){
-    if (motor.motorOverloadDuration > 20000){
-        CONSOLE.println("error: motor overload!");    
+    if (motor.motorOverloadDuration > MOTOR_OVERLOAD_ERROR_TIME){
+        CONSOLE.println("MowOp::onMotorOverload --> errorOp (MOTOR_OVERLOAD_ERROR_TIME exceeded)");    
         stateSensor = SENS_OVERLOAD;
         Logger.event(EVT_ERROR_MOTOR_OVERLOAD);
         changeOp(errorOp);
@@ -262,7 +264,7 @@ void MowOp::onMotorError(){
             // this is the molehole situation: motor error will permanently trigger on molehole => we try obstacle avoidance (molehole avoidance strategy)
             motor.motorError = false; // reset motor error flag
             motorErrorCounter++;
-            CONSOLE.print("MowOp::onMotorError motorErrorCounter=");       
+            CONSOLE.print("MowOp::onMotorError motorErrorCounter = ");       
             CONSOLE.println(motorErrorCounter);
             if (maps.wayMode != WAY_DOCK){
                 if (motorErrorCounter < FAULT_MAX_SUCCESSIVE_ALLOWED_COUNT){                     
@@ -273,7 +275,7 @@ void MowOp::onMotorError(){
                 }
             }
             // obstacle avoidance failed with too many motor errors (it was probably not a molehole situation)
-            CONSOLE.println("error: motor error - giving up!");
+            CONSOLE.println("MowOp::onMotorError --> errorOp (motorErrorCounter exceeded)");
             motorErrorCounter = 0;
             stateSensor = SENS_MOTOR_ERROR;
             Logger.event(EVT_ERROR_MOTOR_ERROR_GIVEUP);

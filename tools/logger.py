@@ -9,7 +9,7 @@ import socket
 host = ""
 port = 4210
 
-bufsize = 99
+bufsize = 2048
 
 addr = (host, port)
 UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -26,9 +26,10 @@ try:
     except socket.error:
       pass
     else:   
-      print (data.decode('utf-8'), end='', flush=True)      
+        # print("Received packet of length:", len(data))
+        print(data.decode('utf-8', errors='replace'), end='', flush=True)      
 except KeyboardInterrupt:
   UDPSock.close()
   print ("terminating ...")
   exit(0)
-  
+

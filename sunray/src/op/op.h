@@ -270,6 +270,7 @@ class WaitOp: public Op {
   public:
     unsigned long waitStartTime = 0;  //MrTree
     unsigned long waitTime = 0;
+    bool isMotorMowWaiting = false; //MrTree - waiting for mow motor to start
     virtual String name() override;
     virtual void begin() override;
     virtual void end() override;

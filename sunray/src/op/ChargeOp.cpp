@@ -52,9 +52,9 @@ void ChargeOp::run(){
 	
 	//--------------------> move it, move it!
     if (MOVE_REGULARLY){
-        movingTime= MOVING_TIME;
+        movingTime = MOVING_TIME;
         if ((millis() > nextMoveTime)){
-			if (!Moving) CONSOLE.println("------->Mower moving for DRV8038 Antistuck: Starting...");             
+			if (!Moving) CONSOLE.println("--> mower moving for DRV8038 Antistuck: Operation starting...");             
 			if (!Moving) motor.enableTractionMotors(true);  			// allow traction motors to operate                               
             if (millis() < nextMoveTime + movingTime) {
 				motor.setLinearAngularSpeed(-0.10, 0, true); 			//move out of docking station
@@ -69,29 +69,19 @@ void ChargeOp::run(){
 				motor.setLinearAngularSpeed(0.0, 0, false);
 				if (SWITCH_OFF_TRACTION_MOTORS) motor.enableTractionMotors(false);  // allow traction motors to operate
 				Moving = false;
-				CONSOLE.println("------->Mower moving for  DRV8038 Antistuck: Operation finished!");
+				CONSOLE.println("--> mower moving for DRV8038 Antistuck: Operation finished!");
 			}
-			//motor.setMowState(false);
-			
-           
-            
         } else {
 			Moving = false;
-		}
-        //motor.setMowState(false);
-        //motor.enableTractionMotors(false); // keep traction motors off (motor drivers tend to generate some incorrect encoder values when stopped while not turning)                 
-        //nextMoveTime = millis() + MOVE_AGAIN_AFTER * 60 * 1000;
-        //Moving = false;
-        //Vor = true; //kann nun wieder aus der station herausfahren
-        //Once = true;                
+		}              
     }
 
     if ((retryTouchDock) || (betterTouchDock)){
         if (millis() > retryTouchDockSpeedTime){                            
             retryTouchDockSpeedTime = millis() + 1000;
             motor.enableTractionMotors(true); // allow traction motors to operate                               
-            if (DOCK_FRONT_SIDE) motor.setLinearAngularSpeed(0.05, 0);
-                else motor.setLinearAngularSpeed(-0.03, 0);
+            if (DOCK_FRONT_SIDE) motor.setLinearAngularSpeed(MOTOR_MIN_SPEED, 0);
+                else motor.setLinearAngularSpeed(-MOTOR_MIN_SPEED, 0);
         }
         if (retryTouchDock){
             if (millis() > retryTouchDockStopTime) {
@@ -183,11 +173,11 @@ void ChargeOp::onChargerDisconnected(){
 }
 
 void ChargeOp::onBadChargingContactDetected(){
-    if ((DOCKING_STATION) && (DOCK_RETRY_TOUCH)) {    
+    if (DOCKING_STATION && DOCK_RETRY_TOUCH) {    
         CONSOLE.println("ChargeOp::onBadChargingContactDetected - betterTouchDock");
         Logger.event(EVT_DOCK_RECOVERY);
         betterTouchDock = true;
-        betterTouchDockStopTime = millis() + 5000;
+        betterTouchDockStopTime = millis() + DOCK_BETTER_TOUCH_TIME;
         retryTouchDockSpeedTime = millis();
     } 
 }

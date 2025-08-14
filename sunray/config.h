@@ -134,6 +134,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 //adaptive_speed settings on RPM or LOAD of mowmotor (consider if you have mowmotor odometrie)
 #define ADAPTIVE_SPEED              true  // if true, mowing speed will adjust to RPM or MOWMOTORPOWER of mow motor on all forward speed mow operations (best)
 #define ADAPTIVE_SPEED_MODE         2     // (1, 2) adaptive speed modes. mode 1 - uses mowmotorpower measurement for speeding up/down; mode 2 - uses rpm measurement of mowmotor for speeding up/down (2: best)
+#define ADAPTIVE_SPEED_CURVE        2     // (1, 2) adaptive speed curve types based on sensor mode dependent sensor feedback. mode 1 - linear slowdown; mode 2 - quadratic slowdown (1: best, not validated)
 #define ADAPTIVE_SPEED_USE_MINSPEED true  // false: MOTOR_MIN_SPEED is used for slowest possible speed, true: ADAPTIVE_SPEED_MINSPEED is used for slowest possible speed
 #define ADAPTIVE_SPEED_MINSPEED     0.05  // (m/s) defines the ramp of speed between actual speedstates eg. mowing speed and ADAPTIVE_SPEED_MINSPEED
 #define MOWPOWERMAX_AUTO            false // (expirimental) uses highest actual measured mowPower during operation, if true MOWPOWERMAX is ignored
@@ -178,7 +179,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MAP_STANLEY_CONTROL         true  // if true, stanley values will be mapped linear from MOTOR_MIN_SPEED-->MOTOR_MAX_SPEED with SC_P_*|SC_K_* to actual speedset of mower (recommended if you use high operation speeds)
 #define STANLEYNORMALMUL            false // if true, StanleyNormal parameters in Sunray-App will be multiplied by 10! (0,1 = 1) (for testing)
 //GPS reboot for docking/undocking/retrydocking (WARNING: you need at least 2 points before and behind the point indexes! Dockpoint indexes start with 0 (first point), last point is your dock)
-#define DOCK_GPS_REBOOT             true  // if false and DOCK_POINT_GPS_REBOOT is not 0, mower will wait at the DOCK_POINT_GPS_REBOOT point for fix without rebooting GPS, if false and DOCK_POINT_GPS_REBOOT = 0 this function is off (hopefully)
+#define DOCK_GPS_REBOOT             false  // if false and DOCK_POINT_GPS_REBOOT is not 0, mower will wait at the DOCK_POINT_GPS_REBOOT point for fix without rebooting GPS, if false and DOCK_POINT_GPS_REBOOT = 0 this function is off (hopefully)
 #define DOCK_GPS_REBOOT_TIME        45000 // (ms) time to wait after rebooting gps for response from ublox? 
 //#define GPS_STABLETIME              30000 // (ms) GPS Time with fix solution, before continueing from DOCK_POINT_GPS_REBOOT after undock  
 #define DOCK_POINT_GPS_REBOOT       3     // dockpath point where GPS will be rebootet when undocking/docking/retrydocking
@@ -197,19 +198,21 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define NO_GPS_SIGNAL_TIMEOUT       3000 // (ms) mower is allowed to run in an GPS invalid state for given time.... 
 #define GPS_JUMP_WAIT               true  // if a GPS jump is detected, should the mower wait?
 #define GPS_JUMP_WAIT_TIME          30000 // (ms) waittime if there was a GPS jump
-//#define GPS_JUMP_DISTANCE         0.4   // (m) the sudden difference from last GPS position to new position, that will trigger a GPS jump positive <-- to be added 
+#define GPS_JUMP_DISTANCE           0.4   // (m) the sudden difference from last GPS position to new position, that will trigger a GPS_JUMP_WAIT positive
 //OTHER
+#define RAIN_RESTART                60    // (min) time in minutes to wait before trying to restart mowing after rain detected and docking from mow operation
+#define MOTOR_OVERLOAD_ERROR_TIME   20000 // (ms) duration for motor overload error if MOTOR_OVERLOAD_ROTATION is true
+#define DOCK_BETTER_TOUCH_TIME      1000  // (ms) duration of pushing against dock contacts for better contact (default 5000ms)
+#define CHG_VOLT_DIFF               0.5  // (V) voltage difference threshold for detecting bad charger contact (default -3.0V)
+#define CHG_CURRENT                 0.1  // (A) current threshold for detecting bad charger contact. If chargerConnected and below CHG_CURRENT, bad contact is assumed
 //#define FLOAT_CALC                  1   // better float handling?
 #define MOW_START_AT_WAYMOW         true // (WARNING: IF YOU SET THIS TRUE, YOU CANNOT START MOWMOTOR WITH APP MANUALLY ANYMORE) mowmotor only starts if way state of mower is waymow for the first time, used for mowmotor not starting directly at dock, but at mow area. This is a onetime trigger that only works when mower is (---> undocking ) ---> wayfree ---> mowarea ---> start mowmotor. After this, mowmotor will behave like it used to be
 #define WATCHDOG_CONTINUE           false // set true if you have watchdog reset issues, mower will start mowing after rebooting
 #define WATCHDOG_TIME               16000 // (ms) resettimer for watchdog trigger
-#define WIFI_DATA_TIMEOUT           50 // (ms) timeout for wifi app server, if data transmit is not done within this time, code iteration will continue and the next data will be sent, this is to prevent a hang of the code if wifi is not responding (e.g. if you have a bad connection or no connection at all)             
-//#define HODOR_ENDURANCE             5000  // (ms) The Time Hodor will hold the Door if HTTP Server is over timeout and whiling around in get or send loop, HODOR_GENTLE_TIME is the time Hodor waits until holding the door and thus protecting the hobit (Mower) if not in MOW_OP. 
-//#define HODOR_GENTLE_TIME           1000  // (ms) HODOR_GENTLE_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if not in MOW_OP.
-//#define HODOR_BRUTAL_TIME           20    // (ms) HODOR_BRUTAL_TIME is the time Hodor waits until holding the door for HODOR_ENDURANCE and thus protecting the hobit (Mower) if in MOW_OP.
-//#define WIFI_RECOVERY_INTERVAL      20000
+#define WIFI_DATA_TIMEOUT           100 // (ms) timeout for wifi app server, if data transmit is not done within this time, code iteration will continue and the next data will be sent, this is to prevent a hang of the code if wifi is not responding (e.g. if you have a bad connection or no connection at all)             
 
 //OBSTACLES
+#define IMU_OBSTACLES               true  // enable IMU based obstacle detection
 #define OBSTACLE_DETECTION_ROTATION true  // detect robot rotation stuck (requires IMU) (wheel at backside, popo situation)
 #define ROTATION_TIMEOUT            5000  // Timeout of rotation movement that triggers an obstacle with escapeReverse (goal for shorter trigger times)
 #define ROTATION_TIME               1500  // Time the code expects to rotate without a high IMU yaw difference (yaw difference configuration to be added)
@@ -235,10 +238,11 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOVING_TIME                 400   // time (ms) for moving back
 #define SWITCH_OFF_TRACTION_MOTORS  true  // should tractionmotors be disabled in dock?
 //LOG
-#define SUNRAY_OUTPUT               true // output standard Sunray_FW LOG in serial monitor and SDlog
+#define SUNRAY_OUTPUT               false // output standard Sunray_FW LOG in serial monitor and SDlog
+#define TEMPERATURE_OUTPUT          false // output temperature readings in serial monitor and SDlog
 #define OUTPUT_LOOPTIME             false // calc and output the sunray loop time in serial monitor and SDlog
 //DEBUG
-#define DEBUG_OUTPUT_TIME           100 // (ms) periodic output time of DEBUG_OUTPUT´s, change to iterationwise if needed (0)
+#define DEBUG_OUTPUT_TIME           1000 // (ms) periodic output time of DEBUG_OUTPUT´s, change to iterationwise if needed (0)
 #define DEBUG_MEMORY                false
 #define MAX_MEMORY                  1024 //AGCM4: 1024kB
 #define DEBUG_ADAPTIVESPEED         false
@@ -252,7 +256,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define DEBUG_MOTOR_CONTROL_TIME    1000
 #define DEBUG_MOTOR_MOWSTALL        false
 #define DEBUG_TRACKER               false
-#define DEBUG_BATTERY               false
+#define DEBUG_BATTERY               true
 #define DEBUG_UBLOX                 false // will output unparsed ublox rx messages
 #define DEBUG_HTTPSERVER            false
 #define DEBUG_TIMING                false
@@ -335,7 +339,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 
 #define USE_LINEAR_SPEED_RAMP  true      // use a speed ramp for the linear speed //MrTree overshooting is reduced, deceleration is more agressive: keep enabled! (recommended)
 #define LINEAR_ACCEL            300      // (mm/s²)
-#define LINEAR_DECEL            600      // (mm/s²)
+#define LINEAR_DECEL            750      // (mm/s²)
 
 //#define USE_LINEAR_SPEED_RAMP  false      // do not use a speed ramp 
 
@@ -363,18 +367,18 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ENABLE_MOW_MOTOR true // Default is true, set false for testing purpose to switch off mow motor permanently
 #define MOW_MOTOR_COUNT 1
 #define MOW_ADJUST_HEIGHT  false   // can the mowing height be adjusted by an additional motor?
-#define MOW_FAULT_CURRENT 4.5         // mowing motor fault current (amps)
+#define MOW_FAULT_CURRENT 5.0         // mowing motor fault current (amps)
 #define MOW_TOO_LOW_CURRENT 0.005     // mowing motor too low current (amps)
 #define MOW_OVERLOAD_CURRENT 2.5      // mowing motor overload current (amps)
-#define MOW_OVERLOAD_ERROR_TIME 10000 // mowing motor overload until error time (ms)
+#define MOW_OVERLOAD_ERROR_TIME 20000 // mowing motor overload until error time (ms)
 
 // should the direction of mowing motor toggle each start? (yes: true, no: false)
 #define MOW_TOGGLE_DIR       true
 //#define MOW_TOGGLE_DIR       false
 
 // should the error on motor overload detection be enabled?
-#define ENABLE_OVERLOAD_DETECTION  true    // robot will stop on overload
-//#define ENABLE_OVERLOAD_DETECTION  false    // robot will slow down on overload
+//#define ENABLE_OVERLOAD_DETECTION  true    // robot will stop on overload
+#define ENABLE_OVERLOAD_DETECTION  false    // robot will slow down on overload
 
 // should the motor fault (error) detection be enabled? 
 #define ENABLE_FAULT_DETECTION  true
@@ -413,9 +417,11 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define RELAY_HOST "grauonline.net"   // relay server name
 #define RELAY_PORT 5000               // relay server port 
 
-//#define ENABLE_UDP 1                // enable console for UDP? (for developers only)
-#define UDP_SERVER_IP   192,168,178,10     // remote UDP IP and port to connect to
+//#define ENABLE_UDP 1                  // enable console for UDP? (for developers only)
+#define UDP_SERVER_IP   192,168,178,10 // remote UDP IP and port to connect to
 #define UDP_SERVER_PORT 4210
+
+#define ENABLE_ESP32_UDP 1            // enable ESP32 UDP support over UART, modded ESP32 firmware needed
 
 // --------- NTRIP client (linux only, highly experimental) ---------------------------------
 //#define ENABLE_NTRIP 1            // must be activated to use Linux NTRIP
@@ -478,22 +484,22 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 // so we are using the INA169 in non-bridged mode (max. 2.5A)
 // ( https://www.marotronics.de/INA169-Analog-DC-Current-Sensor-Breakout-60V-25A-5A-Marotronics )
 
-//#define CURRENT_FACTOR 0.5     // PCB1.3 (non-bridged INA169, max. 2.5A)
-//#define CURRENT_FACTOR 1.0   // PCB1.3 (bridged INA169, max. 5A)
-//#define CURRENT_FACTOR 1.98   // PCB1.4 (non-bridged INA169, max. 2.5A)
-#define CURRENT_FACTOR 2.941  // PCB1.4 (bridged INA169, max. 5A)
+//#define CURRENT_FACTOR 0.5              // PCB1.3 (non-bridged INA169, max. 2.5A)
+//#define CURRENT_FACTOR 1.0              // PCB1.3 (bridged INA169, max. 5A)
+//#define CURRENT_FACTOR 1.98             // PCB1.4 (non-bridged INA169, max. 2.5A)
+#define CURRENT_FACTOR 2.941              // PCB1.4 (bridged INA169, max. 5A)
 
-#define GO_HOME_VOLTAGE   22  // start going to dock below this voltage
+#define GO_HOME_VOLTAGE   22              // start going to dock below this voltage
 // The battery will charge if both battery voltage is below that value and charging current is above that value.
-#define BAT_FULL_VOLTAGE  28.8  // start mowing again at this voltage
-#define BAT_FULL_CURRENT  0.01   // start mowing again below this charging current (amps)
-#define BAT_FULL_SLOPE    0.002  // start mowing again below this voltage slope
+#define BAT_FULL_VOLTAGE  28.8            // start mowing again at this voltage
+#define BAT_FULL_CURRENT  0.05            // start mowing again below this charging current (amps)
+#define BAT_FULL_SLOPE    0.002           // start mowing again below this voltage slope
 
 // https://wiki.ardumower.de/index.php?title=Ardumower_Sunray#Automatic_battery_switch_off
-#define BAT_SWITCH_OFF_IDLE  false         // switch off if idle (JP8 must be set to autom.)
-#define BAT_SWITCH_OFF_IDLE_TIME 500      // MrTree seconds when switching of in idle state
+#define BAT_SWITCH_OFF_IDLE  true         // switch off if idle (JP8 must be set to autom.)
+#define BAT_SWITCH_OFF_IDLE_TIME 60 * 15  // MrTree seconds when switching of in idle state
 #define BAT_SWITCH_OFF_UNDERVOLTAGE true  // switch off if undervoltage (JP8 must be set to autom.)
-#define BAT_SWITCH_OFF_VOLTAGE 20.0       //switch off mower if under this voltage
+#define BAT_SWITCH_OFF_VOLTAGE 20.0       // switch off mower if under this voltage
 
 // ------ GPS ------------------------------------------
 // ------- RTK GPS module -----------------------------------
@@ -513,13 +519,13 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define REQUIRE_VALID_GPS  true       // mower will pause if no float and no fix GPS solution during mowing (recommended)
 //#define REQUIRE_VALID_GPS  false    // mower will continue to mow if no float or no fix solution (not recommended)
 
-#define GPS_SPEED_DETECTION true  // will detect obstacles via GPS feedback (no speed)  - recommended
+#define GPS_SPEED_DETECTION false  // will detect obstacles via GPS feedback (no speed)  - recommended
 #define GPS_SPEED_DEADTIME     5000  // (ms) give mower time after starting moving to look at the stategroundspeed from ublox
 #define GPS_NO_SPEED_TIME      1000  // (ms) time for GPS no speed trigger --> obstacle
 #define GPS_SPEED_DELAY        2000  // (ms) how long gps speed needs to be too low to trigger gps obstacle 
 
 // detect if robot is actually moving (obstacle detection via GPS feedback)
-#define GPS_MOTION_DETECTION          true    // if robot is not moving trigger obstacle avoidance (recommended)
+#define GPS_MOTION_DETECTION          false    // if robot is not moving trigger obstacle avoidance (recommended)
 //#define GPS_MOTION_DETECTION        false   // ignore if robot is not moving
 #define GPS_MOTION_DETECTION_TIMEOUT  3       // (5) timeout for motion (secs)
 #define GPS_MOTION_DETECTION_DELTA    0.05     // (0.20) distance mower must be moving in timeouttime until gps no motion is triggered
@@ -642,7 +648,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
   #define CONSOLE SerialUSB   // Arduino Due: do not change (used for Due native USB serial console)
 #elif __SAMD51__
   #define BOARD "Adafruit Grand Central M4"
-  #define CONSOLE Serial      // Adafruit Grand Central M4 
+  #define CONSOLE Serial
 #elif __linux__ 
   #define BOARD "Linux"
   #define CONSOLE Console 
@@ -688,7 +694,14 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
   #define SERIAL_NTRIP_PATH "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_00000000-if00-port0"    
 #endif
 
-
+#if defined(ENABLE_ESP32_UDP)
+  #include "esp32UdpUart.h"
+  #ifdef __cplusplus
+    extern ConsoleMirrorStream udpConsole;
+  #endif
+  #undef CONSOLE
+  #define CONSOLE udpConsole
+#endif
 
 // ------- I2C addresses -----------------------------
 #define DS1307_ADDRESS B1101000
@@ -797,7 +810,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #if defined(ENABLE_SD_LOG)
   #define CONSOLE sdSerial         
 #elif defined(ENABLE_UDP)
-  #define CONSOLE udpSerial         
+  #define CONSOLE udpSerial       //only works with esp8266
 #endif
 
 

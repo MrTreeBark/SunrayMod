@@ -7,7 +7,7 @@
 import socket
 import time
 
-host = "192.168.2.30"
+host = "192.168.178.10"
 port = 4210
 
 message = b'hello world\r\n'

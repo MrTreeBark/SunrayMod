@@ -23,6 +23,8 @@ public:
   bool activateLinearSpeedRamp;
   bool waitSpinUp;
   bool motorMowStallFlag;
+  // Mower speed state machine
+  enum MowSpeedState { MOW_NORMAL, MOW_KEEPSLOW, MOW_RETRYSLOW } mowState = MOW_NORMAL;
   bool speedUpTrig;
   bool switchedOn;
   bool motorMowRpmError;
@@ -163,6 +165,7 @@ public:
   void enableTractionMotors(bool enable);
   void setLinearAngularSpeed(float linear, float angular, bool useLinearRamp = true);
   void setMowState(bool switchOn);
+  void setMowSpeed(int speed);
   void setMowPwm(int val);
   void setMowHeightMillimeter(int val);
   void setReleaseBrakesWhenZero(bool release);
