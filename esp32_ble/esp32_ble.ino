@@ -1,3 +1,5 @@
+  static unsigned long lastLogFrameStart = 0;
+  static unsigned long lastLoopTime = 0; // for loop timing debug
 /*   ESP32 firmware providing:
      1. BLE UART bridge (GATT server UART)
      2. WiFi UART bridge (HTTP server UART)
@@ -34,6 +36,8 @@ String pass = WIFI_STA_PSK;
 //#include <ESPmDNS.h>
 #include <WiFiUdp.h>
 
+// Uncomment to enable debug output for protocol/log RX/TX
+//#define DEBUG_UART 1
 // --- UDP logging config ---
 #ifdef ENABLE_UDP
 WiFiUDP udpLogger;
@@ -102,7 +106,7 @@ bool oldBleConnected = false;
 #define SERVICE_UUID             "0000FFE0-0000-1000-8000-00805F9B34FB" // UART service UUID
 #define CHARACTERISTIC_UUID      "0000FFE1-0000-1000-8000-00805F9B34FB"
 
-#define BLE_BUF_SZ 2048
+#define BLE_BUF_SZ 1024
 
 volatile int rxReadPos = 0;
 volatile int rxWritePos = 0;
@@ -430,11 +434,10 @@ void handleRoot(HTTPRequest * req, HTTPResponse * res) {
   #ifdef ENABLE_UDP
   // Wait for protocol data to arrive in cmd
   unsigned long timeout = millis() + 5000; // WIFI_TIMEOUT_FIRST_RESPONSE;
-  extern String uartParseBuffer;
   extern String protocolBuffer;
   while (millis() < timeout) {
     // Actively parse UART data during wait
-    parseUartData(uartParseBuffer, protocolBuffer);
+    parseUartData(protocolBuffer);
     if (protocolBuffer.length() > 0) {
       cmd += protocolBuffer;
       protocolBuffer = "";
@@ -553,65 +556,123 @@ void processCmd() {
   if (params[0].substring(0, 4) == "WIFI") cmdWifi(params[0].substring(4), params[1], params[2]);
 }
 
-// Global UART parsing buffers for use in loop() and handleRoot
-String uartParseBuffer = "";
-String protocolBuffer = "";
+// Global protocol buffer for use in loop() and handleRoot
+String protocolBuffer = "";     // accumulates complete protocol lines only
 
-// Centralized UART parsing function
-void parseUartData(String &uartParseBuffer, String &protocolBuffer) {
+
+// Robust two-phase UART parser: clean log/protocol separation
+void parseUartData(String &protocolBuffer) {
+  enum ParseState { OUTSIDE, IN_LOG_FRAME };
+  static ParseState state = OUTSIDE;
+  static String segmentBuffer = "";
+  static int logLen = 0, logBytesRead = 0;
+  static unsigned long lastLogTime = 0;
+  static unsigned long lastLogFrameStart = 0;
+  const size_t LOG_FRAME_LIMIT = 1024;
+  const size_t PROTO_LINE_LIMIT = 1024;
   const String LOG_START = "/ULs:";
   const String LOG_END = "/ULe\n";
-  const size_t UART_BUFFER_LIMIT = BLE_BUF_SZ;
   while (UART.available()) {
     char c = UART.read();
-    uartParseBuffer += c;
-    // Prevent runaway buffer growth
-    if (uartParseBuffer.length() > UART_BUFFER_LIMIT) {
-      uartParseBuffer = uartParseBuffer.substring(uartParseBuffer.length() - UART_BUFFER_LIMIT);
-    }
-    // Process all complete log/proto blocks in buffer
-    while (true) {
-      int startIdx = uartParseBuffer.indexOf(LOG_START);
-      if (startIdx < 0) break;
-      int endIdx = uartParseBuffer.indexOf(LOG_END, startIdx);
-      if (endIdx < 0) break;
-      int channelSep = uartParseBuffer.indexOf(":", startIdx + LOG_START.length());
-      if (channelSep < 0 || channelSep > endIdx) {
-        // Malformed, skip
-        uartParseBuffer.remove(0, endIdx + LOG_END.length());
-        continue;
-      }
-      String channel = uartParseBuffer.substring(startIdx + LOG_START.length(), channelSep);
-      int lenEnd = uartParseBuffer.indexOf("\n", channelSep + 1);
-      if (lenEnd < 0 || lenEnd > endIdx) {
-        uartParseBuffer.remove(0, endIdx + LOG_END.length());
-        continue;
-      }
-      int dataLen = uartParseBuffer.substring(channelSep + 1, lenEnd).toInt();
-      int dataStart = lenEnd + 1;
-      int dataEnd = dataStart + dataLen;
-      if (dataEnd > endIdx) {
-        // Not enough data yet
-        break;
-      }
-      String payload = uartParseBuffer.substring(dataStart, dataEnd);
-      if (channel == "log") {
-        // Handle log data (e.g., forward to UDP, print, etc.)
-        #ifdef ENABLE_UDP
-        udpLogger.beginPacket(udpLogTargetIP, udpLogTargetPort);
-        udpLogger.write((const uint8_t*)payload.c_str(), payload.length());
-        udpLogger.endPacket();
+    if (state == OUTSIDE) {
+      segmentBuffer += c;
+      // Check for log frame start
+      if (segmentBuffer.endsWith(LOG_START)) {
+        // Start of log frame detected
+        state = IN_LOG_FRAME;
+        lastLogFrameStart = millis();
+        #if DEBUG_UART
+        Serial.print("[LOG FRAME START] (");
+        Serial.print(lastLogFrameStart);
+        Serial.println(" ms)");
         #endif
-      } else if (channel == "proto") {
-        // Handle protocol data (append to protocolBuffer)
-        protocolBuffer += payload;
-      } else {
-        // Unknown channel, ignore
+        // Keep LOG_START in buffer for length parsing
+      } else if (c == '\n' || c == '\r') {
+        // Protocol line complete (if not a log frame marker)
+        if (!segmentBuffer.startsWith(LOG_START)) {
+          String protoLine = segmentBuffer;
+          protoLine.trim();
+          if (protoLine.length() > 0) {
+            #if DEBUG_UART
+            Serial.print("[PROTO RX]: ");
+            Serial.println(protoLine);
+            #endif
+            protocolBuffer += protoLine + "\n";
+          }
+        }
+        segmentBuffer = "";
       }
-      uartParseBuffer.remove(0, endIdx + LOG_END.length());
+      if (segmentBuffer.length() > PROTO_LINE_LIMIT) {
+        Serial.println("[WARN] segmentBuffer overflow (protocol), clearing!");
+        segmentBuffer = "";
+      }
+    } else if (state == IN_LOG_FRAME) {
+      segmentBuffer += c;
+      // After /ULs:..., parse logLen, then read logLen bytes, then look for /ULe\n
+      // 1. Parse logLen if not set
+      if (logLen == 0) {
+        // Find the ':' after /ULs: and the next '\n'
+        int channelSep = segmentBuffer.indexOf(":", LOG_START.length());
+        int lenEnd = segmentBuffer.indexOf("\n", LOG_START.length());
+        if (channelSep > 0 && lenEnd > channelSep) {
+          String logLenStr = segmentBuffer.substring(channelSep + 1, lenEnd);
+          logLen = logLenStr.toInt();
+          logBytesRead = 0;
+        }
+      } else {
+        // 2. Wait for log payload and /ULe\n
+        // Find where payload starts
+        int channelSep = segmentBuffer.indexOf(":", LOG_START.length());
+        int lenEnd = segmentBuffer.indexOf("\n", LOG_START.length());
+        int dataStart = lenEnd + 1;
+        if (logLen > 0 && segmentBuffer.length() >= dataStart + logLen + LOG_END.length()) {
+          // Check for LOG_END after payload
+          int dataEnd = dataStart + logLen;
+          if (segmentBuffer.substring(dataEnd, dataEnd + LOG_END.length()) == LOG_END) {
+            String payload = segmentBuffer.substring(dataStart, dataEnd);
+            unsigned long now = millis();
+            unsigned long delta = (lastLogTime > 0) ? (now - lastLogTime) : 0;
+            #if DEBUG_UART
+            Serial.print("[LOG RX] (");
+            Serial.print(now);
+            Serial.print(" ms, delta ");
+            Serial.print(delta);
+            Serial.print(" ms): ");
+            Serial.println(payload);
+            Serial.print("[LOG FRAME COMPLETE] (");
+            Serial.print(now);
+            Serial.print(" ms, frame duration ");
+            Serial.print(now - lastLogFrameStart);
+            Serial.println(" ms)");
+            #endif
+            lastLogTime = now;
+            // Immediate UDP log sending here
+            #ifdef ENABLE_UDP
+            if (payload.length() > 0) {
+              udpLogger.beginPacket(udpLogTargetIP, udpLogTargetPort);
+              udpLogger.write((const uint8_t*)payload.c_str(), payload.length());
+              udpLogger.endPacket();
+            }
+            #endif
+            // Reset for next frame
+            segmentBuffer = "";
+            logLen = 0;
+            logBytesRead = 0;
+            state = OUTSIDE;
+          }
+        }
+        if (segmentBuffer.length() > LOG_FRAME_LIMIT) {
+          Serial.println("[WARN] segmentBuffer overflow (log), clearing!");
+          segmentBuffer = "";
+          logLen = 0;
+          logBytesRead = 0;
+          state = OUTSIDE;
+        }
+      }
     }
   }
 }
+
 
 
 // simulate Ardumower answer (only for BLE testing) 
@@ -687,10 +748,8 @@ void loop() {
     cmd = cmd + ch;
   }
 
-  // General parsing buffer for UART data: separates UDP logs and protocol
-  static unsigned long lastProtocolParseTime = 0;
-  // Use centralized parsing function
-  parseUartData(uartParseBuffer, protocolBuffer);
+  // State machine UART parser
+  parseUartData(protocolBuffer);
   // Move protocolBuffer to cmd for HTTP and AT command processing
   if (protocolBuffer.length() > 0) {
     cmd += protocolBuffer;

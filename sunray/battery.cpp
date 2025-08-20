@@ -28,10 +28,12 @@ void Battery::begin() {
   nextBatteryTime = 0;
   nextCheckTime = 0;
   nextEnableTime = 0;
+  reEnableTime = 0;
   batteryVoltageSlopeLowCounter = 0;
   nextSlopeTime = 0;
   timeMinutes = 0;
   chargingVoltage = 0;
+  chargingPower = 0;
   chargingCompletedDelay = 0;
   batteryVoltage = 0;
   chargerConnectedState = false;
@@ -48,7 +50,7 @@ void Battery::begin() {
   // The battery will charge if both battery voltage is below that value and charging current is above that value.
   batFullCurrent = BAT_FULL_CURRENT; // 0.2  current flowing when battery is fully charged (A)
   batFullVoltage = BAT_FULL_VOLTAGE; // 28.7  voltage when battery is fully charged (we charge to only 90% to increase battery life time)
-  enableChargingTimeout = 60 * 30; // if battery is full, wait this time before enabling charging again (seconds)
+  enableChargingTimeout = 60 * BAT_CHARGE_TIMEOUT; // if battery is full, wait this time before enabling charging again (seconds)
   batteryVoltage = 0;
   batteryVoltageLast = 0;
   batteryVoltageSlope = 0;
@@ -152,8 +154,12 @@ void Battery::run() {
   // current
   chargingCurrent = 0.9 * chargingCurrent + 0.1 * batteryDriver.getChargeCurrent();
 
+  // charging power
+  chargingPower = chargingVoltage * chargingCurrent;
+
   if (!chargerConnectedState) {
-    if (chargingVoltage > 7) {
+    //if (chargingVoltage > 7) { //try out over battery voltage
+    if (chargingVoltage > batteryVoltage) { //try out over battery voltage
       chargerConnectedState = true;
       CONSOLE.print("CHARGER CONNECTED chgV=");
       CONSOLE.print(chargingVoltage);
@@ -166,7 +172,8 @@ void Battery::run() {
   if (millis() >= nextCheckTime) {
     nextCheckTime = millis() + 5000;
     if (chargerConnectedState) {
-      if (chargingVoltage <= 5) {
+      //if (chargingVoltage <= 5) { try out under battery power off voltage
+      if (chargingVoltage <= BAT_SWITCH_OFF_VOLTAGE) { //try out under battery undervoltage
         chargerConnectedState = false;
         nextEnableTime = millis() + 5000; // reset charging enable time
         CONSOLE.print("CHARGER DISCONNECTED chgV=");
@@ -198,12 +205,16 @@ void Battery::run() {
     // if the charging voltage is significantly lower than the battery voltage, we have a bad contact
     // this can happen if the charger is not connected properly or the contacts are dirty
     // we will not charge the battery in this case
+    badChargerContactState = false;
     if (millis() >= nextSlopeTime) {
       nextSlopeTime = millis() + 60000; // 1 minute
-      badChargerContactState = false;
+      //badChargerContactState = false;
       if (chargerConnectedState) {
         if (!chargingCompleted) {
-          if (chargingVoltBatteryVoltDiff < CHG_VOLT_DIFF && chargingCurrent < CHG_CURRENT) {
+          //if (chargingVoltBatteryVoltDiff < CHG_VOLT_DIFF && chargingCurrent < CHG_CURRENT) {
+          if (batteryVoltage < batFullVoltage && chargingCurrent < CHG_CURRENT) {
+            //possibly we could change the charger connected state aswell
+            enableCharging(false); //open the relais for a true charging contact measurement
             // check for slope
             //if (batteryVoltageSlope < 0){
             badChargerContactState = true;
@@ -231,28 +242,44 @@ void Battery::run() {
   if (millis() > nextEnableTime) {
     nextEnableTime = millis() + 5000;
 
+    //this is very important: mower doesnt have the physical hardware to detect if it is connected or not when the relais is closed! We will "see" the battery voltage on the charger input.
+    //so in my understanding "chargingCompleted = ((chargingCurrent <= batFullCurrent) || (batteryVoltage >= batFullVoltage));" seems odd but is necessary to force a relais open and then measure
+    //if the charger is actually connected or not! We should make 2 separate checks for a truly full battery or a bad contact/not engaged charger.
     if (chargerConnectedState) {
-      // charger in connected state
+      // charger in connected state and relais closed
       if (chargingEnabled) {
-        //if ((timeMinutes > 180) || (chargingCurrent < batFullCurrent)) {
-        // https://github.com/Ardumower/Sunray/issues/32
+       
+        // True bat full status, enabling longer timeout for next charge session if configured
         if (chargingCompletedDelay > 5) { // chargingCompleted check first after 6 * 5000ms = 30sec.
-          chargingCompleted = ((chargingCurrent <= batFullCurrent) && (batteryVoltage >= batFullVoltage)); //this was a bug before, charging is finished when voltage is high AND current is low
+          chargingCompleted = ((chargingCurrent <= batFullCurrent) && (batteryVoltage >= batFullVoltage)); //charging is finished when voltage is high AND current is low, but we need this to force a relais open and then measure if the charger is actually connected or not!
         } else {
           chargingCompletedDelay++;
         }
         if (chargingCompleted) {
           // stop charging
-          nextEnableTime = millis() + 1000 * enableChargingTimeout; // check charging current again in 30 minutes
+          nextEnableTime = millis() + 1000 * enableChargingTimeout; // check charging current again in BAT_CHARGE_TIMEOUT minutes
           chargingCompleted = true;
-          enableCharging(false);
+          if (!CHG_NEVER_DISCONNECT) enableCharging(false);
         }
+
+        /* // Check for bad charger contact and force a open relais to read the voltage of mower contacts
+        if (chargingCompletedDelay > 5) { // chargingCompleted check first after 6 * 5000ms = 30sec.
+          chargingCompleted = ((chargingCurrent <= batFullCurrent) || (batteryVoltage >= batFullVoltage)); //charging is finished when voltage is high AND current is low, but we need this to force a relais open and then measure if the charger is actually connected or not!
+        }
+
+        if (chargingCompleted) {
+          // stop charging
+          nextEnableTime = millis() + 1000 * BAT_CHARGE_TIMEOUT; // check charging current again in BAT_CHARGE_TIMEOUT minutes
+          chargingCompleted = true;
+          if (!CHG_NEVER_DISCONNECT) enableCharging(false);
+        } */
+        
       } else {
-        //if (batteryVoltage < startChargingIfBelow) {
         // start charging
-        enableCharging(true);
-        chargingStartTime = millis();
-        //}
+        if (!badChargerContactState) { //keep relais off if badCharger was detected
+          enableCharging(true);
+          chargingStartTime = millis();
+        }
       }
     } else {
       // reset to avoid direct undocking after docking
@@ -260,6 +287,8 @@ void Battery::run() {
       chargingCompletedDelay = 0; // reset chargingCompleteted delay counter
     }
   }
+
+  reEnableTime = (nextEnableTime - millis()) / 60000; // (minutes) public for ChargeOp or other functions
 
   if (DEBUG_BATTERY) {
     if (millis() >= nextPrintTime) {
@@ -279,6 +308,9 @@ void Battery::run() {
       CONSOLE.print(" V  ");
       CONSOLE.print(chargingCurrent);
       CONSOLE.print(" A ");
+      CONSOLE.print(" chgPower=");
+      CONSOLE.print(chargingPower);
+      CONSOLE.print(" W ");
       CONSOLE.print(" diff=");
       CONSOLE.print(chargingVoltage - batteryVoltage);
       CONSOLE.print(" V  ");

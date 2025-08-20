@@ -105,6 +105,10 @@ extern bool escapeFinished;            //MrTree
 extern bool isMotorMowWaiting; //MrTree               
 extern bool RC_Mode;                   //MrTree
 
+//extern bool isRobotNearWaypoint;
+//extern bool isRobotApproachingTarget;
+//extern bool isRobotAtTarget;
+
 extern WiFiEspClient client;
 extern WiFiEspServer server;
 extern PubSubClient mqttClient;
@@ -214,5 +218,9 @@ bool robotShouldMove();
 bool robotShouldMoveForward();
 bool robotShouldMoveBackward();
 bool robotShouldWait();
+bool robotIsNearWaypoint();
+bool robotIsNearLastWaypoint();
+bool robotIsApproachingTarget();
+bool robotIsAtTarget();
 
 #endif

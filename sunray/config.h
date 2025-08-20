@@ -110,7 +110,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define MOTOR_MAX_SPEED             0.60  // (m/s) maximum mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define MOTOR_MIN_SPEED             0.05  // (m/s) minimal mower speed --> has not much to to with configuration of speeds: acts as a failsafe
 #define DISTANCE_RAMP               true  // is using NEARWAYPOINTDISTANCE, MOTOR_MIN_SPEED and the actual setspeed to calculate an indirect deceleration ramp to the next waypoint, if this is true, NEARWAYPOINTSPEED in linetracker.cpp is disabled
-#define DISTANCE_RAMP_MINSPEED      0.10  // (m/s) this is the ramp minspeed
+#define DISTANCE_RAMP_MINSPEED      0.15  // (m/s) this is the ramp minspeed
 //rotation speeds, also this is easy to tune for your expectations --> going to be changed to angularRamp() with less parameters
 #define ROTATION_RAMP               true  // uses a ramp for angletotargetfits (very nice), ROTATETOTARGETSPEED´s are disabled if this is true
 #define ROTATION_RAMP_MAX           100   // (deg/s) maximum rotation speed
@@ -121,7 +121,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ANGLEDIFF1                  30.0  // (deg) if angle to point is more than ANGLEDIFF1              --> ROTATETOTARGETSPEED1 will be used 
 #define ANGLEDIFF2                  15.0  // (deg) if angle to point is between ANGLEDIFF1 and ANGLEDIFF2 --> ROTATETOTARGETSPEED2 will be used, if it is less ROTATETOTARGETSPEED3 will be used...
 #define ANGLEPRECISE                5.0   // (deg) if Angle to point ist within 5deg, mower will continue with Linetracker.cpp Stanleycode and NEARWAYPOINT setup
-#define TRANSITION_ANGLE            35    // (deg) if next point is below this angle, mower will not stop completely but makes a transition with TRANSITION_SPEED
+#define TRANSITION_ANGLE            45    // (deg) if next point is below this angle, mower will not stop completely but makes a transition with TRANSITION_SPEED
 #define TRANSITION_SPEED            0.25  // (m/s) speed for transition to next point angle
 #define TARGETFITS_ANGLE            45    // (deg/s) if target angle is below that, linetracker uses stanley for tracking. If over that angle, mower will stop and readjust with rotation at it´s current position
 //use a PID controller for mowmotor to set an RPM instead of PWM? If you use this (there will be a console output with data after 10sec when you activate the mowmotor and this is enabled)
@@ -201,10 +201,13 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define GPS_JUMP_DISTANCE           0.4   // (m) the sudden difference from last GPS position to new position, that will trigger a GPS_JUMP_WAIT positive
 //OTHER
 #define RAIN_RESTART                60    // (min) time in minutes to wait before trying to restart mowing after rain detected and docking from mow operation
+#define SAVE_STATE_INTERVAL         5     // (min) time in minutes to wait before saving state, also it will only save if the robot is not moving (sharp waypoint)
 #define MOTOR_OVERLOAD_ERROR_TIME   20000 // (ms) duration for motor overload error if MOTOR_OVERLOAD_ROTATION is true
 #define DOCK_BETTER_TOUCH_TIME      1000  // (ms) duration of pushing against dock contacts for better contact (default 5000ms)
-#define CHG_VOLT_DIFF               0.5  // (V) voltage difference threshold for detecting bad charger contact (default -3.0V)
-#define CHG_CURRENT                 0.1  // (A) current threshold for detecting bad charger contact. If chargerConnected and below CHG_CURRENT, bad contact is assumed
+#define CHG_NEVER_DISCONNECT        false // if true, charger will never be disconnected from mower, even if battery is full. If false, charger will be disconnected after battery is full and mower will not charge anymore until check time
+//#define CHG_VOLT_DIFF               0.5  // (V) voltage difference threshold for detecting bad charger contact (default -3.0V)
+#define CHG_CURRENT                 0.1  // (A) current threshold for detecting bad charger contact. If chargerConnected and below CHG_CURRENT while bat below BAT_FULL_VOLTAGE, bad contact is assumed
+#define BAT_CHARGE_TIMEOUT          15    // (min) timeout for battery charging if battery is full
 //#define FLOAT_CALC                  1   // better float handling?
 #define MOW_START_AT_WAYMOW         true // (WARNING: IF YOU SET THIS TRUE, YOU CANNOT START MOWMOTOR WITH APP MANUALLY ANYMORE) mowmotor only starts if way state of mower is waymow for the first time, used for mowmotor not starting directly at dock, but at mow area. This is a onetime trigger that only works when mower is (---> undocking ) ---> wayfree ---> mowarea ---> start mowmotor. After this, mowmotor will behave like it used to be
 #define WATCHDOG_CONTINUE           false // set true if you have watchdog reset issues, mower will start mowing after rebooting
@@ -242,7 +245,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define TEMPERATURE_OUTPUT          false // output temperature readings in serial monitor and SDlog
 #define OUTPUT_LOOPTIME             false // calc and output the sunray loop time in serial monitor and SDlog
 //DEBUG
-#define DEBUG_OUTPUT_TIME           1000 // (ms) periodic output time of DEBUG_OUTPUT´s, change to iterationwise if needed (0)
+#define DEBUG_OUTPUT_TIME           0 // (ms) periodic output time of DEBUG_OUTPUT´s, change to iterationwise if needed (0)
 #define DEBUG_MEMORY                false
 #define MAX_MEMORY                  1024 //AGCM4: 1024kB
 #define DEBUG_ADAPTIVESPEED         false
@@ -256,7 +259,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define DEBUG_MOTOR_CONTROL_TIME    1000
 #define DEBUG_MOTOR_MOWSTALL        false
 #define DEBUG_TRACKER               false
-#define DEBUG_BATTERY               true
+#define DEBUG_DISTANCE_RAMP         false
+#define DEBUG_BATTERY               false
 #define DEBUG_UBLOX                 false // will output unparsed ublox rx messages
 #define DEBUG_HTTPSERVER            false
 #define DEBUG_TIMING                false
@@ -491,8 +495,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 
 #define GO_HOME_VOLTAGE   22              // start going to dock below this voltage
 // The battery will charge if both battery voltage is below that value and charging current is above that value.
-#define BAT_FULL_VOLTAGE  28.8            // start mowing again at this voltage
-#define BAT_FULL_CURRENT  0.05            // start mowing again below this charging current (amps)
+#define BAT_FULL_VOLTAGE  28.3            // start mowing again at this voltage
+#define BAT_FULL_CURRENT  0.1            // start mowing again below this charging current (amps)
 #define BAT_FULL_SLOPE    0.002           // start mowing again below this voltage slope
 
 // https://wiki.ardumower.de/index.php?title=Ardumower_Sunray#Automatic_battery_switch_off

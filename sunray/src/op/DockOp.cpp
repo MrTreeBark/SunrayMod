@@ -188,7 +188,8 @@ void DockOp::onWaitCommand(){
 }
 
 void DockOp::onChargerConnected(){
-  battery.setIsDocked(true);                
+  battery.setIsDocked(true);
+  motor.setLinearAngularSpeed(0,0,false); //XX                
   changeOp(chargeOp);
 }
 

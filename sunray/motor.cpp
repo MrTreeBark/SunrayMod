@@ -80,7 +80,7 @@ void Motor::begin() {
   lpfMotorLeftRpm.Tf = 2;
   lpfMotorRightRpm.Tf = 2;
   lpfMotorMowRpm.Tf = 3; 
-  lpfMotorMowRpmFast.Tf = 0.05;       //fast for adaptive speed
+  lpfMotorMowRpmFast.Tf = 0.025;       //fast for adaptive speed
   lpfMotorLeftRpm.reset();
   lpfMotorRightRpm.reset();
   lpfMotorMowRpm.reset();
@@ -305,11 +305,6 @@ void Motor::speedPWM ( int pwmLeft, int pwmRight, int pwmMow )
 //      omega = (VR - VL) / L       =>  VL = V - omega * L/2
 void Motor::setLinearAngularSpeed(float linear, float angular, bool useLinearRamp){  
   
-  //remove
-  if (waitMowMotor()){
-    linear = 0;
-    angular = 0;
-  }
 
   // input speed limits
   if (GLOBALSPEEDLIMIT && linear != 0) {
@@ -325,14 +320,25 @@ void Motor::setLinearAngularSpeed(float linear, float angular, bool useLinearRam
     }
   }
 
-  if (angular == 0) resetAngularMotionMeasurement();        // global reset
-  if (linear == 0) resetLinearMotionMeasurement();          // global reset
-  
-  if (angular && linear != 0) {
+  //try a global reset for movement timings
+  if (angular && linear == 0) {
+    resetMotion();
+  } else if (angular == 0) {
+    resetAngularMotionMeasurement();        // global reset
+    resetStateEstimation();
+  } else if (linear == 0) {
+    resetLinearMotionMeasurement();          // global reset
+    resetOverallMotionTimeout();
+  }
+
+  // if there is a active speed cmd set, we need to ensure that the controlling code is continuuing doing so...
+  if (angular == 0 && linear == 0) {
+    setLinearAngularSpeedTimeoutActive = false;
+  } else {
     setLinearAngularSpeedTimeout = millis() + 1500;         // Changed to 2500 from 1000, this possibly causes the stop and go if mower is controlled manually over WiFi 
     setLinearAngularSpeedTimeoutActive = true;
   }
-  
+
   linearCurrSet = linear;                                   // safe linear in a global before messing around with it, this is the "new" value, linearSpeedSet is the "old" value
   float linearDelta = linear - linearSpeedSet;              // need a delta for triggering ramp
   if (linear > 0) linear = linear * adaptiveSpeed();        // adaptive speed for mowing operation only when in forward drive
@@ -542,9 +548,10 @@ void Motor::run() {
   //Change to stopimmediately!
   if (setLinearAngularSpeedTimeoutActive){
     if (millis() > setLinearAngularSpeedTimeout){
-      //CONSOLE.println("Motor::run - LinearAngularSpeedTimeout");
+      CONSOLE.print("Motor::run - LinearAngularSpeedTimeout --> motors stopped due to iteration cmd timeout dT= ");
+      CONSOLE.println(millis() - setLinearAngularSpeedTimeout);
       setLinearAngularSpeedTimeoutActive = false;
-      setLinearAngularSpeed(0, 0);
+      setLinearAngularSpeed(0, 0, false);
       linearCurrSet = 0;
       linearSpeedSet = 0;
       motorLeftRpmSet = 0;
@@ -679,7 +686,7 @@ void Motor::run() {
     nextOutputTime = millis() + DEBUG_MOTOR_CONTROL_TIME;
     CONSOLE.println("     motor.cpp --------------------------------> ");
     CONSOLE.println(" ");
-    CONSOLE.print("                   PWMCurr (l,r,m) = ");  CONSOLE.print(motorLeftPwm);  CONSOLE.print(", ");  CONSOLE.print(motorRightPwm);    CONSOLE.print(", ");CONSOLE.println(motorMowPwm);
+    CONSOLE.print("                   PWMCurr (l,r,m) = ");CONSOLE.print(motorLeftPwm);    CONSOLE.print(", ");  CONSOLE.print(motorRightPwm);    CONSOLE.print(", ");CONSOLE.println(motorMowPwm);
     CONSOLE.print("               motor*PWMLP (l,r,m) = ");CONSOLE.print(motorLeftPwmLP);  CONSOLE.print(", ");  CONSOLE.print(motorRightPwmLP);  CONSOLE.print(", ");CONSOLE.println(motorMowPwmLP);
     CONSOLE.print("             motor*SenseLP (l,r,m) = ");CONSOLE.print(motorLeftSenseLP);CONSOLE.print(", ");  CONSOLE.print(motorRightSenseLP);CONSOLE.print(", ");CONSOLE.println(motorMowSenseLP);
     CONSOLE.println("     <------------------------------------------ ");

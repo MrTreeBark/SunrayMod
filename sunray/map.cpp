@@ -259,13 +259,14 @@ bool PolygonList::alloc(short aNumPolygons){
 
 void PolygonList::dealloc(){
   if (polygons == NULL) return;
-  for (int i=0; i < numPolygons; i++){
+  int n = numPolygons;
+  for (int i=0; i < n; i++){
     polygons[i].dealloc();        
   }  
-  if (polygons[numPolygons].points != CHECK_POINT) memoryCorruptions++;
+  if (polygons[n].points != CHECK_POINT) memoryCorruptions++;
   delete[] polygons;
   polygons = NULL;
-  numPolygons = 0;  
+  numPolygons = 0;
 }
 
 int PolygonList::numPoints(){
@@ -1126,9 +1127,14 @@ bool Map::startMowing(float stateX, float stateY){
 }
 
 
-void Map::clearObstacles(){  
-  CONSOLE.println("clearObstacles");
-  obstacles.dealloc();  
+void Map::clearObstacles(){
+  unsigned long t0 = millis();
+  CONSOLE.print("clearObstacles");
+  obstacles.dealloc();
+  unsigned long t1 = millis();
+  CONSOLE.print(" -- duration: ");
+  CONSOLE.print(t1 - t0);
+  CONSOLE.println(" ms");
 }
 
 // add dynamic octagon obstacle in front of robot on line going from robot to target point

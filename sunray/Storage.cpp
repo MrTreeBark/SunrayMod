@@ -179,18 +179,18 @@ bool loadState(){
 bool saveState(){   
   bool res = true;
 #if defined(ENABLE_SD_RESUME)
+  unsigned long t0 = millis();
   double crc = calcStateCRC();
-  //CONSOLE.print("stateCRC=");
-  //CONSOLE.print(stateCRC);
-  //CONSOLE.print(" crc=");
-  //CONSOLE.println(crc);
   if (crc == stateCRC) return true;
   stateCRC = crc;
   dumpState();
   CONSOLE.print("save state... ");
   stateFile = SD.open("state.bin",  FILE_CREATE); // O_WRITE | O_CREAT);
   if (!stateFile){        
-    CONSOLE.println("ERROR opening file for writing");
+    unsigned long t1 = millis();
+    CONSOLE.print("ERROR opening file for writing -- duration ");
+    CONSOLE.print(t1 - t0);
+    CONSOLE.println(" ms");
     return false;
   }
   uint32_t marker = 0x10001007;
@@ -218,15 +218,20 @@ bool saveState(){
   res &= (stateFile.write((uint8_t*)&timetable.timetable, sizeof(timetable.timetable)) != 0);  
   res &= (stateFile.write((uint8_t*)&battery.docked, sizeof(battery.docked)) != 0);
   res &= (stateFile.write((uint8_t*)&dockAfterFinish, sizeof(dockAfterFinish)) != 0);  
-  if (res){
-    CONSOLE.println("ok");
-  } else {
-    CONSOLE.println("ERROR saving state");
-  }
   stateFile.flush();
   stateFile.close();
+  unsigned long t1 = millis();
+  if (res){
+    CONSOLE.print("ok -- duration ");
+    CONSOLE.print(t1 - t0);
+    CONSOLE.println(" ms");
+  } else {
+    CONSOLE.print("ERROR saving state -- duration ");
+    CONSOLE.print(t1 - t0);
+    CONSOLE.println(" ms");
+  }
 #endif
-  return res; 
+  return res;
 }
 
 

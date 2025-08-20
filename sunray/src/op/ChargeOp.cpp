@@ -31,7 +31,7 @@ void ChargeOp::begin(){
     if (DOCK_RELEASE_BRAKES){
         motor.setReleaseBrakesWhenZero(true);
     }
-    //motor.stopImmediately(true); // do not use PID to get to stop 
+    motor.stopImmediately(true); // do not use PID to get to stop 
     motor.setLinearAngularSpeed(0,0, false); 
     motor.setMowState(false);     
     if (SWITCH_OFF_TRACTION_MOTORS) motor.enableTractionMotors(false); // keep traction motors off (motor drivers tend to generate some incorrect encoder values when stopped while not turning) 
@@ -39,8 +39,9 @@ void ChargeOp::begin(){
 	nextMoveTime = 0;													//
     if (MOVE_REGULARLY){												//
         nextMoveTime = millis() + MOVE_AGAIN_AFTER * 60 * 1000;			//
-        CONSOLE.print("------->Docking started: ");						//
-        CONSOLE.println(nextMoveTime);									//
+        CONSOLE.print("-------> ChargeOp: MOVE_REGULARLY(1), next antistuck Operation in ");						//
+        CONSOLE.print(MOVE_AGAIN_AFTER);									//
+        CONSOLE.println(" min");											//
     }																	
 }
 
@@ -49,8 +50,8 @@ void ChargeOp::end(){
 }
 
 void ChargeOp::run(){
-	
-	//--------------------> move it, move it!
+
+	//--------------------> move it, move it! --> exclude to own op.
     if (MOVE_REGULARLY){
         movingTime = MOVING_TIME;
         if ((millis() > nextMoveTime)){
@@ -69,7 +70,7 @@ void ChargeOp::run(){
 				motor.setLinearAngularSpeed(0.0, 0, false);
 				if (SWITCH_OFF_TRACTION_MOTORS) motor.enableTractionMotors(false);  // allow traction motors to operate
 				Moving = false;
-				CONSOLE.println("--> mower moving for DRV8038 Antistuck: Operation finished!");
+				CONSOLE.println("--> mower moving for DRV8038 Antistuck: Operation finished! Next move in " + String(MOVE_AGAIN_AFTER) + " min");
 			}
         } else {
 			Moving = false;
@@ -94,7 +95,7 @@ void ChargeOp::run(){
                 changeOp(idleOp);    
             }
         } else if (betterTouchDock){
-            if (millis() > betterTouchDockStopTime) {
+            if (millis() > betterTouchDockStopTime){
                 CONSOLE.println("ChargeOp: betterTouchDock completed");
                 motor.setLinearAngularSpeed(0, 0);            
                 betterTouchDock = false;
@@ -122,7 +123,13 @@ void ChargeOp::run(){
                 nextConsoleDetailsTime = millis() + 30000;
                 CONSOLE.print("ChargeOp: charging completed (DOCKING_STATION=");
                 CONSOLE.print(DOCKING_STATION);
-				CONSOLE.print(", battery.isDocked=");
+                CONSOLE.print(", CHG_NEVER_DISCONNECT=");
+                CONSOLE.print(CHG_NEVER_DISCONNECT);
+                CONSOLE.print(", battery.chargingEnabled=");
+                CONSOLE.print(battery.chargingEnabled);
+                CONSOLE.print(", timeToReEnable=");
+                CONSOLE.print(battery.reEnableTime);
+                CONSOLE.print(", battery.isDocked=");
                 CONSOLE.print(battery.isDocked());
                 CONSOLE.print(", dockOp.initiatedByOperator=");
                 CONSOLE.print(dockOp.initiatedByOperator);        

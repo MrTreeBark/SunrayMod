@@ -31,6 +31,8 @@ extern float stateDeltaGPS;
 extern float stateDeltaIMU;
 extern float imuRawYaw_sc; //PIscaled imu yaw from imudriver.yaw
 
+extern bool gpsUpdated;
+
 extern bool stateAprilTagFound; // found april-tag in camera stream?
 extern float stateXAprilTag; // camera-position in april-tag frame
 extern float stateYAprilTag;  
@@ -54,7 +56,7 @@ extern float stateDeltaSpeedWheels;
 extern float diffIMUWheelYawSpeed;
 //extern float diffIMUWheelYawSpeedLP;
 
-extern float gpsJumpDistance;
+//extern float gpsJumpDistance; //remove
 extern bool gpsJump;
 
 extern bool imuIsCalibrating;

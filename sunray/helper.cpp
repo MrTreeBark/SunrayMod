@@ -8,7 +8,7 @@
 #include "helper.h"
 #include "config.h"
 
-float safeMap(float x, float in_min, float in_max, float out_min, float out_max) {
+float safeMap(float x, float in_min, float in_max, float out_min, float out_max, bool constrainOutput) {
   if (!isfinite(x)) {
     CONSOLE.println("WARNING: safeMap() input is not finit! Fallback out_min");
     return out_min;
@@ -20,8 +20,14 @@ float safeMap(float x, float in_min, float in_max, float out_min, float out_max)
   }
   float result = (x - in_min) * (out_max - out_min) / delta_in + out_min;
   if (!isfinite(result)) {
-    CONSOLE.println("WARNING: safeMap() Result is ivalid! Fallback out_min");
+    CONSOLE.println("WARNING: safeMap() Result is invalid! Fallback out_min");
     return out_min;
+  }
+  if (constrainOutput) {
+    if (out_min < out_max)
+      return constrain(result, out_min, out_max);
+    else
+      return constrain(result, out_max, out_min);
   }
   return result;
 }

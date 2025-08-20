@@ -21,12 +21,14 @@ class Battery {
     int enableChargingTimeout;
     float batFullCurrent;
 	  float batteryVoltage;   // volts
+    float chargingPower;    // watts
     float batteryVoltageLast;
     float chargingVoltBatteryVoltDiff;    
     float batteryVoltageSlope; // slope (volts/minute)	  
     float chargingVoltage;  // volts
     float actual_voltage; //volts MrTree
 	  float chargingCurrent;  // amps
+    float reEnableTime; // minutes
     bool chargingEnabled;
     int chargingCompletedDelay; // ensure that loadingcurrent or loadingvoltage triggers 'chargingCompleted' condition for a longer period
     bool chargingCompleted;

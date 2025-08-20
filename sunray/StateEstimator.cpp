@@ -28,6 +28,8 @@ float stateDeltaIMU = 0;
 float imuRawYaw_sc = 0; //PIscaled raw yaw from imuDriver.yaw
 float stateGroundSpeed = 0; // m/s
 
+bool gpsUpdated = false;
+
 bool stateAprilTagFound = false;
 float stateXAprilTag = 0; // camera-position in april-tag frame
 float stateYAprilTag = 0;  
@@ -250,10 +252,20 @@ void dumpImuTilt(){
 //TODO: just use one function run here, read imu and then compute all states directly with fresh sensor data. GPS is slow, IMU is fast. No problems so. A Lawnrobot without IMU should not exist in post 2020...
 void readIMU(){
   if (!imuDriver.imuFound) return;
-  // Check for new data in the FIFO
-  if (!imuDriver.isDataAvail()) {
+
+  // timeout detection
+  static unsigned long lastImuDataTime = 0;
+  static bool imuTimeoutPrinted = false;
+  if (imuDriver.isDataAvail()) {
+    lastImuDataTime = millis();
+    imuTimeoutPrinted = false;
+  } else {
+    if ((millis() - lastImuDataTime > 5000) && !imuTimeoutPrinted) {
+      CONSOLE.println("WARNING: No IMU data available for 5 seconds!");
+      imuTimeoutPrinted = true;
+    }
     return;
-} 
+  }
 
   ////////////////////////////////////////////
   //setup vals raw
@@ -340,7 +352,7 @@ void readIMU(){
       CONSOLE.println(imuRawPitchChange);
       imuRawPitchChange = imuRawPitchChangeLast;
       imuRawPitch = imuRawPitchLast;
-  } else if (imuRawYawChange > 25.0 / 180.0 * PI) {
+  } else if (imuRawYawChange > 50.0 / 180.0 * PI) {
       CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawYawChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawPitchChange: ");
       CONSOLE.println(imuRawYawChange);
       imuRawYawChange = imuRawYawChangeLast;
@@ -351,49 +363,7 @@ void readIMU(){
       (fabs(imuRawRollChange) > 20.0 / 180.0 * PI) || 
       (fabs(imuRawPitchChange) > 20.0 / 180.0 * PI)) 
   {
-      // dumpImuTilt();  // optional aktivieren
-      //THIS TRIGGERS OVER AND OVER
-      /* CONSOLE.println("Statestimator change activeOP -> onImuTilt");
-
-      // >>>> Aktualisierte Statusanzeige <<<<
-      CONSOLE.print("     imuRawRoll:       ");
-      CONSOLE.print(fabs(scalePI(imuRawRoll)) * 180.0 / PI);
-      CONSOLE.println("°   > 45°");
-
-      CONSOLE.print("     imuRawRollChange: ");
-      CONSOLE.print(fabs(imuRawRollChange) * 180.0 / PI);
-      CONSOLE.println("°   > 20°");
-
-      CONSOLE.print("     imuRawPitch:      ");
-      CONSOLE.print(fabs(scalePI(imuRawPitch)) * 180.0 / PI);
-      CONSOLE.println("°   > 45°");
-
-      CONSOLE.print("     imuRawPitchChange:");
-      CONSOLE.print(fabs(imuRawPitchChange) * 180.0 / PI);
-      CONSOLE.println("°   > 20°");
-
-      // >>>> Triggerausgabe <<<<
-      if (fabs(scalePI(imuRawRoll)) > 45.0 / 180.0 * PI) {
-          CONSOLE.print("TRIGGERED: imuRawRoll > 45° (");
-          CONSOLE.print(fabs(scalePI(imuRawRoll)) * 180.0 / PI);
-          CONSOLE.println("°)");
-      }
-      if (fabs(scalePI(imuRawPitch)) > 45.0 / 180.0 * PI) {
-          CONSOLE.print("TRIGGERED: imuRawPitch > 45° (");
-          CONSOLE.print(fabs(scalePI(imuRawPitch)) * 180.0 / PI);
-          CONSOLE.println("°)");
-      }
-      if (fabs(imuRawRollChange) > 20.0 / 180.0 * PI) {
-          CONSOLE.print("TRIGGERED: imuRawRollChange > 20° (");
-          CONSOLE.print(fabs(imuRawRollChange) * 180.0 / PI);
-          CONSOLE.println("°)");
-      }
-      if (fabs(imuRawPitchChange) > 20.0 / 180.0 * PI) {
-          CONSOLE.print("TRIGGERED: imuRawPitchChange > 20° (");
-          CONSOLE.print(fabs(imuRawPitchChange) * 180.0 / PI);
-          CONSOLE.println("°)");
-      } */
-
+      // here we could maybe add a imu obstacle situation for yaw deflection
       activeOp->onImuTilt();
   }
 
@@ -588,7 +558,9 @@ void computeRobotState(){
   float lp2 = 0.8;// - 2*deltaTime;
   float lp3 = 0.7;// - 3*deltaTime;
   float lp4 = 0.6;// - 4*deltaTime;   //with iterationtime of 20ms (50Hz), this will be about 0.92 for LP filter */
- 
+  
+  gpsUpdated = gps.solutionAvail;
+  
   if (absolutePosSource){
     relativeLL(absolutePosSourceLat, absolutePosSourceLon, gps.lat, gps.lon, posN, posE);    
   } else {
@@ -614,11 +586,14 @@ void computeRobotState(){
     float distGPS = sqrt( sq(posN-lastPosN)+sq(posE-lastPosE) );
     if ((distGPS > 0.3) || (resetLastPos)){
       if ((distGPS > 0.3) && (solutionTimeDelta < 400)) {  //consider the last available soulution time, pathfinder will raise solutionTimeDelta up to 1000ms
-        gpsJump = true;
+        //gpsJump = true;
         statGPSJumps++;
         CONSOLE.print("GPS jump: ");
         CONSOLE.println(distGPS);
-        gpsJumpDistance = distGPS;
+        //gpsJumpDistance = distGPS;
+        if (distGPS > GPS_JUMP_DISTANCE) {
+          gpsJump = true;
+        }
       }
       resetLastPos = false;
       lastPosN = posN;

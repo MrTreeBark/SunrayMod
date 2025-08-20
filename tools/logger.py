@@ -26,7 +26,7 @@ try:
     except socket.error:
       pass
     else:   
-        # print("Received packet of length:", len(data))
+        #print("Received packet of length:", len(data))
         print(data.decode('utf-8', errors='replace'), end='', flush=True)      
 except KeyboardInterrupt:
   UDPSock.close()

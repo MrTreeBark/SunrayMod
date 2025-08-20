@@ -135,6 +135,10 @@ int stateButtonTemp = 0;
 unsigned long stateButtonTimeout = 0;
 
 bool isMotorMowWaiting = false;
+//bool isRobotNearWaypoint = false;
+//bool isRobotApproachingTarget = false;
+//bool isRobotAtTarget = false;
+
 float escapeLawnDistance = ESCAPELAWNDISTANCE; //MrTree
 bool escapeFinished = true; //MrTree
 bool gpsObstacleNotAllowed = false; //MrTree
@@ -218,12 +222,10 @@ PubSubClient mqttClient(espClient);
 int motorErrorCounter = 0;
 int motorMowStallCounter = 0; //MrTree
 
-//RunningMedian<unsigned int,3> tofMeasurements;
-//RunningMedian tofMeasurements = RunningMedian(3);
-
 // must be defined to override default behavior
 void watchdogSetup (void){} 
 
+// reset motion parameters
 void resetMotion(){
   resetLinearMotionMeasurement();
   resetAngularMotionMeasurement();
@@ -726,6 +728,9 @@ void start(){
   #endif
   //Logger.event(EVT_SYSTEM_STARTED);
 }
+
+// -- robot motion logic helper returns
+
 // should robot wait?
 bool robotShouldWait(){ //FIXME: we need a condition that mower is waiting and not triggering over and over!
   if (motor.waitMowMotor() && !isMotorMowWaiting) {
@@ -736,10 +741,8 @@ bool robotShouldWait(){ //FIXME: we need a condition that mower is waiting and n
   }
   if (GPS_JUMP_WAIT && gpsJump){
     gpsJump = false;
-    if (gpsJumpDistance > GPS_JUMP_DISTANCE) {
-      CONSOLE.println("robotShouldWait() --> gpsJumpDistance > GPS_JUMP_DISTANCE");
-      triggerGpsJump();
-    }
+    CONSOLE.println("robotShouldWait() --> distGPS > GPS_JUMP_DISTANCE");
+    triggerGpsJump();
     return true;
   }
 
@@ -800,12 +803,55 @@ bool robotShouldBeInMotion(){
   return stateInMotionLP;
 }
 
+// -- robot state logic helper functions
+
+// is robot near waypoint?
+bool robotIsNearWaypoint(){
+  if (maps.distanceToTargetPoint(stateX, stateY) < NEARWAYPOINTDISTANCE) {
+    return true;
+  }
+  return false;
+}
+
+bool robotIsNearLastWaypoint(){
+  if (maps.distanceToLastTargetPoint(stateX, stateY) < NEARWAYPOINTDISTANCE) {
+    return true;
+  }
+  return false;
+}
+
+// approaching target
+bool robotIsApproachingTarget(){
+  if (maps.distanceToTargetPoint(stateX, stateY) < maps.distanceToLastTargetPoint(stateX, stateY)) {
+    return true;
+  }
+  return false;
+}
+
+// is robot at target?
+bool robotIsAtTarget(){
+  if (maps.distanceToTargetPoint(stateX, stateY) < TARGET_REACHED_TOLERANCE) {
+    return true;
+  }
+  return false;
+}
+
+// gps Updated?
+bool robotIsGpsUpdated(){
+
+  return gpsUpdated;
+}
+
+// -- robot trigger helper functions
+
+// trigger wait command
 void triggerWaitCommand(unsigned int waitTime){
   waitOp.waitTime = waitTime;
   motor.setLinearAngularSpeed(0,0,false);
   activeOp->onWaitCommand();
 }
 
+// trigger motor mow wait
 void triggerMotorMowWait(){
   resetMotion();
   CONSOLE.println("triggerMotorMowWait()");
@@ -864,7 +910,7 @@ void detectLawn(){ //MrTree
       escapeLawnTriggerTime = millis();                                                                    
       motorMowStallTime += deltaTime;
       //RPM stalled, reverse from lawn after delay
-      if (motorMowStallTime > ESCAPELAWN_DELAY){
+      if (motorMowStallTime > 0 ) {//ESCAPELAWN_DELAY){
         if (ESCAPE_LAWN_MODE == 1) CONSOLE.println("detectLawn(): High mow motor power!");
         if (ESCAPE_LAWN_MODE == 2) CONSOLE.println("detectLawn(): RPM of mow motor stalled!");    
         if (ESCAPELAWNDISTANCE > lastTargetDist) escapeLawnDistance = lastTargetDist;            //MrTree(svol0) Wenn die Entfernung zum letzten Wegpunkt kleiner als die Strecke zur Reversieren ist, wird nur bis zum Wegpunkt reversiert
@@ -1219,7 +1265,14 @@ void tuningOutput(){
 // robot main loop
 void run(){
   
- 
+  // global deltaTime
+  deltaTime = millis() - timeLast;
+  timeLast = millis();
+  if (deltaTime > 100) {
+    CONSOLE.print("WARNING: (entrance) Iteration violation dT > 100 ms: ");
+    CONSOLE.print(deltaTime);
+    CONSOLE.println(" ms");
+  }
 
   static unsigned long aliveTime = 0; // Timer
   if (millis() - aliveTime >= 60000) {
@@ -1273,28 +1326,25 @@ void run(){
     tester.run();
   #endif
 
-  robotDriver.run();                //important
-  buzzer.run();                     //unimportant
-  buzzerDriver.run();               //unimportant
-  stopButton.run();                 //unimportant
-  battery.run();                    //semiimportant
-  batteryDriver.run();              //semiimportant
-  motorDriver.run();                //important
-  rainDriver.run();                 //unimportant
-  liftDriver.run();                 //important
-  //motor.run();
+  robotDriver.run();                
+  buzzer.run();                     
+  buzzerDriver.run();               
+  stopButton.run();                
+  battery.run();                    
+  batteryDriver.run();             
+  motorDriver.run();      
+  rainDriver.run();               
+  liftDriver.run();
 
   //NTRIP needs to be here (make a function to be called here so it´s out of the way in robot run)
   //ntrip.run();
   gps.run();
-  sonar.run();                      //semiimportant
-  maps.run();                       //important for accurate rtk distances  
-  rcmodel.run();                    //unimportant
-  bumper.run();                     //important 
+  sonar.run();                      
+  maps.run();                       
+  rcmodel.run();                   
+  bumper.run();                     
   
-  // global deltaTime
-  deltaTime = timeLast - millis();
-  timeLast = millis();
+  
 
   if (stateOp == OP_MOW || stateOp == OP_DOCK) robot_control_cycle = ROBOT_CONTROL_CYCLE;
   else robot_control_cycle = ROBOT_IDLE_CYCLE;
@@ -1309,8 +1359,8 @@ void run(){
   }
   
   // state saving
-  if (millis() >= nextSaveTime){  
-    nextSaveTime = millis() + 5000;
+  if (millis() >= nextSaveTime && motor.linearSpeedSet == 0 && motor.angularSpeedSet == 0) {  
+    nextSaveTime = millis() + SAVE_STATE_INTERVAL * 1000 * 60; // save state every SAVE_STATE_INTERVAL in minutes
     saveState();
   }
 
@@ -1587,7 +1637,17 @@ void run(){
         CONSOLE.print("stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
       }
     }
+  
+  // global deltaTime
+  static unsigned long timeLast2 = 0;
+  unsigned long dT = millis() - timeLast2;
+  timeLast2 = millis();
 
+  if (dT > 100) {
+    CONSOLE.print("WARNING: (finish) Iteration violation dT > 100 ms: ");
+    CONSOLE.print(dT);
+    CONSOLE.println(" ms");
+  }
 
 }        
 
