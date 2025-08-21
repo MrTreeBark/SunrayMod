@@ -315,11 +315,22 @@ void readIMU(){
   imuRawRoll = imuDriver.roll;
   imuRawYaw = imuDriver.yaw;
   imuRawPitch = imuDriver.pitch;
-  
+
+  /*
+  //normalize
+  imuRawRoll = scalePI(imuRawRoll);
+  imuRawYaw = scalePI(imuRawYaw);
+  imuRawPitch = scalePI(imuRawPitch);
+
   //do raw calculations
   imuRawRollChange = distancePI(imuRawRoll, imuRawRollLast);
   imuRawYawChange = distancePI(imuRawYaw, imuRawYawLast);
-  imuRawPitchChange = distancePI(imuRawPitch, imuRawPitchLast);
+  imuRawPitchChange = distancePI(imuRawPitch, imuRawPitchLast); */
+
+  imuRawRollChange = imuRawRoll - imuRawRollLast;
+  imuRawYawChange = imuRawYaw - imuRawYawLast;
+  imuRawPitchChange = imuRawPitch - imuRawPitchLast;
+
 
  /*  //Filter all imuRaw values
   if (isfinite(imuRawRoll)) imuLpRoll = imuLpfRoll(imuRawRoll);
@@ -342,11 +353,11 @@ void readIMU(){
   stateDeltaIMU = -scalePI(distancePI(imuRawYaw_sc, imuRawYawLast_sc));
   imuRawYawLast = imuRawYaw_sc; //imuRawYaw
 
-  /* CONSOLE.print("IMU: imuRawYaw ");CONSOLE.print(imuRawYaw);
+  CONSOLE.print("IMU: imuRawYaw ");CONSOLE.print(imuRawYaw);
   CONSOLE.print(" imuRawYaw_sc ");CONSOLE.print(imuRawYaw_sc);
   CONSOLE.print(" imuRawPitch ");CONSOLE.print(imuRawPitch);
   CONSOLE.print(" imuRawRoll ");CONSOLE.print(imuRawRoll);
-  CONSOLE.print(" stateDeltaIMU ");CONSOLE.println(stateDeltaIMU); */
+  CONSOLE.print(" stateDeltaIMU ");CONSOLE.println(stateDeltaIMU);
   
   //give vars to globals (FIXME)
   motor.robotPitch = scalePI(imuLpPitch);   //give motor the pitch
@@ -360,31 +371,31 @@ void readIMU(){
 
   #ifdef ENABLE_TILT_DETECTION    // this needs to be adapted to cycletime
 
-  // Alarm if spikes and fallback to old values
-  if (imuRawRollChange > DEG_TO_RAD * 25.0) {
-      CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawRollChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawRollChange: ");
-      CONSOLE.println(RAD_TO_DEG * imuRawRollChange);
-      imuRawRollChange = imuRawRollChangeLast;
-      imuRawRoll = imuRawRollChangeLast;
-  } else if (imuRawPitchChange > DEG_TO_RAD * 25.0) {
-      CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawPitchChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawPitchChange: ");
-      CONSOLE.println(RAD_TO_DEG * imuRawPitchChange);
-      imuRawPitchChange = imuRawPitchChangeLast;
-      imuRawPitch = imuRawPitchLast;
-  } else if (imuRawYawChange > DEG_TO_RAD * 25.0) {
-      CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawYawChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawYawChange: ");
-      CONSOLE.println(RAD_TO_DEG * imuRawYawChange);
-      imuRawYawChange = imuRawYawChangeLast;
-      imuRawYaw = imuRawYawLast;    
-  } else if (
-      (fabs(scalePI(imuRawRoll)) > DEG_TO_RAD * 45.0) || 
-      (fabs(scalePI(imuRawPitch)) > DEG_TO_RAD * 45.0) ||
-      (fabs(imuRawRollChange) > DEG_TO_RAD * 20.0) || 
-      (fabs(imuRawPitchChange) > DEG_TO_RAD * 20.0)) 
-    {
-      // here we could maybe add a imu obstacle situation for yaw deflection
-      activeOp->onImuTilt();
-    }
+    // Alarm if spikes and fallback to old values
+    if (imuRawRollChange > DEG_TO_RAD * 25.0) {
+        CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawRollChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawRollChange: ");
+        CONSOLE.println(RAD_TO_DEG * imuRawRollChange);
+        imuRawRollChange = imuRawRollChangeLast;
+        imuRawRoll = imuRawRollChangeLast;
+    } else if (imuRawPitchChange > DEG_TO_RAD * 25.0) {
+        CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawPitchChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawPitchChange: ");
+        CONSOLE.println(RAD_TO_DEG * imuRawPitchChange);
+        imuRawPitchChange = imuRawPitchChangeLast;
+        imuRawPitch = imuRawPitchLast;
+    } else if (imuRawYawChange > DEG_TO_RAD * 25.0) {
+        CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawYawChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawYawChange: ");
+        CONSOLE.println(RAD_TO_DEG * imuRawYawChange);
+        imuRawYawChange = imuRawYawChangeLast;
+        imuRawYaw = imuRawYawLast;    
+    } else if (
+        (fabs(scalePI(imuRawRoll)) > DEG_TO_RAD * 45.0) || 
+        (fabs(scalePI(imuRawPitch)) > DEG_TO_RAD * 45.0) ||
+        (fabs(imuRawRollChange) > DEG_TO_RAD * 20.0) || 
+        (fabs(imuRawPitchChange) > DEG_TO_RAD * 20.0)) 
+      {
+        // here we could maybe add a imu obstacle situation for yaw deflection
+        activeOp->onImuTilt();
+      }
 
   #endif
 

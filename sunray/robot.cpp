@@ -1145,7 +1145,7 @@ bool detectObstacle(){
 // returns true, if stuck detected, otherwise false
 bool detectObstacleRotation(){
   //This is only active if mower is actively rotating. Those checks don´t apply on external deflection.
-  if (!OBSTACLE_DETECTION_ROTATION || !robotShouldRotate() || robotShouldMove()) return false;
+  if (!OBSTACLE_DETECTION_ROTATION || !robotShouldRotate() ) return false; //|| robotShouldMove()
 
   //This is the Situation without an IMU based on a timeout!
   if (millis() > angularMotionStartTime + ROTATION_TIMEOUT) { // too long rotation time (timeout), e.g. due to obstacle
@@ -1188,39 +1188,36 @@ bool detectObstacleRotation(){
     if (millis() > angularMotionStartTime + ROTATION_TIME) { 
       // less than x degree/s yaw speed, e.g. due to obstacle                 
       //if (fabs(stateDeltaSpeedIMU * 180.0 / PI) < 10.0){  //old static approach
-      if (fabs(stateDeltaSpeedIMU * 180.0 / PI) < fabs(motor.angularSpeedSet * 180.0 / PI * 0.5)){ //Changed to dynamic threshold
+      if (fabs(RAD_TO_DEG * stateDeltaSpeedIMU) < fabs(RAD_TO_DEG * motor.angularSpeedSet * 0.3)){ //Changed to dynamic threshold
         if (FREEWHEEL_IS_AT_BACKSIDE){
           CONSOLE.print("no IMU rotation speed => assuming obstacle in the back, stateDeltaSpeedIMU = ");
-          CONSOLE.print(stateDeltaSpeedIMU * 180 / PI);
+          CONSOLE.print(RAD_TO_DEG * stateDeltaSpeedIMU);
           CONSOLE.print(" °/s, angularSpeedSet = ");
-          CONSOLE.println(motor.angularSpeedSet * 180 / PI);
+          CONSOLE.println(RAD_TO_DEG * motor.angularSpeedSet);
           CONSOLE.println(" setObstaclePosition ");
           maps.setObstaclePosition(stateX, stateY, 0, MOWER_RADIUS_BACK, OBSTACLE_DIAMETER); //might be wrong position
           statMowImuNoRotationSpeedCounter++;
           Logger.event(EVT_IMU_NO_ROTATION_OBSTACLE);    
           triggerObstacleRotation();
-          //maps.nextPoint(false, stateX, stateY); //take next point instead of going back to point mower wanted to reach?
         } else {
           CONSOLE.print("no IMU rotation speed => assuming obstacle in the front, stateDeltaSpeedIMU = ");
-          CONSOLE.print(stateDeltaSpeedIMU * 180 / PI);
+          CONSOLE.print(RAD_TO_DEG * stateDeltaSpeedIMU);
           CONSOLE.print(" °/s, angularSpeedSet = ");
-          CONSOLE.println(motor.angularSpeedSet * 180 / PI);
+          CONSOLE.println(RAD_TO_DEG * motor.angularSpeedSet);
           maps.setObstaclePosition(stateX, stateY, 0, MOWER_RADIUS_FRONT, OBSTACLE_DIAMETER);
           statMowImuNoRotationSpeedCounter++;
           Logger.event(EVT_IMU_NO_ROTATION_OBSTACLE);    
           triggerObstacle();
-          //maps.nextPoint(false, stateX, stateY); //take next point instead of going back to point mower wanted to reach?
         } 
         return true;      
       }
       // yaw speed difference between wheels and IMU more than x degree/s, e.g. due to deflection by obstacle
-      if (diffIMUWheelYawSpeed > 10.0/180.0 * PI ){
+      if (fabs(diffIMUWheelYawSpeed) > DEG_TO_RAD * 10){
         CONSOLE.print("yaw difference between wheels and IMU => assuming obstacle, diffIMUWheelYawSpeed = ");
-        CONSOLE.println(diffIMUWheelYawSpeed * 180/PI);
+        CONSOLE.println(RAD_TO_DEG * diffIMUWheelYawSpeed);
         statMowDiffIMUWheelYawSpeedCounter++;
         Logger.event(EVT_IMU_WHEEL_DIFFERENCE_OBSTACLE);          
         triggerObstacleRotation();
-        //maps.nextPoint(false, stateX, stateY); //take next point instead of going back to point mower wanted to reach?
         return true;            
       }
     }      
@@ -1619,7 +1616,7 @@ void run(){
     }
   }
 
-  if(testRelais){
+  if (testRelais){
     // Relais 1 Test activation
     relaisDriver.setRelaisState(RELAIS_1_NODE_ID, true);
     delay(500);
@@ -1633,34 +1630,30 @@ void run(){
     relaisDriver.setRelaisState(RELAIS_2_NODE_ID, false);
     delay(500);
  }
-}        
-
-
-  }
-  
-    if (millis() >= nextOutputTime){
-      nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
-      
-      if (DEBUG_MEMORY) {
-        CONSOLE.print("memory --------------> ");
-        CONSOLE.print(256 - (freeMemory()/MAX_MEMORY));
-        CONSOLE.println("/256 kB <-------------- finish");
-      }
-
-      tuningOutput();
-      
-      if (DEBUG_STATE_ESTIMATOR) {
-        CONSOLE.print("                              deltaTime: ");CONSOLE.println(deltaTime*1000,0);
-        CONSOLE.print("                                 imuyaw: ");CONSOLE.print(imuRawYaw_sc);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
-        CONSOLE.print("                             stateDelta: ");CONSOLE.print(stateDelta/180*PI);                 CONSOLE.print("           stateDeltaGps: ");CONSOLE.println(stateDeltaGPS);
-        CONSOLE.print("                         linearSpeedSet: ");CONSOLE.print(motor.linearSpeedSet);              CONSOLE.print("        stateGroundSpeed: ");CONSOLE.println(stateGroundSpeed);
-        CONSOLE.print("                        angularSpeedSet: ");CONSOLE.print(motor.angularSpeedSet/PI*180.0);    CONSOLE.print("         stateDeltaSpeed: ");CONSOLE.println(stateDeltaSpeed/PI*180); 
-        CONSOLE.print("               stateDeltaSpeedWheels --> ");CONSOLE.print(stateDeltaSpeedWheels/PI*180.0);CONSOLE.print(" | ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);CONSOLE.println(" <-- stateDeltaSpeedIMU");
-        CONSOLE.print("                   diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);     CONSOLE.print("     stateDeltaSpeed_IMU: ");CONSOLE.println(stateDeltaSpeed/PI*180);
-        CONSOLE.print("                   diffIMUWheelYawSpeed: ");CONSOLE.println(diffIMUWheelYawSpeed/PI*180.0);
-        CONSOLE.print("stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
-      }
+        
+  if (millis() >= nextOutputTime){
+    nextOutputTime = millis() + DEBUG_OUTPUT_TIME;
+    
+    if (DEBUG_MEMORY) {
+      CONSOLE.print("memory --------------> ");
+      CONSOLE.print(256 - (freeMemory()/MAX_MEMORY));
+      CONSOLE.println("/256 kB <-------------- finish");
     }
+
+    tuningOutput();
+    
+    if (DEBUG_STATE_ESTIMATOR) {
+      CONSOLE.print("                              deltaTime: ");CONSOLE.println(deltaTime*1000,0);
+      CONSOLE.print("                                 imuyaw: ");CONSOLE.print(imuRawYaw_sc);                     CONSOLE.print("       statedeltayaw_IMU: ");CONSOLE.println(stateDeltaIMU);
+      CONSOLE.print("                             stateDelta: ");CONSOLE.print(stateDelta/180*PI);                 CONSOLE.print("           stateDeltaGps: ");CONSOLE.println(stateDeltaGPS);
+      CONSOLE.print("                         linearSpeedSet: ");CONSOLE.print(motor.linearSpeedSet);              CONSOLE.print("        stateGroundSpeed: ");CONSOLE.println(stateGroundSpeed);
+      CONSOLE.print("                        angularSpeedSet: ");CONSOLE.print(motor.angularSpeedSet/PI*180.0);    CONSOLE.print("         stateDeltaSpeed: ");CONSOLE.println(stateDeltaSpeed/PI*180); 
+      CONSOLE.print("               stateDeltaSpeedWheels --> ");CONSOLE.print(stateDeltaSpeedWheels/PI*180.0);CONSOLE.print(" | ");CONSOLE.print(stateDeltaSpeedIMU/PI*180.0);CONSOLE.println(" <-- stateDeltaSpeedIMU");
+      CONSOLE.print("                   diffIMUWheelYawSpeed: ");CONSOLE.print(diffIMUWheelYawSpeed/PI*180.0);     CONSOLE.print("     stateDeltaSpeed_IMU: ");CONSOLE.println(stateDeltaSpeed/PI*180);
+      CONSOLE.print("                   diffIMUWheelYawSpeed: ");CONSOLE.println(diffIMUWheelYawSpeed/PI*180.0);
+      CONSOLE.print("stateDeltaSpeedWheel/stateDeltaSpeedIMU: ");CONSOLE.println(stateDeltaSpeedWheels/(stateDeltaSpeedIMU + 0.00001));
+    }
+  }
   
   // global deltaTime
   static unsigned long timeLast2 = 0;
