@@ -54,7 +54,7 @@ https://github.com/Ardumower/Sunray/releases
 
 # Sunray for Alfred / owlPlatform <a name="sunray_alfred"></a>
 
-NOTE: Below steps are only required if you want to compile a custom version of the 'Sunray for Alfred' (or owlPlatform) firmware. The code for all steps will require a Linux system (either the Alfred, a Raspberry PI or some PC).
+NOTE: Below steps are only required if you want to compile a custom version of the 'Sunray for Alfred' (or owlPlatform) firmware. The code for all steps will require a Linux system (either the Alfred, a Raspberry Pi5/OrangePi5Pro or some PC).
 
 ## How to install code and compile 'Sunray for Alfred / owlPlatform' (required only once)
 Run this on your Alfred Linux terminal (in your Alfred home folder):
@@ -118,7 +118,7 @@ Before running above commands, install required libs:
 sudo apt-get -y install cmake
 sudo apt-get -y install libbluetooth-dev
 ```
-For Raspberry PI, you may have to adjust the serial path for the Alfred MCU UART connection in 'alfred/config.h': 
+For Raspberry Pi5/OrangePi5Pro, you may have to adjust the serial path for the Alfred MCU UART connection in 'alfred/config.h': 
 ```
 #define SERIAL_ROBOT_PATH "/dev/ttyS0" 
 ```
@@ -269,7 +269,7 @@ https://forum.ardumower.de/threads/advanced-topic-generate-wifi-gps-heatmaps-wit
 ## Sunray ROS (via Docker)  <a name="sunray_ros"></a>
 The Sunray firmware can be compiled as ROS (robotic operating system) node, and ROS packages can then be used to replace the localization drivers (GPS/IMU) in Sunray. Typical ROS packages are LiDAR drivers, LiDAR-based SLAM (LiDAR mapping & localization) and LiDAR-based obstacle detection. Currently, the ROS system has been experimentally tested using these hardware combinations:
 
-- Raspberry PI 5 and Livox MID-360 ( https://owlrobotics-store.company.site/products/LIDAR-Livox-MID-360-incl-Cable-p605042897 )
+- Raspberry Pi5/OrangePi5Pro and Livox MID-360 ( https://owlrobotics-store.company.site/products/LIDAR-Livox-MID-360-incl-Cable-p605042897 )
 
 Demo videos ( https://www.youtube.com/watch?v=47-9z_iPiTs , https://www.youtube.com/watch?v=OYC_oKYsXts, https://www.youtube.com/watch?v=eZM_R9n57KA,  https://www.youtube.com/watch?v=vfD_GPRI-98 )
 
@@ -334,6 +334,7 @@ Here you can see how the localization pipeline works.
 - Localization: First the LiDAR points are (optionally) flipped upside-down (if your LiDAR is mounted upside-down). Then the corrected LiDAR data is used to localize against the PCD file. The result of the localization is two components: the LiDAR position (x, y, z) within the PCD file and the LiDAR orientation (yaw, pitch, roll). 
 ![image](https://github.com/user-attachments/assets/a02f9ff2-a7d8-430e-bf2d-c90ae4e4bf0c)
    
+
 
 
 

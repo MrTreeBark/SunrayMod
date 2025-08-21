@@ -43,7 +43,9 @@ void MowOp::begin(){
 	}																																		
 	battery.setIsDocked(false);
     timetable.setMowingCompletedInCurrentTimeFrame(false);
- 
+    CONSOLE.println(" Relais will be set to true (on)");
+    relaisDriver.setRelaisState(RELAIS_1_NODE_ID, true); // enable relais 1 (Lidar) when not charging 
+
     // plan route to next target point 
 
     dockOp.dockReasonRainTriggered = false;    
@@ -151,10 +153,16 @@ void MowOp::onTempOutOfRangeTriggered(){ //FIXME to be temperature restart
 }
 
 void MowOp::onBatteryLowShouldDock(){    
-    CONSOLE.println("BATTERY LOW - DOCKING");
-    Logger.event(EVT_BATTERY_LOW_DOCK);
-    dockOp.setInitiatedByOperator(false);
-    changeOp(dockOp);
+    CONSOLE.println("BATTERY LOW TRIGGERED - DOCKING");
+    Logger.event(EVT_BATTERY_LOW_DOCK);    
+    if (DOCKING_STATION){
+        dockOp.setInitiatedByOperator(false);
+        changeOp(dockOp);    
+    } else {
+        idleOp.setInitiatedByOperator(false);
+        stateSensor = SENS_BAT_UNDERVOLTAGE;
+        changeOp(idleOp);    
+    }            
 }
 
 void MowOp::onGpsJump(){ //needs attention

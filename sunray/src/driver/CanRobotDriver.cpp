@@ -10,12 +10,18 @@
 #include "../../config.h"
 #include "../../robot.h"
 #include "../../events.h"
+#ifdef __linux__
+  #include <fcntl.h>
+  #include <sys/mman.h>
+  #include <signal.h>
+#endif
 
 //#define COMM  ROBOT
 
 //#define DEBUG_CAN_ROBOT 1
 
 int MOW_MOTOR_NODE_IDS[] = { MOW1_MOTOR_NODE_ID, MOW2_MOTOR_NODE_ID, MOW3_MOTOR_NODE_ID, MOW4_MOTOR_NODE_ID, MOW5_MOTOR_NODE_ID  };
+int OWL_MSG_IDS[] = { OWL_RECEIVER_MSG_ID, OWL_CONTROL_MSG_ID, OWL_DRIVE_MSG_ID, OWL_RELAIS_MSG_ID };
 
 
 void CanRobotDriver::begin(){
@@ -54,6 +60,7 @@ void CanRobotDriver::begin(){
   nextTempTime = 0;
   nextWifiTime = 0;
   nextLedTime = 0;
+  nextIpTime = 0;
   ledPanelInstalled = true;
   cmdMotorResponseCounter = 0;
   cmdSummaryResponseCounter = 0;
@@ -88,7 +95,26 @@ void CanRobotDriver::begin(){
     p2.runShellCommand("ip link show eth0 | grep link/ether | awk '{print $2}'");
 	  robotID = p2.readString();    
     robotID.trim();
+
     
+    if (false){
+      // trigger linux bus error - steps to examine:
+      // 1. (optional) set core pattern:  sudo sysctl -w 'kernel.core_pattern=|/usr/lib/systemd/systemd-coredump %P %u %g %s %t 9223372036854775808 %h'      
+      // 2. activate coredumps:     ulimit -c unlimited
+      // 3. start sunray until crash
+      // 4. list coredumps:         coredumpctl list   (and look for PID, e.g 144840) 
+      // 5. extract coredump:       sudo coredumpctl dump 144840 --output 144840.core
+      // 6. find reason for crash:  gdb build/sunray -c 144840.core   (and press ENTER, ENTER)
+      CONSOLE.println("WARN: simulating a bus error!");
+      const char* filename = "testfile.bin";
+      int fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0666);
+      ftruncate(fd, 4096);  
+      char* data = (char*)mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+      close(fd);  
+      truncate(filename, 0);
+      data[0] = 'X';
+      munmap(data, 4096);
+    }  
   #endif
   CONSOLE.print("testing unsigned overflow substraction: ");  
   //unsigned short lastV = 65534;
@@ -98,6 +124,7 @@ void CanRobotDriver::begin(){
   unsigned long currV = 1;
   unsigned long diffV = (unsigned short) (currV - lastV);  
   CONSOLE.println(diffV);
+
   //exit(0);
 }
 
@@ -158,6 +185,84 @@ void CanRobotDriver::updateWifiConnectionState(){
   #endif
 }
 
+
+void CanRobotDriver::sendIpAddress(){
+  return;
+
+  #ifdef __linux__  
+    ipAddressToStringProcess.runShellCommand("ip addr show wlan0 | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1");
+    String ipStr = ipAddressToStringProcess.readString();
+    ipStr.trim(); // remove any whitespace or newline
+
+    // Validate IP address format
+    if (ipStr.length() == 0) {
+        Serial.println("Error: Empty IP address");
+        return; // or handle error appropriately
+    }
+
+    // Count dots - should be exactly 3
+    int dotCount = 0;
+    for (int i = 0; i < ipStr.length(); i++) {
+        if (ipStr.charAt(i) == '.') {
+            dotCount++;
+        }
+    }
+
+    if (dotCount != 3) {
+        Serial.println("Error: Invalid IP format - expected 3 dots, found " + String(dotCount));
+        return; // or handle error appropriately
+    }
+
+    canDataType_t data;
+    int lastPos = 0;
+    bool validIP = true;
+
+    // Parse exactly 4 parts of the IP address
+    for (int part = 0; part < 4 && validIP; part++) {
+        int dotPos;
+        
+        if (part < 3) {
+            // For the first 3 parts, find the next dot
+            dotPos = ipStr.indexOf('.', lastPos);
+            if (dotPos == -1 || dotPos == lastPos) {
+                // Invalid IP format - missing dot or empty segment
+                Serial.println("Error: Invalid IP segment at part " + String(part));
+                validIP = false;
+                break;
+            }
+        } else {
+            // For the last part, use the end of the string
+            dotPos = ipStr.length();
+            if (dotPos == lastPos) {
+                // Empty last segment
+                Serial.println("Error: Empty last IP segment");
+                validIP = false;
+                break;
+            }
+        }
+        
+        String segment = ipStr.substring(lastPos, dotPos);
+        
+        // Validate segment is numeric and in valid range (0-255)
+        int value = segment.toInt();
+        if (value < 0 || value > 255 || (value == 0 && segment != "0")) {
+            Serial.println("Error: Invalid IP segment value: " + segment);
+            validIP = false;
+            break;
+        }
+        
+        data.byteVal[part] = value;
+        lastPos = dotPos + 1;
+    }
+
+    // Only send data if IP validation passed
+    if (validIP) {
+        sendCanData(OWL_CONTROL_MSG_ID, CONTROL_NODE_ID, can_cmd_set, owlctl::can_val_ip_address, data);
+    } else {
+        Serial.println("Error: IP address validation failed for: " + ipStr);
+    }
+  #endif
+}
 
 // send CAN request 
 void CanRobotDriver::sendCanData(int msgId, int destNodeId, canCmdType_t cmd, int val, canDataType_t data){        
@@ -517,8 +622,8 @@ void CanRobotDriver::processResponse(){
             }
             break;
 
-        } 
-    }
+              }
+            }
   }
 }
 
@@ -946,5 +1051,44 @@ void CanBuzzerDriver::tone(int freq){
   canRobot.sendCanData(OWL_CONTROL_MSG_ID, CONTROL_NODE_ID, can_cmd_set, owlctl::can_val_buzzer_state, data );
 }
 
+// ------------------------------------------------------------------------------------
 
+CanRelaisDriver::CanRelaisDriver(CanRobotDriver &sr): canRobot(sr){
+}
+
+void CanRelaisDriver::begin(){
+}
+
+void CanRelaisDriver::run(){
+}
+
+void CanRelaisDriver::setRelaisState(int relais_node_id, bool state){
+  canDataType_t data;
+  if (state) data.byteVal[0] = 1;
+  else data.byteVal[0] = 0;
+
+  canRobot.sendCanData(OWL_RELAIS_MSG_ID, relais_node_id, can_cmd_set, owlrls::can_val_relais_state, data);
+  CONSOLE.print(" Relais is now set to");
+  CONSOLE.println(state);
+}
+
+
+bool CanRelaisDriver::getRelaisState(int relais_node_id){
+  canDataType_t data;
+  bool state = false;
+
+  canRobot.sendCanData(OWL_RELAIS_MSG_ID, relais_node_id, can_cmd_request, owlrls::can_val_relais_state, data);
+
+  if (data.byteVal[0] == 1) state = true;
+  else state = false;
+
+  return state;
+}
+
+void CanRelaisDriver::setRelaisStateCountdown(int relais_node_id, bool state, unsigned long countdown){
+  canDataType_t data;
+  data.intValue = countdown;
+
+  canRobot.sendCanData(OWL_RELAIS_MSG_ID, relais_node_id, can_cmd_set, owlrls::can_val_relais_countdown, data);
+}
 

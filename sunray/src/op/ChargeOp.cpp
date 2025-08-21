@@ -33,7 +33,9 @@ void ChargeOp::begin(){
     }
     motor.stopImmediately(true); // do not use PID to get to stop 
     motor.setLinearAngularSpeed(0,0, false); 
-    motor.setMowState(false);     
+    motor.setMowState(false);
+    CONSOLE.println(" Relais will be set to false (off)");
+    relaisDriver.setRelaisState(RELAIS_1_NODE_ID, false); // disable relais 1 (Lidar) when charging              
     if (SWITCH_OFF_TRACTION_MOTORS) motor.enableTractionMotors(false); // keep traction motors off (motor drivers tend to generate some incorrect encoder values when stopped while not turning) 
     
 	nextMoveTime = 0;													//
@@ -155,6 +157,13 @@ void ChargeOp::run(){
                 CONSOLE.println("DOCK_AUTO_START: will automatically continue mowing now");
                 changeOp(mowOp); // continue mowing                	
             }
+
+            #ifdef __linux__    
+                if (millis() > robotDriver.nextIpTime){
+                    robotDriver.nextIpTime = millis() + 30000; // every 30 seconds
+                    robotDriver.sendIpAddress();
+                }                
+            #endif
         }
     }        
 }

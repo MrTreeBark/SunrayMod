@@ -191,7 +191,7 @@ void DockOp::onChargerConnected(){
   battery.setIsDocked(true);
   motor.setLinearAngularSpeed(0,0,false); //XX                
   changeOp(chargeOp);
-}
+}*/
 
 void DockOp::onNoFurtherWaypoints(){
   CONSOLE.println("docking finished!");

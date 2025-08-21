@@ -25,6 +25,7 @@ class RobotDriver {
     virtual bool getRobotID(String &id) = 0;
     virtual bool getMcuFirmwareVersion(String &name, String &ver) = 0;    
     virtual float getCpuTemperature() = 0;
+    virtual void sendIpAddress() {};
 };
 
 class MotorDriver {
@@ -232,6 +233,26 @@ class GpsDriver {
     }
 };
 
+class RelaisDriver {
+  public:
+    RelaisDriver() {}
+    RelaisDriver(RobotDriver &rd) {}
+    virtual void begin() {}
+    virtual void run() {}
+    // get number of relais
+
+    // set relais state
+    virtual void setRelaisState(int relais_node_id, bool state) {}
+    // get relais state
+    virtual bool getRelaisState(int relais_node_id) { return false; }
+    // set relais state countdown
+    virtual void setRelaisStateCountdown(int relais_node_id, bool state, unsigned long countdown) {}
+    // get relais state countdown
+    //virtual unsigned long getRelaisStateCountdown(int relais_node_id) = 0;
+    // get relais state countdown remaining time
+    //virtual unsigned long getRelaisStateCountdownRemaining(int relais_node_id) = 0;
+
+};
 
 
 #endif
