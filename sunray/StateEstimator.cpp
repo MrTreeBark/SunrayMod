@@ -253,17 +253,31 @@ void dumpImuTilt(){
 void readIMU(){
   if (!imuDriver.imuFound) return;
 
-  // timeout detection
-  static unsigned long lastImuDataTime = 0;
-  static bool imuTimeoutPrinted = false;
-  if (imuDriver.isDataAvail()) {
-    lastImuDataTime = millis();
-    imuTimeoutPrinted = false;
-  } else {
-    if ((millis() - lastImuDataTime > 5000) && !imuTimeoutPrinted) {
-      CONSOLE.println("WARNING: No IMU data available for 5 seconds!");
-      imuTimeoutPrinted = true;
+  // Check for new data in the FIFO
+  unsigned long startTime = millis();
+  bool avail = (imuDriver.isDataAvail());
+  //if (!avail) CONSOLE.println("NO IMU DATA");
+  // check time for I2C access : if too long, there's an I2C issue and we need to restart I2C bus...
+  unsigned long duration = millis() - startTime;    
+  if (avail) resetImuTimeout();
+  //CONSOLE.print("duration:");
+  //CONSOLE.println(duration);  
+  if ((duration > 60) || (millis() > imuDataTimeout)) {
+    if (millis() > imuDataTimeout){
+      CONSOLE.print("ERROR IMU data timeout: ");
+      CONSOLE.print((millis()-imuDataTimeout)/1000);
+      CONSOLE.println(" s (check RTC battery if problem persists)");  
+    } else {
+      CONSOLE.print("ERROR IMU iteration validation: ");
+      CONSOLE.print(duration);     
+      CONSOLE.println(" ms (check RTC battery if problem persists)");          
     }
+    stateSensor = SENS_IMU_TIMEOUT;
+    motor.stopImmediately(true);    
+    statImuRecoveries++;            
+    if (!startIMU(true)){ // restart I2C bus
+      return;
+    }    
     return;
   }
 
@@ -303,9 +317,9 @@ void readIMU(){
   imuRawPitch = imuDriver.pitch;
   
   //do raw calculations
-  imuRawRollChange = imuRawRoll - imuRawRollLast; 
-  imuRawYawChange = imuRawYaw - imuRawYawLast;
-  imuRawPitchChange = imuRawPitch - imuRawPitchLast;
+  imuRawRollChange = distancePI(imuRawRoll, imuRawRollLast);
+  imuRawYawChange = distancePI(imuRawYaw, imuRawYawLast);
+  imuRawPitchChange = distancePI(imuRawPitch, imuRawPitchLast);
 
  /*  //Filter all imuRaw values
   if (isfinite(imuRawRoll)) imuLpRoll = imuLpfRoll(imuRawRoll);
@@ -327,9 +341,14 @@ void readIMU(){
   imuRawYawLast_sc = scalePIangles(imuRawYawLast_sc, imuRawYaw_sc);
   stateDeltaIMU = -scalePI(distancePI(imuRawYaw_sc, imuRawYawLast_sc));
   imuRawYawLast = imuRawYaw_sc; //imuRawYaw
+
+  /* CONSOLE.print("IMU: imuRawYaw ");CONSOLE.print(imuRawYaw);
+  CONSOLE.print(" imuRawYaw_sc ");CONSOLE.print(imuRawYaw_sc);
+  CONSOLE.print(" imuRawPitch ");CONSOLE.print(imuRawPitch);
+  CONSOLE.print(" imuRawRoll ");CONSOLE.print(imuRawRoll);
+  CONSOLE.print(" stateDeltaIMU ");CONSOLE.println(stateDeltaIMU); */
   
   //give vars to globals (FIXME)
-
   motor.robotPitch = scalePI(imuLpPitch);   //give motor the pitch
   
 /*imuDriver.yaw = scalePI(imuDriver.yaw);   
@@ -337,35 +356,37 @@ void readIMU(){
   lastIMUYaw = scalePIangles(lastIMUYaw, imuDriver.yaw); 
   stateDeltaIMU = -scalePI ( distancePI(imuDriver.yaw, lastIMUYaw) );  
   lastIMUYaw = imuDriver.yaw;       */
-  imuDataTimeout = millis() + 10000;  
+  imuDataTimeout = millis() + 5000;  
 
   #ifdef ENABLE_TILT_DETECTION    // this needs to be adapted to cycletime
 
-  // Alarm if spikes
-  if (imuRawRollChange > 25.0 / 180.0 * PI) {
+  // Alarm if spikes and fallback to old values
+  if (imuRawRollChange > DEG_TO_RAD * 25.0) {
       CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawRollChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawRollChange: ");
-      CONSOLE.println(imuRawRollChange);
+      CONSOLE.println(RAD_TO_DEG * imuRawRollChange);
       imuRawRollChange = imuRawRollChangeLast;
       imuRawRoll = imuRawRollChangeLast;
-  } else if (imuRawPitchChange > 25.0 / 180.0 * PI) {
+  } else if (imuRawPitchChange > DEG_TO_RAD * 25.0) {
       CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawPitchChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawPitchChange: ");
-      CONSOLE.println(imuRawPitchChange);
+      CONSOLE.println(RAD_TO_DEG * imuRawPitchChange);
       imuRawPitchChange = imuRawPitchChangeLast;
       imuRawPitch = imuRawPitchLast;
-  } else if (imuRawYawChange > 50.0 / 180.0 * PI) {
-      CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawYawChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawPitchChange: ");
-      CONSOLE.println(imuRawYawChange);
+  } else if (imuRawYawChange > DEG_TO_RAD * 25.0) {
+      CONSOLE.print("stateEstimator.cpp - IMU: WARNING! imuRawYawChange, delta over 25 deg/ite --> unplausible! IMU TILT ignored. imuRawYawChange: ");
+      CONSOLE.println(RAD_TO_DEG * imuRawYawChange);
       imuRawYawChange = imuRawYawChangeLast;
       imuRawYaw = imuRawYawLast;    
   } else if (
-      (fabs(scalePI(imuRawRoll)) > 45.0 / 180.0 * PI) || 
-      (fabs(scalePI(imuRawPitch)) > 45.0 / 180.0 * PI) ||
-      (fabs(imuRawRollChange) > 20.0 / 180.0 * PI) || 
-      (fabs(imuRawPitchChange) > 20.0 / 180.0 * PI)) 
-  {
+      (fabs(scalePI(imuRawRoll)) > DEG_TO_RAD * 45.0) || 
+      (fabs(scalePI(imuRawPitch)) > DEG_TO_RAD * 45.0) ||
+      (fabs(imuRawRollChange) > DEG_TO_RAD * 20.0) || 
+      (fabs(imuRawPitchChange) > DEG_TO_RAD * 20.0)) 
+    {
       // here we could maybe add a imu obstacle situation for yaw deflection
       activeOp->onImuTilt();
-  }
+    }
+
+  #endif
 
   //remember for change calculations
   imuRawRollLast = imuRawRoll;
@@ -373,8 +394,8 @@ void readIMU(){
   imuRawPitchLast = imuRawPitch;
 
   imuRawRollChangeLast = imuRawRollChange;
-  imuRawYawChangeLast = imuRawYawChangeLast;
-  imuRawPitchChangeLast = imuRawPitchChangeLast;
+  imuRawYawChangeLast = imuRawYawChange;
+  imuRawPitchChangeLast = imuRawPitchChange;
 
   imuLpRollLast = imuLpRoll;
   imuLpYawLast = imuLpYaw;
@@ -382,7 +403,7 @@ void readIMU(){
   
   imuRawYawLast_sc = imuRawYaw_sc;
 
-  #endif           
+             
 }
 
 void resetImuTimeout(){
@@ -536,7 +557,7 @@ void computeRobotState(){
   float distRight = ((float)rightDelta) / ((float)motor.ticksPerCm);
   
   if ( (abs(distLeft) > 10.0) ||  (abs(distRight) > 10.0) ) {
-    CONSOLE.print("computeRobotState WARN: distOdometry too large - distLeft=");
+    CONSOLE.print("computeRobotState WARN: distOdometry too large, distance(cm) since last iteration - distLeft=");
     CONSOLE.print(distLeft);
     CONSOLE.print(", distRight=");
     CONSOLE.println(distRight);
@@ -690,15 +711,13 @@ void computeRobotState(){
   if (imuDriver.imuFound){
     //stateDeltaSpeedIMU = 0.8 * stateDeltaSpeedIMU + (1 - 0.8) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep) 
 
-
     if (deltaTime > 0) stateDeltaSpeedIMU = 0.5 * stateDeltaSpeedIMU + (1 - 0.5) * stateDeltaIMU / deltaTime; //0.99 * stateDeltaSpeedIMU + 0.01 * stateDeltaIMU / deltaTime; // IMU yaw rotation speed (20ms timestep)  
     //stateDeltaSpeedIMU = imuLpfStateDeltaSpeed(stateDeltaIMU/deltaTime);
-    //stateDeltaSpeedIMU = stateDeltaIMU/deltaTime; //RAW
-    
+    //stateDeltaSpeedIMU = stateDeltaIMU/deltaTime; //RAW  
   }
 
   /*
-  //wheels dont seem to sync to imu, imu is late. try to sync imu and wheels rotation signal with a ringbuffer
+  //wheels dont seem to sync to imu, imu is late?. try to sync imu and wheels rotation signal with a ringbuffer
   ringBuffer[bufInd] = deltaOdometry / deltaTime;       //fill buffer
   bufInd++;                                             //iterate
   if (bufInd == bufLen) bufInd = 0;                     //check overflow
@@ -723,9 +742,8 @@ void computeRobotState(){
 
   if (imuDriver.imuFound) {
     // compute difference between IMU yaw rotation speed and wheels yaw rotation speed
-    
-    diffIMUWheelYawSpeed = stateDeltaSpeedIMU - stateDeltaSpeedWheels; //already 2 filtered values
-    diffIMUWheelYawSpeedLP = 0.9 * diffIMUWheelYawSpeedLP + (1 - 0.1) * fabs(diffIMUWheelYawSpeed);  //MrTree changed from diffIMUWheelYawSpeedLP = diffIMUWheelYawSpeedLP * 0.95 + fabs(diffIMUWheelYawSpeed) * 0.05;
+    diffIMUWheelYawSpeed = stateDeltaSpeedIMU - stateDeltaSpeedWheels;
+    diffIMUWheelYawSpeedLP = 0.9 * diffIMUWheelYawSpeedLP + (1 - 0.1) * fabs(diffIMUWheelYawSpeed);
   }
 
   // invalid position => reset to zero

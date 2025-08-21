@@ -15,6 +15,7 @@
 
 MowOp::MowOp(){
     lastMapRoutingFailed = false;
+    continueOperation = false;
     mapRoutingFailedCounter = 0;
 }
 
@@ -23,7 +24,11 @@ String MowOp::name(){
 }
 
 void MowOp::begin(){	
-	
+	if (continueOperation == true) {
+        continueOperation = false;
+        return; // continue mowOp without mowOp init maps
+    } 
+    
     bool error = false;
     bool routingFailed = false;      
 	
@@ -44,6 +49,8 @@ void MowOp::begin(){
     dockOp.dockReasonRainTriggered = false;    
 
     if ((initiatedByOperator && previousOp == &idleOp) || lastMapRoutingFailed)  maps.clearObstacles();
+
+    
 
     if (maps.startMowing(stateX, stateY)){
         if (maps.nextPoint(true, stateX, stateY)) {

@@ -128,7 +128,8 @@ class RelocalizationOp: public Op {
 
 // mowing op (optionally, also undocking dock points)
 class MowOp: public Op {
-  public:	
+  public:
+    bool continueOperation = false; // continue escape lawn after mowOp
     bool lastMapRoutingFailed;
     int mapRoutingFailedCounter;
     unsigned int gpsNoSignalTime = 0;

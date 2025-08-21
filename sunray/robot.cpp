@@ -910,7 +910,7 @@ void detectLawn(){ //MrTree
       escapeLawnTriggerTime = millis();                                                                    
       motorMowStallTime += deltaTime;
       //RPM stalled, reverse from lawn after delay
-      if (motorMowStallTime > 0 ) {//ESCAPELAWN_DELAY){
+      if (motorMowStallTime > ESCAPELAWN_DELAY){
         if (ESCAPE_LAWN_MODE == 1) CONSOLE.println("detectLawn(): High mow motor power!");
         if (ESCAPE_LAWN_MODE == 2) CONSOLE.println("detectLawn(): RPM of mow motor stalled!");    
         if (ESCAPELAWNDISTANCE > lastTargetDist) escapeLawnDistance = lastTargetDist;            //MrTree(svol0) Wenn die Entfernung zum letzten Wegpunkt kleiner als die Strecke zur Reversieren ist, wird nur bis zum Wegpunkt reversiert

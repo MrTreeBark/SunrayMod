@@ -102,6 +102,7 @@ void EscapeLawnOp::run(){
 				  motor.motorMowStallFlag = false; //MrTree reset flag if triggered by rpm stall
 				  if (CHANGE_SPEED_SET) motor.retryslow = true;
 				  motor.retrySlowTime = millis()+RETRYSLOWTIME; 	//trigger slow retry, set keepSlowTime 
+				  mowOp.continueOperation = true; //MrTree continue mowOp without maps
 				  changeOp(*nextOp, false);						// continue current operation
 				}
 			}

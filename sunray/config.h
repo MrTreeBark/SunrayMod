@@ -153,8 +153,8 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define CHANGE_SPEED_SET            true  // if enabled and rpm or power triggers escape lawn or a keepslow state, mower will go slow with RETRYSLOWSPEED or KEEPSLOWSPEED with configured RETRYSLOWTIME or KEEPSLOWTIME. Also, in this states MOW_RPM/PWM for _SLOW/RETRY are used for the mowmotor set
 #define MOW_POWERtr_STALL           80    // (%, only used if ESCAPE_LAWN_MODE = 1) if power of mowmotor exceeds e.g 90% of MOWPOWERMAX, escapelawn is triggered 
 #define MOW_POWERtr_SLOW            70    // (%, only used if ESCAPE_LAWN_MODE = 1) if power of mowmotor exceeds e.g 70% of MOWPOWERMAX, keepslow is triggered
-#define MOW_RPMtr_STALL             60    // (70)(%, only used if ESCAPE_LAWN_MODE = 2) if RPM of mowmotor stalls under % of MOW_RPM_NORMAL mower will back up with ESCAPELAWNDISTANCE and ESCAPELAWNSPEED and try again
-#define MOW_RPMtr_SLOW              80    // (85)(%, only used if ESCAPE_LAWN_MODE = 2) if RPM of mowmotor stalls under % of MOW_RPM_NORMAL mower will trigger a keepSlow state with KEEPSLOWSPEED, also this is defining the ramp for the mowerspeed.  If RPM is e.g 75% of 100%, mower will be at ADAPTIVE_SPEED_MINSPEED
+#define MOW_RPMtr_STALL             70    // (70)(%, only used if ESCAPE_LAWN_MODE = 2) if RPM of mowmotor stalls under % of MOW_RPM_NORMAL mower will back up with ESCAPELAWNDISTANCE and ESCAPELAWNSPEED and try again
+#define MOW_RPMtr_SLOW              85    // (85)(%, only used if ESCAPE_LAWN_MODE = 2) if RPM of mowmotor stalls under % of MOW_RPM_NORMAL mower will trigger a keepSlow state with KEEPSLOWSPEED, also this is defining the ramp for the mowerspeed.  If RPM is e.g 75% of 100%, mower will be at ADAPTIVE_SPEED_MINSPEED
 #define NO_GPS_OBSTACLE             true  // ignore gps obstacle when reversing with escapeLawn?
 #define NO_GPS_OBSTACLE_DEADTIME    7000  // (ms) time of gps obstacle ignorance after escapeLawnOp 
                           //test
@@ -167,7 +167,7 @@ Also, you may choose the serial port below for serial monitor output (CONSOLE).
 #define ESCAPELAWNWAITTIME          5000  // (ms) after reversing the second time within ESCAPELAWNTIMER, mower will wait for this time before continue (recover rpm)
 #define ESCAPELAWNTIMER             20000 // (ms) timer to reset retries of ESCAPELAWN, if time is met and retries stay under MAXRETRY triggercounter will reset, otherwise there will be an obstacle error
 #define ESCAPELAWN_DEADTIME         4000  // (ms) deadtime between allowed ESCAPELAWN triggers (deadtime should be the reverse time of action and be calculated in code :| )
-#define ESCAPELAWN_DELAY            100   // (ms) how long mowmotor needs to be under/over the trigger rpm/power before escape lawn triggers actual reversing of mower
+#define ESCAPELAWN_DELAY            0   // (ms) how long mowmotor needs to be under/over the trigger rpm/power before escape lawn triggers actual reversing of mower
 #define MAXRETRY                    5     // number of possible retries of ESCAPELAWN within ESCAPELAWNTIMER until there will be an obstacle error or obstacle avoidance
 #define MAXRETRYOBSTACLE            true // if true, ESCAPELAWN will trigger Obstacle avoidance when to many MAXRETRY´s and will not trigger an error
 #define RETRYSLOWSPEED              0.15  // (ms) if ESCAPELAWN true, mower will back up with ESCAPELAWNSPEED if RPM stall is detected and retry mowing forward with RETRYSPEED until RETRYSLOWTIME is met, then it will continue with normal Speed
